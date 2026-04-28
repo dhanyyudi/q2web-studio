@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import type { VirtualFile } from "../types/project";
 
 const TEXT_EXTENSIONS = new Set([".html", ".htm", ".js", ".css", ".json", ".txt", ".svg", ".xml"]);
@@ -21,6 +22,35 @@ type DataTransferItemWithEntry = DataTransferItem & {
 export async function filesFromFileList(fileList: FileList): Promise<VirtualFile[]> {
   const files = Array.from(fileList);
   const virtualFiles = await Promise.all(files.map((file) => readFile(file)));
+  return virtualFiles.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+export async function filesFromZipFile(file: File): Promise<VirtualFile[]> {
+  const zip = await JSZip.loadAsync(file);
+  const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.includes("__MACOSX/"));
+  const virtualFiles = await Promise.all(
+    entries.map(async (entry) => {
+      const path = normalizePath(entry.name);
+      const name = path.split("/").pop() || path;
+      const kind = isTextFile(path) ? "text" : "binary";
+      if (kind === "text") {
+        return {
+          path,
+          name,
+          kind,
+          text: await entry.async("string"),
+          mime: guessMime(path)
+        } satisfies VirtualFile;
+      }
+      return {
+        path,
+        name,
+        kind,
+        buffer: await entry.async("arraybuffer"),
+        mime: guessMime(path)
+      } satisfies VirtualFile;
+    })
+  );
   return virtualFiles.sort((a, b) => a.path.localeCompare(b.path));
 }
 

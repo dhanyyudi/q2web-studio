@@ -27,7 +27,7 @@ import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
 import { MapCanvas } from "./components/MapCanvas";
 import { ToolbarButton } from "./components/ToolbarButton";
-import { filesFromDataTransferItems, filesFromDirectoryHandle, filesFromFileList } from "./lib/fileImport";
+import { filesFromDataTransferItems, filesFromDirectoryHandle, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { addField, deleteField, renameField, updateFeatureProperty, updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
@@ -56,13 +56,13 @@ const BASEMAP_LABELS: Record<BasemapId, string> = {
 
 export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const zipInputRef = useRef<HTMLInputElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [drawMode, setDrawMode] = useState<DrawMode>("select");
   const [status, setStatus] = useState("Import a qgis2web Leaflet export folder to start editing.");
   const [busy, setBusy] = useState(false);
-  const [showImportDialog, setShowImportDialog] = useState(false);
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
@@ -116,9 +116,38 @@ export function App() {
     }
   }
 
+  async function importZip(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!file) return;
+    await importZipFile(file);
+    if (zipInputRef.current) zipInputRef.current.value = "";
+  }
+
+  async function importZipFile(file: File) {
+    setBusy(true);
+    setStatus("Reading qgis2web ZIP locally...");
+    const toastId = toast.loading("Importing qgis2web ZIP");
+    try {
+      const files = await filesFromZipFile(file);
+      const parsed = hydrateProject(await parseProjectInWorker(files));
+      setProject(parsed);
+      setSelectedLayerId(parsed.layers[0]?.id || "");
+      await saveProjectToOpfs(parsed);
+      const message = `Imported ${parsed.layers.length} layers from ${file.name}.`;
+      setStatus(message);
+      toast.success(message, { id: toastId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ZIP import failed.";
+      setStatus(message);
+      toast.error(message, { id: toastId });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function importDirectoryHandle(handle: Parameters<typeof filesFromDirectoryHandle>[0]) {
     setBusy(true);
-    setStatus("Reading folder via File System Access API...");
+    setStatus("Reading qgis2web folder...");
     const toastId = toast.loading("Reading local folder");
     try {
       const files = await filesFromDirectoryHandle(handle);
@@ -164,7 +193,6 @@ export function App() {
     const directoryPicker = (window as WindowWithDirectoryPicker).showDirectoryPicker;
     if (directoryPicker) {
       try {
-        setShowImportDialog(false);
         const handle = await directoryPicker();
         await importDirectoryHandle(handle);
         return;
@@ -173,16 +201,14 @@ export function App() {
           setStatus("Import cancelled.");
           return;
         }
-        toast.error("Modern folder picker failed. Use drag and drop, or choose browser fallback manually.");
-        return;
+        toast.warning("Opening another folder selector.");
       }
     }
-    toast.warning("This browser does not expose a stylable folder picker. Drag the folder into the app, or use browser fallback.");
+    inputRef.current?.click();
   }
 
-  function startBrowserFallback() {
-    setShowImportDialog(false);
-    inputRef.current?.click();
+  function startZipImport() {
+    zipInputRef.current?.click();
   }
 
   async function exportZip() {
@@ -292,7 +318,17 @@ export function App() {
             onChange={(event) => importFiles(event.target.files)}
             {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
           />
-          <button type="button" className="btn primary" disabled={busy} onClick={() => setShowImportDialog(true)}>
+          <input
+            ref={zipInputRef}
+            className="hidden-input"
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            onChange={(event) => importZip(event.target.files)}
+          />
+          <button type="button" className="btn primary" disabled={busy} onClick={startZipImport}>
+            <FolderOpen size={16} /> Import ZIP
+          </button>
+          <button type="button" className="btn" disabled={busy} onClick={startImport}>
             <FolderOpen size={16} /> Import Folder
           </button>
           <button
@@ -323,6 +359,11 @@ export function App() {
           const droppedFolderFiles = await filesFromDataTransferItems(event.dataTransfer.items);
           if (droppedFolderFiles.length > 0) {
             await importVirtualFiles(droppedFolderFiles, "drag and drop");
+            return;
+          }
+          const zipFile = Array.from(event.dataTransfer.files).find((file) => file.name.toLowerCase().endsWith(".zip"));
+          if (zipFile) {
+            await importZipFile(zipFile);
             return;
           }
           importFiles(event.dataTransfer.files);
@@ -422,10 +463,15 @@ export function App() {
             <div className="empty-state">
               <FolderOpen size={42} />
               <h2>Import qgis2web Leaflet folder</h2>
-              <p>Choose the exported folder, then edit branding, basemap, layers, style, legend, geometry, popup fields, and attributes in one workspace.</p>
-              <button type="button" className="btn primary" disabled={busy} onClick={() => setShowImportDialog(true)}>
-                <FolderOpen size={16} /> Import Folder
-              </button>
+              <p>Import a qgis2web export to start editing.</p>
+              <div className="empty-actions">
+                <button type="button" className="btn primary" disabled={busy} onClick={startZipImport}>
+                  <FolderOpen size={16} /> Import ZIP
+                </button>
+                <button type="button" className="btn" disabled={busy} onClick={startImport}>
+                  <FolderOpen size={16} /> Import Folder
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -552,35 +598,6 @@ export function App() {
           </aside>
         )}
       </section>
-
-      <Dialog.Root open={showImportDialog} onOpenChange={setShowImportDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay" />
-          <Dialog.Content className="dialog-content">
-            <Dialog.Title>Import qgis2web folder</Dialog.Title>
-            <Dialog.Description>
-              qgis2web Studio reads the selected folder locally in your browser. Use the modern picker or drag the folder into the workspace to avoid the browser upload warning.
-            </Dialog.Description>
-            <div className="import-choice-grid">
-              <div className="import-choice">
-                <strong>Recommended</strong>
-                <span>Uses File System Access API. No browser upload confirmation dialog.</span>
-              </div>
-              <div className="import-choice muted">
-                <strong>Fallback</strong>
-                <span>Only for browsers without modern folder access. The browser may show its own upload warning.</span>
-              </div>
-            </div>
-            <div className="dialog-actions">
-              <Dialog.Close asChild>
-                <button type="button" className="btn">Cancel</button>
-              </Dialog.Close>
-              <button type="button" className="btn" onClick={startBrowserFallback}>Browser Fallback</button>
-              <button type="button" className="btn primary" onClick={startImport}>Open Folder Picker</button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
     </main>
   );
 }
