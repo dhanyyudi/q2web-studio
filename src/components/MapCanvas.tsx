@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import bbox from "@turf/bbox";
 import {
   TerraDraw,
@@ -80,18 +83,33 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
 
     visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode).forEach((layer) => {
       if (!layer.visible) return;
+      const clusterPoints = shouldClusterLayer(layer);
       const geoLayer = L.geoJSON(layer.geojson, {
         style: (feature) => styleForFeature(layer, feature as Feature),
-        pointToLayer: (feature, latlng) =>
-          L.circleMarker(latlng, {
+        pointToLayer: (feature, latlng) => {
+          if (clusterPoints) {
+            return L.marker(latlng, { icon: pointClusterIcon(layer, feature as Feature) });
+          }
+          return L.circleMarker(latlng, {
             ...styleForFeature(layer, feature as Feature),
             radius: layer.style.pointRadius
-          }),
+          });
+        },
         onEachFeature: (feature, leafletLayer) => {
           if (!layer.popupEnabled) return;
           leafletLayer.bindPopup(buildPopup(layer, feature as Feature));
         }
       });
+      if (clusterPoints) {
+        const clusterGroup = L.markerClusterGroup({
+          chunkedLoading: true,
+          showCoverageOnHover: false,
+          maxClusterRadius: 72
+        });
+        clusterGroup.addLayer(geoLayer);
+        clusterGroup.addTo(layerGroup);
+        return;
+      }
       geoLayer.addTo(layerGroup);
     });
 
@@ -273,6 +291,26 @@ function visiblePreviewLayers(layers: LayerManifest[], selectedLayerId: string, 
     return layers.filter((layer) => layer.id === selectedLayerId);
   }
   return layers;
+}
+
+function shouldClusterLayer(layer: LayerManifest): boolean {
+  return layer.geometryType.includes("Point") && layer.geojson.features.length > 500;
+}
+
+function pointClusterIcon(layer: LayerManifest, feature: Feature): L.DivIcon {
+  const style = styleForFeature(layer, feature);
+  const radius = Math.max(7, layer.style.pointRadius);
+  const size = radius * 2 + 4;
+  const fill = String(style.fillColor || style.color || layer.style.fillColor);
+  const stroke = String(style.color || layer.style.strokeColor);
+  const opacity = Number(style.fillOpacity ?? layer.style.fillOpacity);
+  const weight = Number(style.weight ?? layer.style.strokeWidth);
+  return L.divIcon({
+    className: "studio-point-marker",
+    html: `<span style="width:${size}px;height:${size}px;background:${fill};border:${Math.max(1, weight)}px solid ${stroke};opacity:${Number.isFinite(opacity) ? opacity : 1}"></span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2]
+  });
 }
 
 function LegendRow({ item }: { item: LegendItem }) {

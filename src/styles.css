@@ -160,7 +160,7 @@ button:disabled {
   max-width: 100%;
   overflow: hidden;
   display: grid;
-  grid-template-rows: 46px minmax(360px, 1fr) 230px;
+  grid-template-rows: 46px minmax(0, 1fr);
   background: #dfe8eb;
 }
 
@@ -356,6 +356,8 @@ button:disabled {
 
 .map-shell {
   position: relative;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -488,20 +490,85 @@ button:disabled {
   white-space: nowrap;
 }
 
+.studio-point-marker {
+  background: transparent;
+  border: 0;
+}
+
+.studio-point-marker span {
+  display: block;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+}
+
+.stage-panels {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.stage-panels [data-panel] {
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-resize-handle {
+  position: relative;
+  z-index: 20;
+  height: 8px;
+  flex: 0 0 8px;
+  border-top: 1px solid #ccd9de;
+  border-bottom: 1px solid #ccd9de;
+  background: #f4f8f9;
+  cursor: row-resize;
+}
+
+.panel-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 48px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #9badb4;
+}
+
+.panel-resize-handle:hover,
+.panel-resize-handle[data-resize-handle-active] {
+  background: #dceff1;
+}
+
 .attribute-panel {
+  height: 100%;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   border-top: 1px solid #ccd9de;
   background: #ffffff;
 }
 
+.attribute-panel.minimized {
+  grid-template-rows: 1fr;
+}
+
 .attribute-toolbar {
+  min-width: 0;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 9px 10px;
   border-bottom: 1px solid #e1e8ea;
+}
+
+.attribute-title {
+  min-width: 220px;
+  display: grid;
+  gap: 2px;
 }
 
 .attribute-toolbar h2 {
@@ -513,8 +580,29 @@ button:disabled {
   font-size: 13px;
 }
 
+.attribute-title span {
+  color: #65727d;
+  font-size: 11px;
+}
+
+.attribute-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.attribute-filter {
+  width: min(220px, 28vw);
+  height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
 .table-scroll {
-  height: 181px;
+  min-height: 0;
+  height: 100%;
   width: 100%;
   max-width: 100%;
   overflow: auto;
@@ -560,6 +648,11 @@ td input {
   border: 0;
   outline: 0;
   background: transparent;
+}
+
+.virtual-spacer td {
+  padding: 0;
+  border: 0;
 }
 
 .category-row {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
+import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { Toaster, toast } from "sonner";
 import {
   Circle,
@@ -17,20 +17,19 @@ import {
   Save,
   Settings2,
   Square,
-  Table2,
   Trash2,
   Type,
-  Wand2,
-  X
+  Wand2
 } from "lucide-react";
 import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
+import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { MapCanvas } from "./components/MapCanvas";
 import { PreviewOverlay } from "./components/PreviewOverlay";
 import { ToolbarButton } from "./components/ToolbarButton";
-import { filesFromDataTransferItems, filesFromDirectoryHandle, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
+import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
-import { addField, deleteField, renameField, updateFeatureProperty, updateLayer } from "./lib/projectUpdates";
+import { updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
@@ -44,11 +43,6 @@ import type {
   TextAnnotation
 } from "./types/project";
 
-type WindowWithDirectoryPicker = Window &
-  typeof globalThis & {
-    showDirectoryPicker?: () => Promise<Parameters<typeof filesFromDirectoryHandle>[0]>;
-  };
-
 const BASEMAP_LABELS: Record<BasemapId, string> = {
   osm: "OpenStreetMap",
   "carto-voyager": "Carto Voyager",
@@ -59,21 +53,31 @@ const BASEMAP_LABELS: Record<BasemapId, string> = {
 type InspectorMode = "project" | "layer";
 type GeometryKind = "point" | "line" | "polygon" | "unknown";
 
+const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
+
 export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const mapPanelRef = usePanelRef();
+  const tablePanelRef = usePanelRef();
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>("project");
   const [drawMode, setDrawMode] = useState<DrawMode>("select");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [tableMode, setTableMode] = useState<TableMode>("open");
+  const [attributeFilter, setAttributeFilter] = useState("");
   const [status, setStatus] = useState("Import a qgis2web export to start editing.");
   const [busy, setBusy] = useState(false);
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
   const [renameTo, setRenameTo] = useState("");
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: TABLE_LAYOUT_STORAGE_KEY,
+    panelIds: ["map", "attributes"]
+  });
 
   const selectedLayer = useMemo(
     () => project?.layers.find((layer) => layer.id === selectedLayerId) || project?.layers[0],
@@ -110,6 +114,21 @@ export function App() {
     }
   }, [drawMode, selectedGeometryKind, selectedLayer]);
 
+  useEffect(() => {
+    if (tableMode === "maximized") {
+      mapPanelRef.current?.resize("34%");
+      tablePanelRef.current?.resize("66%");
+      return;
+    }
+    if (tableMode === "minimized") {
+      mapPanelRef.current?.resize("94%");
+      tablePanelRef.current?.resize("6%");
+      return;
+    }
+    mapPanelRef.current?.resize("74%");
+    tablePanelRef.current?.resize("26%");
+  }, [mapPanelRef, tableMode, tablePanelRef]);
+
   async function importFiles(fileList: FileList | null) {
     if (!fileList?.length) return;
     setBusy(true);
@@ -120,6 +139,7 @@ export function App() {
       const parsed = hydrateProject(await parseProjectInWorker(files));
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
+      warnAboutLargeDatasets(parsed);
       await saveProjectToOpfs(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
       setStatus(message);
@@ -150,34 +170,13 @@ export function App() {
       const parsed = hydrateProject(await parseProjectInWorker(files));
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
+      warnAboutLargeDatasets(parsed);
       await saveProjectToOpfs(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${file.name}.`;
       setStatus(message);
       toast.success(message, { id: toastId });
     } catch (error) {
       const message = error instanceof Error ? error.message : "ZIP import failed.";
-      setStatus(message);
-      toast.error(message, { id: toastId });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function importDirectoryHandle(handle: Parameters<typeof filesFromDirectoryHandle>[0]) {
-    setBusy(true);
-    setStatus("Reading qgis2web folder...");
-    const toastId = toast.loading("Reading local folder");
-    try {
-      const files = await filesFromDirectoryHandle(handle);
-      const parsed = hydrateProject(await parseProjectInWorker(files));
-      setProject(parsed);
-      setSelectedLayerId(parsed.layers[0]?.id || "");
-      await saveProjectToOpfs(parsed);
-      const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
-      setStatus(message);
-      toast.success(message, { id: toastId });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Import failed.";
       setStatus(message);
       toast.error(message, { id: toastId });
     } finally {
@@ -194,6 +193,7 @@ export function App() {
       const parsed = hydrateProject(await parseProjectInWorker(files));
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
+      warnAboutLargeDatasets(parsed);
       await saveProjectToOpfs(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
       setStatus(message);
@@ -208,20 +208,6 @@ export function App() {
   }
 
   async function startImport() {
-    const directoryPicker = (window as WindowWithDirectoryPicker).showDirectoryPicker;
-    if (directoryPicker) {
-      try {
-        const handle = await directoryPicker();
-        await importDirectoryHandle(handle);
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          setStatus("Import cancelled.");
-          return;
-        }
-        toast.warning("Opening another folder selector.");
-      }
-    }
     inputRef.current?.click();
   }
 
@@ -252,6 +238,15 @@ export function App() {
     const hydrated = hydrateProject(next);
     setProject(hydrated);
     saveProjectToOpfs(hydrated);
+  }
+
+  function warnAboutLargeDatasets(next: Qgis2webProject) {
+    const heavyLayers = next.layers.filter((layer) => layer.geojson.features.length > 10000);
+    if (heavyLayers.length === 0) return;
+    const biggest = heavyLayers
+      .map((layer) => `${layer.displayName}: ${layer.geojson.features.length.toLocaleString()} features`)
+      .join(", ");
+    toast.warning(`Large dataset imported. Rendering may be slow. ${biggest}`, { duration: 9000 });
   }
 
   const handleTileError = useCallback((message: string) => {
@@ -492,26 +487,47 @@ export function App() {
                   <Type size={17} />
                 </ToolbarButton>
               </div>
-              <MapCanvas
-                project={project}
-                selectedLayerId={selectedLayer.id}
-                drawMode={drawMode}
-                onProjectChange={updateProject}
-                onTileError={handleTileError}
-              />
-              <AttributeTable
-                project={project}
-                layer={selectedLayer}
-                showFieldsDialog={showFieldsDialog}
-                setShowFieldsDialog={setShowFieldsDialog}
-                newField={newField}
-                setNewField={setNewField}
-                renameFrom={renameFrom}
-                setRenameFrom={setRenameFrom}
-                renameTo={renameTo}
-                setRenameTo={setRenameTo}
-                updateProject={updateProject}
-              />
+              <Group
+                defaultLayout={defaultLayout}
+                onLayoutChanged={onLayoutChanged}
+                className={tableMode === "maximized" ? "stage-panels table-maximized" : "stage-panels"}
+                orientation="vertical"
+              >
+                <Panel id="map" defaultSize="74%" minSize="25%" panelRef={mapPanelRef}>
+                  <MapCanvas
+                    project={project}
+                    selectedLayerId={selectedLayer.id}
+                    drawMode={drawMode}
+                    onProjectChange={updateProject}
+                    onTileError={handleTileError}
+                  />
+                </Panel>
+                <Separator className="panel-resize-handle" />
+                <Panel
+                  id="attributes"
+                  defaultSize="26%"
+                  minSize={tableMode === "minimized" ? "6%" : "14%"}
+                  panelRef={tablePanelRef}
+                >
+                  <AttributeTable
+                    project={project}
+                    layer={selectedLayer}
+                    mode={tableMode}
+                    setMode={setTableMode}
+                    filter={attributeFilter}
+                    setFilter={setAttributeFilter}
+                    showFieldsDialog={showFieldsDialog}
+                    setShowFieldsDialog={setShowFieldsDialog}
+                    newField={newField}
+                    setNewField={setNewField}
+                    renameFrom={renameFrom}
+                    setRenameFrom={setRenameFrom}
+                    renameTo={renameTo}
+                    setRenameTo={setRenameTo}
+                    updateProject={updateProject}
+                  />
+                </Panel>
+              </Group>
             </>
           ) : (
             <div className="empty-state">
@@ -721,100 +737,6 @@ export function App() {
         />
       )}
     </main>
-  );
-}
-
-function AttributeTable(props: {
-  project: Qgis2webProject;
-  layer: LayerManifest;
-  showFieldsDialog: boolean;
-  setShowFieldsDialog: (value: boolean) => void;
-  newField: string;
-  setNewField: (value: string) => void;
-  renameFrom: string;
-  setRenameFrom: (value: string) => void;
-  renameTo: string;
-  setRenameTo: (value: string) => void;
-  updateProject: (project: Qgis2webProject) => void;
-}) {
-  const fields = fieldNames(props.layer);
-  const rows = props.layer.geojson.features.slice(0, 80);
-  return (
-    <section className="attribute-panel">
-      <div className="attribute-toolbar">
-        <h2><Table2 size={16} /> Attribute Table: {props.layer.displayName}</h2>
-        <button type="button" className="btn compact" onClick={() => props.setShowFieldsDialog(true)}>
-          <Settings2 size={15} /> Fields
-        </button>
-      </div>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              {fields.map((field) => <th key={field}>{field}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((feature, featureIndex) => (
-              <tr key={String(feature.id || featureIndex)}>
-                <td>{featureIndex + 1}</td>
-                {fields.map((field) => (
-                  <td key={field}>
-                    <input
-                      value={String(feature.properties?.[field] ?? "")}
-                      onChange={(event) => props.updateProject(updateFeatureProperty(props.project, props.layer.id, featureIndex, field, event.target.value))}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Dialog.Root open={props.showFieldsDialog} onOpenChange={props.setShowFieldsDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay" />
-          <Dialog.Content className="dialog-content field-dialog">
-            <Dialog.Title>Manage Fields</Dialog.Title>
-            <Dialog.Description>Add, rename, or delete fields for the selected layer.</Dialog.Description>
-            <button type="button" className="dialog-close" onClick={() => props.setShowFieldsDialog(false)} aria-label="Close">
-              <X size={16} />
-            </button>
-            <div className="field-dialog-grid">
-              <TextInput label="New field" value={props.newField} onChange={props.setNewField} />
-              <button type="button" className="btn primary" onClick={() => {
-                props.updateProject(addField(props.project, props.layer.id, props.newField));
-                props.setNewField("");
-                toast.success("Field added");
-              }}>Add Field</button>
-              <SelectField
-                label="Rename or delete"
-                value={props.renameFrom}
-                onChange={props.setRenameFrom}
-                options={[{ value: "", label: "Select field" }, ...fields.map((field) => ({ value: field, label: field }))]}
-              />
-              <TextInput label="New name" value={props.renameTo} onChange={props.setRenameTo} />
-              <div className="field-dialog-actions">
-                <button type="button" className="btn" onClick={() => {
-                  props.updateProject(renameField(props.project, props.layer.id, props.renameFrom, props.renameTo));
-                  props.setRenameFrom("");
-                  props.setRenameTo("");
-                  toast.success("Field renamed");
-                }}>Rename</button>
-                <button type="button" className="btn danger" onClick={() => {
-                  if (!props.renameFrom) return;
-                  props.updateProject(deleteField(props.project, props.layer.id, props.renameFrom));
-                  props.setRenameFrom("");
-                  toast.success("Field deleted");
-                }}>Delete</button>
-              </div>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </section>
   );
 }
 
