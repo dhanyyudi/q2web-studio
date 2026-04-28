@@ -18,13 +18,18 @@ import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
 import { MapCanvas } from "./components/MapCanvas";
 import { ToolbarButton } from "./components/ToolbarButton";
-import { filesFromFileList } from "./lib/fileImport";
+import { filesFromDirectoryHandle, filesFromFileList } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { addField, deleteField, renameField, updateFeatureProperty, updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
 import type { DrawMode, LayerManifest, Qgis2webProject, TextAnnotation } from "./types/project";
+
+type WindowWithDirectoryPicker = Window &
+  typeof globalThis & {
+    showDirectoryPicker?: () => Promise<Parameters<typeof filesFromDirectoryHandle>[0]>;
+  };
 
 export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -77,6 +82,41 @@ export function App() {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
     }
+  }
+
+  async function importDirectoryHandle(handle: Parameters<typeof filesFromDirectoryHandle>[0]) {
+    setBusy(true);
+    setStatus("Membaca folder lewat File System Access API...");
+    try {
+      const files = await filesFromDirectoryHandle(handle);
+      const parsed = await parseProjectInWorker(files);
+      setProject(parsed);
+      setSelectedLayerId(parsed.layers[0]?.id || "");
+      await saveProjectToOpfs(parsed);
+      setStatus(`Import selesai: ${parsed.layers.length} layer terbaca dari ${parsed.name}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Import gagal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleImportClick() {
+    const directoryPicker = (window as WindowWithDirectoryPicker).showDirectoryPicker;
+    if (directoryPicker) {
+      try {
+        const handle = await directoryPicker();
+        await importDirectoryHandle(handle);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setStatus("Import dibatalkan.");
+          return;
+        }
+        setStatus("Folder picker modern gagal. Menggunakan fallback browser.");
+      }
+    }
+    inputRef.current?.click();
   }
 
   async function exportZip() {
@@ -149,8 +189,15 @@ export function App() {
           <p>Local-first editor untuk export qgis2web Leaflet.</p>
         </div>
         <div className="topbar-actions">
-          <input ref={inputRef} className="hidden-input" type="file" multiple onChange={(event) => importFiles(event.target.files)} />
-          <button type="button" onClick={() => inputRef.current?.click()}>
+          <input
+            ref={inputRef}
+            className="hidden-input"
+            type="file"
+            multiple
+            onChange={(event) => importFiles(event.target.files)}
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          />
+          <button type="button" disabled={busy} onClick={handleImportClick}>
             <FolderOpen size={16} /> Import Folder
           </button>
           <button type="button" disabled={!project || busy} onClick={() => project && saveProjectToOpfs(project).then(() => setStatus("Project tersimpan ke OPFS browser cache."))}>

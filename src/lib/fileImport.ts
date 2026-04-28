@@ -2,14 +2,47 @@ import type { VirtualFile } from "../types/project";
 
 const TEXT_EXTENSIONS = new Set([".html", ".htm", ".js", ".css", ".json", ".txt", ".svg", ".xml"]);
 
+type FileSystemFileHandleLike = {
+  kind: "file";
+  name: string;
+  getFile: () => Promise<File>;
+};
+
+type FileSystemDirectoryHandleLike = {
+  kind: "directory";
+  name: string;
+  values: () => AsyncIterable<FileSystemFileHandleLike | FileSystemDirectoryHandleLike>;
+};
+
 export async function filesFromFileList(fileList: FileList): Promise<VirtualFile[]> {
   const files = Array.from(fileList);
-  const virtualFiles = await Promise.all(files.map(readFile));
+  const virtualFiles = await Promise.all(files.map((file) => readFile(file)));
   return virtualFiles.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-async function readFile(file: File): Promise<VirtualFile> {
-  const path = normalizePath((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name);
+export async function filesFromDirectoryHandle(handle: FileSystemDirectoryHandleLike): Promise<VirtualFile[]> {
+  const files: VirtualFile[] = [];
+  await readDirectoryHandle(handle, handle.name, files);
+  return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+async function readDirectoryHandle(
+  handle: FileSystemDirectoryHandleLike,
+  basePath: string,
+  files: VirtualFile[]
+): Promise<void> {
+  for await (const entry of handle.values()) {
+    const path = `${basePath}/${entry.name}`;
+    if (entry.kind === "directory") {
+      await readDirectoryHandle(entry, path, files);
+    } else {
+      files.push(await readFile(await entry.getFile(), path));
+    }
+  }
+}
+
+async function readFile(file: File, pathOverride?: string): Promise<VirtualFile> {
+  const path = normalizePath(pathOverride || (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name);
   const kind = isTextFile(path) ? "text" : "binary";
   if (kind === "text") {
     return {
