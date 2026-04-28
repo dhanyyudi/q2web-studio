@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -26,6 +26,7 @@ import {
 import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
 import { MapCanvas } from "./components/MapCanvas";
+import { PreviewOverlay } from "./components/PreviewOverlay";
 import { ToolbarButton } from "./components/ToolbarButton";
 import { filesFromDataTransferItems, filesFromDirectoryHandle, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
@@ -54,14 +55,19 @@ const BASEMAP_LABELS: Record<BasemapId, string> = {
   none: "None"
 };
 
+type InspectorMode = "project" | "layer";
+type GeometryKind = "point" | "line" | "polygon" | "unknown";
+
 export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
+  const [inspectorMode, setInspectorMode] = useState<InspectorMode>("project");
   const [drawMode, setDrawMode] = useState<DrawMode>("select");
-  const [status, setStatus] = useState("Import a qgis2web Leaflet export folder to start editing.");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [status, setStatus] = useState("Import a qgis2web export to start editing.");
   const [busy, setBusy] = useState(false);
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [newField, setNewField] = useState("");
@@ -72,6 +78,10 @@ export function App() {
     () => project?.layers.find((layer) => layer.id === selectedLayerId) || project?.layers[0],
     [project, selectedLayerId]
   );
+  const selectedGeometryKind = geometryKindOf(selectedLayer?.geometryType || "");
+  const canDrawPoint = selectedGeometryKind === "point";
+  const canDrawLine = selectedGeometryKind === "line";
+  const canDrawPolygon = selectedGeometryKind === "polygon";
 
   useEffect(() => {
     inputRef.current?.setAttribute("webkitdirectory", "");
@@ -91,6 +101,13 @@ export function App() {
       setSelectedLayerId(project.layers[0]?.id || "");
     }
   }, [project, selectedLayerId]);
+
+  useEffect(() => {
+    if (!selectedLayer || drawMode === "select" || drawMode === "delete") return;
+    if (!isDrawModeAllowed(drawMode, selectedGeometryKind)) {
+      setDrawMode("select");
+    }
+  }, [drawMode, selectedGeometryKind, selectedLayer]);
 
   async function importFiles(fileList: FileList | null) {
     if (!fileList?.length) return;
@@ -236,6 +253,10 @@ export function App() {
     saveProjectToOpfs(hydrated);
   }
 
+  const handleTileError = useCallback((message: string) => {
+    toast.error(message);
+  }, []);
+
   function patchSelectedLayer(patch: Partial<LayerManifest>) {
     if (!project || !selectedLayer) return;
     updateProject(updateLayer(project, selectedLayer.id, patch));
@@ -315,6 +336,8 @@ export function App() {
             className="hidden-input"
             type="file"
             multiple
+            aria-hidden="true"
+            tabIndex={-1}
             onChange={(event) => importFiles(event.target.files)}
             {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
           />
@@ -323,6 +346,8 @@ export function App() {
             className="hidden-input"
             type="file"
             accept=".zip,application/zip,application/x-zip-compressed"
+            aria-hidden="true"
+            tabIndex={-1}
             onChange={(event) => importZip(event.target.files)}
           />
           <button type="button" className="btn primary" disabled={busy} onClick={startZipImport}>
@@ -344,6 +369,9 @@ export function App() {
             }
           >
             <Save size={16} /> Save Local
+          </button>
+          <button type="button" className="btn" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
+            <Eye size={16} /> Preview
           </button>
           <button type="button" className="btn" disabled={!project || busy} onClick={exportZip}>
             <Download size={16} /> Export ZIP
@@ -375,6 +403,14 @@ export function App() {
 
           {project && (
             <>
+              <button
+                type="button"
+                className={inspectorMode === "project" ? "project-settings-button active" : "project-settings-button"}
+                onClick={() => setInspectorMode("project")}
+              >
+                <Settings2 size={16} /> Project Settings
+              </button>
+
               <PanelTitle icon={<Settings2 size={16} />} title="Map View" />
               <SelectField
                 label="Basemap"
@@ -396,7 +432,10 @@ export function App() {
               <div className="layer-list">
                 {project.layers.map((layer) => (
                   <div key={layer.id} className={layer.id === selectedLayer?.id ? "layer-row selected" : "layer-row"}>
-                    <button type="button" className="layer-main" onClick={() => setSelectedLayerId(layer.id)}>
+                    <button type="button" className="layer-main" onClick={() => {
+                      setSelectedLayerId(layer.id);
+                      setInspectorMode("layer");
+                    }}>
                       <span>{layer.displayName}</span>
                       <small>{layer.geometryType}</small>
                     </button>
@@ -422,19 +461,19 @@ export function App() {
                 <ToolbarButton title="Select and edit" active={drawMode === "select"} onClick={() => setDrawMode("select")}>
                   <MousePointer2 size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw point" active={drawMode === "point"} onClick={() => setDrawMode("point")}>
+                <ToolbarButton title="Draw point" active={drawMode === "point"} disabled={!canDrawPoint} onClick={() => setDrawMode("point")}>
                   <Circle size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw line" active={drawMode === "linestring"} onClick={() => setDrawMode("linestring")}>
+                <ToolbarButton title="Draw line" active={drawMode === "linestring"} disabled={!canDrawLine} onClick={() => setDrawMode("linestring")}>
                   <PenLine size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw polygon" active={drawMode === "polygon"} onClick={() => setDrawMode("polygon")}>
+                <ToolbarButton title="Draw polygon" active={drawMode === "polygon"} disabled={!canDrawPolygon} onClick={() => setDrawMode("polygon")}>
                   <Square size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw rectangle" active={drawMode === "rectangle"} onClick={() => setDrawMode("rectangle")}>
+                <ToolbarButton title="Draw rectangle" active={drawMode === "rectangle"} disabled={!canDrawPolygon} onClick={() => setDrawMode("rectangle")}>
                   <Square size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw circle" active={drawMode === "circle"} onClick={() => setDrawMode("circle")}>
+                <ToolbarButton title="Draw circle" active={drawMode === "circle"} disabled={!canDrawPolygon} onClick={() => setDrawMode("circle")}>
                   <Circle size={17} />
                 </ToolbarButton>
                 <ToolbarButton title="Delete selected" active={drawMode === "delete"} onClick={() => setDrawMode("delete")}>
@@ -444,7 +483,13 @@ export function App() {
                   <Type size={17} />
                 </ToolbarButton>
               </div>
-              <MapCanvas project={project} selectedLayerId={selectedLayer.id} drawMode={drawMode} onProjectChange={updateProject} />
+              <MapCanvas
+                project={project}
+                selectedLayerId={selectedLayer.id}
+                drawMode={drawMode}
+                onProjectChange={updateProject}
+                onTileError={handleTileError}
+              />
               <AttributeTable
                 project={project}
                 layer={selectedLayer}
@@ -462,7 +507,7 @@ export function App() {
           ) : (
             <div className="empty-state">
               <FolderOpen size={42} />
-              <h2>Import qgis2web Leaflet folder</h2>
+              <h2>Import qgis2web export</h2>
               <p>Import a qgis2web export to start editing.</p>
               <div className="empty-actions">
                 <button type="button" className="btn primary" disabled={busy} onClick={startZipImport}>
@@ -476,128 +521,179 @@ export function App() {
           )}
         </section>
 
-        {project && selectedLayer && (
+        {project && (
           <aside className="inspector">
-            <Tabs.Root defaultValue="branding" className="tabs-root">
-              <Tabs.List className="tabs-list" aria-label="Editor sections">
-                <Tabs.Trigger value="branding">Branding</Tabs.Trigger>
-                <Tabs.Trigger value="layer">Layer</Tabs.Trigger>
-                <Tabs.Trigger value="style">Style</Tabs.Trigger>
-                <Tabs.Trigger value="popup">Popup</Tabs.Trigger>
-                <Tabs.Trigger value="legend">Legend</Tabs.Trigger>
-              </Tabs.List>
+            <div className="inspector-scope">
+              <span>Project</span>
+              {inspectorMode === "layer" && selectedLayer && <><span>/</span><strong>{selectedLayer.displayName}</strong></>}
+            </div>
 
-              <Tabs.Content value="branding" className="tabs-content">
-                <PanelTitle icon={<Paintbrush size={16} />} title="Header and Theme" />
-                <TextInput label="Title" value={project.branding.title} onChange={(title) => updateProject({ ...project, branding: { ...project.branding, title } })} />
-                <TextInput label="Subtitle" value={project.branding.subtitle} onChange={(subtitle) => updateProject({ ...project, branding: { ...project.branding, subtitle } })} />
-                <TextInput label="Footer" value={project.branding.footer} onChange={(footer) => updateProject({ ...project, branding: { ...project.branding, footer } })} />
-                <input ref={logoInputRef} className="hidden-input" type="file" accept="image/*" onChange={(event) => importLogo(event.target.files)} />
-                <button type="button" className="btn full" onClick={() => logoInputRef.current?.click()}>
-                  <Plus size={15} /> Add or Replace Logo
-                </button>
-                <SelectField
-                  label="Logo placement"
-                  value={project.branding.logoPlacement}
-                  onChange={(logoPlacement) => updateProject({ ...project, branding: { ...project.branding, logoPlacement: logoPlacement as Qgis2webProject["branding"]["logoPlacement"] } })}
-                  options={[
-                    { value: "left", label: "Left" },
-                    { value: "center", label: "Center" },
-                    { value: "right", label: "Right" },
-                    { value: "hidden", label: "Hidden" }
-                  ]}
-                />
-                <div className="toggle-grid">
-                  {(["showHeader", "showFooter", "showWelcome", "showSidebar"] as const).map((key) => (
-                    <label key={key}>
-                      <input
-                        type="checkbox"
-                        checked={project.branding[key]}
-                        onChange={(event) => updateProject({ ...project, branding: { ...project.branding, [key]: event.target.checked } })}
-                      />
-                      {key.replace("show", "")}
-                    </label>
-                  ))}
-                </div>
-                <ColorInput label="Accent" value={project.theme.accent} onChange={(accent) => updateProject({ ...project, theme: { ...project.theme, accent } })} />
-                <ColorInput label="Surface" value={project.theme.surface} onChange={(surface) => updateProject({ ...project, theme: { ...project.theme, surface } })} />
-                <ColorInput label="Text" value={project.theme.text} onChange={(text) => updateProject({ ...project, theme: { ...project.theme, text } })} />
-                <ColorInput label="Muted" value={project.theme.muted} onChange={(muted) => updateProject({ ...project, theme: { ...project.theme, muted } })} />
-                <RangeInput label="Radius" value={project.theme.radius} min={0} max={18} step={1} onChange={(radius) => updateProject({ ...project, theme: { ...project.theme, radius } })} />
-                <RangeInput label="Shadow" value={project.theme.shadow} min={0} max={40} step={1} onChange={(shadow) => updateProject({ ...project, theme: { ...project.theme, shadow } })} />
-                <RangeInput label="Header height" value={project.theme.headerHeight} min={36} max={92} step={2} onChange={(headerHeight) => updateProject({ ...project, theme: { ...project.theme, headerHeight } })} />
-              </Tabs.Content>
+            {inspectorMode === "project" ? (
+              <Tabs.Root defaultValue="branding" className="tabs-root">
+                <Tabs.List className="tabs-list two" aria-label="Project settings">
+                  <Tabs.Trigger value="branding">Branding</Tabs.Trigger>
+                  <Tabs.Trigger value="map">Map</Tabs.Trigger>
+                </Tabs.List>
 
-              <Tabs.Content value="layer" className="tabs-content">
-                <PanelTitle title="Layer Editor" />
-                <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
-                <div className="toggle-grid">
-                  <label><input type="checkbox" checked={selectedLayer.visible} onChange={(event) => patchSelectedLayer({ visible: event.target.checked })} />Visible</label>
-                  <label><input type="checkbox" checked={selectedLayer.popupEnabled} onChange={(event) => patchSelectedLayer({ popupEnabled: event.target.checked })} />Popup</label>
-                  <label><input type="checkbox" checked={selectedLayer.legendEnabled} onChange={(event) => patchSelectedLayer({ legendEnabled: event.target.checked })} />Legend</label>
-                  <label><input type="checkbox" checked={selectedLayer.showInLayerControl} onChange={(event) => patchSelectedLayer({ showInLayerControl: event.target.checked })} />Layer toggle</label>
-                </div>
-              </Tabs.Content>
-
-              <Tabs.Content value="style" className="tabs-content">
-                <PanelTitle title="Spatial Style" />
-                <ColorInput label="Fill" value={selectedLayer.style.fillColor} onChange={(fillColor) => patchSelectedLayer({ style: { ...selectedLayer.style, fillColor } })} />
-                <ColorInput label="Stroke" value={selectedLayer.style.strokeColor} onChange={(strokeColor) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeColor } })} />
-                <RangeInput label="Fill opacity" value={selectedLayer.style.fillOpacity} min={0} max={1} step={0.05} onChange={(fillOpacity) => patchSelectedLayer({ style: { ...selectedLayer.style, fillOpacity } })} />
-                <RangeInput label="Stroke width" value={selectedLayer.style.strokeWidth} min={0} max={12} step={0.5} onChange={(strokeWidth) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeWidth } })} />
-                <RangeInput label="Point radius" value={selectedLayer.style.pointRadius} min={2} max={24} step={1} onChange={(pointRadius) => patchSelectedLayer({ style: { ...selectedLayer.style, pointRadius } })} />
-                <TextInput label="Dash array" value={selectedLayer.style.dashArray} onChange={(dashArray) => patchSelectedLayer({ style: { ...selectedLayer.style, dashArray } })} />
-                <PanelTitle title="Categorized Style" />
-                <SelectField
-                  label="Field"
-                  value={selectedLayer.style.categoryField}
-                  onChange={(categoryField) => patchSelectedLayer({ style: { ...selectedLayer.style, categoryField } })}
-                  options={[{ value: "", label: "No category field" }, ...fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))]}
-                />
-                {selectedLayer.style.categories.map((category, index) => (
-                  <div className="category-row" key={category.value}>
-                    <input value={category.label} onChange={(event) => {
-                      const categories = selectedLayer.style.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item);
-                      patchSelectedLayer({ style: { ...selectedLayer.style, categories } });
-                    }} />
-                    <input type="color" value={category.fillColor} onChange={(event) => {
-                      const categories = selectedLayer.style.categories.map((item, itemIndex) => itemIndex === index ? { ...item, fillColor: event.target.value } : item);
-                      patchSelectedLayer({ style: { ...selectedLayer.style, categories } });
-                    }} />
+                <Tabs.Content value="branding" className="tabs-content">
+                  <PanelTitle icon={<Paintbrush size={16} />} title="Branding and Theme" />
+                  <TextInput label="Title" value={project.branding.title} onChange={(title) => updateProject({ ...project, branding: { ...project.branding, title } })} />
+                  <TextInput label="Subtitle" value={project.branding.subtitle} onChange={(subtitle) => updateProject({ ...project, branding: { ...project.branding, subtitle } })} />
+                  <TextInput label="Footer" value={project.branding.footer} onChange={(footer) => updateProject({ ...project, branding: { ...project.branding, footer } })} />
+                  <input ref={logoInputRef} className="hidden-input" type="file" accept="image/*" aria-hidden="true" tabIndex={-1} onChange={(event) => importLogo(event.target.files)} />
+                  <button type="button" className="btn full" onClick={() => logoInputRef.current?.click()}>
+                    <Plus size={15} /> Add or Replace Logo
+                  </button>
+                  <SelectField
+                    label="Logo placement"
+                    value={project.branding.logoPlacement}
+                    onChange={(logoPlacement) => updateProject({ ...project, branding: { ...project.branding, logoPlacement: logoPlacement as Qgis2webProject["branding"]["logoPlacement"] } })}
+                    options={[
+                      { value: "left", label: "Left" },
+                      { value: "center", label: "Center" },
+                      { value: "right", label: "Right" },
+                      { value: "hidden", label: "Hidden" }
+                    ]}
+                  />
+                  <div className="toggle-grid">
+                    {(["showHeader", "showFooter", "showWelcome", "showSidebar"] as const).map((key) => (
+                      <label key={key}>
+                        <input
+                          type="checkbox"
+                          checked={project.branding[key]}
+                          onChange={(event) => updateProject({ ...project, branding: { ...project.branding, [key]: event.target.checked } })}
+                        />
+                        {key.replace("show", "")}
+                      </label>
+                    ))}
                   </div>
-                ))}
-              </Tabs.Content>
+                  <ColorInput label="Accent" value={project.theme.accent} onChange={(accent) => updateProject({ ...project, theme: { ...project.theme, accent } })} />
+                  <ColorInput label="Surface" value={project.theme.surface} onChange={(surface) => updateProject({ ...project, theme: { ...project.theme, surface } })} />
+                  <ColorInput label="Text" value={project.theme.text} onChange={(text) => updateProject({ ...project, theme: { ...project.theme, text } })} />
+                  <ColorInput label="Muted" value={project.theme.muted} onChange={(muted) => updateProject({ ...project, theme: { ...project.theme, muted } })} />
+                  <RangeInput label="Radius" value={project.theme.radius} min={0} max={18} step={1} onChange={(radius) => updateProject({ ...project, theme: { ...project.theme, radius } })} />
+                  <RangeInput label="Shadow" value={project.theme.shadow} min={0} max={40} step={1} onChange={(shadow) => updateProject({ ...project, theme: { ...project.theme, shadow } })} />
+                  <RangeInput label="Header height" value={project.theme.headerHeight} min={36} max={92} step={2} onChange={(headerHeight) => updateProject({ ...project, theme: { ...project.theme, headerHeight } })} />
+                </Tabs.Content>
 
-              <Tabs.Content value="popup" className="tabs-content">
-                <PanelTitle title="Popup Fields" />
-                <div className="popup-fields">
-                  {selectedLayer.popupFields.map((field) => (
-                    <label key={field.key}>
-                      <input
-                        type="checkbox"
-                        checked={field.visible}
-                        onChange={(event) => patchSelectedLayer({ popupFields: selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item) })}
-                      />
-                      {field.label}
-                    </label>
-                  ))}
-                </div>
-              </Tabs.Content>
+                <Tabs.Content value="map" className="tabs-content">
+                  <PanelTitle title="Map View" />
+                  <SelectField
+                    label="Basemap"
+                    value={project.mapSettings.basemap}
+                    onChange={(value) => setMapSetting("basemap", value as BasemapId)}
+                    options={Object.entries(BASEMAP_LABELS).map(([value, label]) => ({ value, label }))}
+                  />
+                  <SegmentedControl
+                    label="Layer display"
+                    value={project.mapSettings.viewMode}
+                    options={[
+                      { value: "all", label: "All layers" },
+                      { value: "selected", label: "Selected layer" }
+                    ]}
+                    onChange={(value) => setMapSetting("viewMode", value as MapViewMode)}
+                  />
+                </Tabs.Content>
+              </Tabs.Root>
+            ) : selectedLayer ? (
+              <Tabs.Root defaultValue="layer" className="tabs-root">
+                <Tabs.List className="tabs-list four" aria-label="Layer editor">
+                  <Tabs.Trigger value="layer">Layer</Tabs.Trigger>
+                  <Tabs.Trigger value="style">Style</Tabs.Trigger>
+                  <Tabs.Trigger value="popup">Popup</Tabs.Trigger>
+                  <Tabs.Trigger value="legend">Legend</Tabs.Trigger>
+                </Tabs.List>
 
-              <Tabs.Content value="legend" className="tabs-content">
-                <PanelTitle title="Manual Legend" />
-                <button type="button" className="btn full" onClick={addManualLegend}><Plus size={15} /> Add legend item</button>
-                {project.manualLegendItems.map((item) => (
-                  <div className="category-row" key={item.id}>
-                    <input value={item.label} onChange={(event) => updateProject({ ...project, manualLegendItems: project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, label: event.target.value } : legend) })} />
-                    <input type="color" value={item.fillColor} onChange={(event) => updateProject({ ...project, manualLegendItems: project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, fillColor: event.target.value } : legend) })} />
+                <Tabs.Content value="layer" className="tabs-content">
+                  <PanelTitle title="Layer Editor" />
+                  <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
+                  <div className="toggle-grid">
+                    <label><input type="checkbox" checked={selectedLayer.visible} onChange={(event) => patchSelectedLayer({ visible: event.target.checked })} />Visible</label>
+                    <label><input type="checkbox" checked={selectedLayer.popupEnabled} onChange={(event) => patchSelectedLayer({ popupEnabled: event.target.checked })} />Popup</label>
+                    <label><input type="checkbox" checked={selectedLayer.legendEnabled} onChange={(event) => patchSelectedLayer({ legendEnabled: event.target.checked })} />Legend</label>
+                    <label><input type="checkbox" checked={selectedLayer.showInLayerControl} onChange={(event) => patchSelectedLayer({ showInLayerControl: event.target.checked })} />Layer toggle</label>
                   </div>
-                ))}
-              </Tabs.Content>
-            </Tabs.Root>
+                </Tabs.Content>
+
+                <Tabs.Content value="style" className="tabs-content">
+                  <PanelTitle title="Spatial Style" />
+                  {(selectedGeometryKind === "point" || selectedGeometryKind === "polygon") && (
+                    <>
+                      <ColorInput label="Fill" value={selectedLayer.style.fillColor} onChange={(fillColor) => patchSelectedLayer({ style: { ...selectedLayer.style, fillColor } })} />
+                      <RangeInput label="Fill opacity" value={selectedLayer.style.fillOpacity} min={0} max={1} step={0.05} onChange={(fillOpacity) => patchSelectedLayer({ style: { ...selectedLayer.style, fillOpacity } })} />
+                    </>
+                  )}
+                  <ColorInput label="Stroke" value={selectedLayer.style.strokeColor} onChange={(strokeColor) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeColor } })} />
+                  <RangeInput label="Stroke opacity" value={selectedLayer.style.strokeOpacity} min={0} max={1} step={0.05} onChange={(strokeOpacity) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeOpacity } })} />
+                  <RangeInput label="Stroke width" value={selectedLayer.style.strokeWidth} min={0} max={12} step={0.5} onChange={(strokeWidth) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeWidth } })} />
+                  {selectedGeometryKind === "point" && (
+                    <RangeInput label="Point radius" value={selectedLayer.style.pointRadius} min={2} max={24} step={1} onChange={(pointRadius) => patchSelectedLayer({ style: { ...selectedLayer.style, pointRadius } })} />
+                  )}
+                  {(selectedGeometryKind === "line" || selectedGeometryKind === "polygon") && (
+                    <TextInput label="Dash array" value={selectedLayer.style.dashArray} onChange={(dashArray) => patchSelectedLayer({ style: { ...selectedLayer.style, dashArray } })} />
+                  )}
+                  <PanelTitle title="Categorized Style" />
+                  <SelectField
+                    label="Field"
+                    value={selectedLayer.style.categoryField}
+                    onChange={(categoryField) => patchSelectedLayer({ style: { ...selectedLayer.style, categoryField } })}
+                    options={[{ value: "", label: "No category field" }, ...fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))]}
+                  />
+                  {selectedLayer.style.categories.map((category, index) => (
+                    <div className="category-row" key={category.value}>
+                      <input value={category.label} onChange={(event) => {
+                        const categories = selectedLayer.style.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item);
+                        patchSelectedLayer({ style: { ...selectedLayer.style, categories } });
+                      }} />
+                      <input type="color" value={category.fillColor} onChange={(event) => {
+                        const categories = selectedLayer.style.categories.map((item, itemIndex) => itemIndex === index ? { ...item, fillColor: event.target.value } : item);
+                        patchSelectedLayer({ style: { ...selectedLayer.style, categories } });
+                      }} />
+                    </div>
+                  ))}
+                </Tabs.Content>
+
+                <Tabs.Content value="popup" className="tabs-content">
+                  <PanelTitle title="Popup Fields" />
+                  <div className="popup-fields">
+                    {selectedLayer.popupFields.map((field) => (
+                      <label key={field.key}>
+                        <input
+                          type="checkbox"
+                          checked={field.visible}
+                          onChange={(event) => patchSelectedLayer({ popupFields: selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item) })}
+                        />
+                        {field.label}
+                      </label>
+                    ))}
+                  </div>
+                </Tabs.Content>
+
+                <Tabs.Content value="legend" className="tabs-content">
+                  <PanelTitle title="Manual Legend" />
+                  <button type="button" className="btn full" onClick={addManualLegend}><Plus size={15} /> Add legend item</button>
+                  {project.manualLegendItems.map((item) => (
+                    <div className="category-row" key={item.id}>
+                      <input value={item.label} onChange={(event) => updateProject({ ...project, manualLegendItems: project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, label: event.target.value } : legend) })} />
+                      <input type="color" value={item.fillColor} onChange={(event) => updateProject({ ...project, manualLegendItems: project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, fillColor: event.target.value } : legend) })} />
+                    </div>
+                  ))}
+                </Tabs.Content>
+              </Tabs.Root>
+            ) : null}
           </aside>
         )}
       </section>
+      {previewOpen && project && selectedLayer && (
+        <PreviewOverlay
+          project={project}
+          selectedLayerId={selectedLayer.id}
+          onClose={() => setPreviewOpen(false)}
+          onExport={exportZip}
+          onProjectChange={updateProject}
+          onTileError={handleTileError}
+        />
+      )}
     </main>
   );
 }
@@ -746,6 +842,22 @@ function RangeInput(props: { label: string; value: number; min: number; max: num
       <input type="range" min={props.min} max={props.max} step={props.step} value={props.value} onChange={(event) => props.onChange(Number(event.target.value))} />
     </label>
   );
+}
+
+function geometryKindOf(geometryType: string): GeometryKind {
+  if (geometryType.includes("Point")) return "point";
+  if (geometryType.includes("Line")) return "line";
+  if (geometryType.includes("Polygon")) return "polygon";
+  return "unknown";
+}
+
+function isDrawModeAllowed(drawMode: DrawMode, geometryKind: GeometryKind): boolean {
+  if (drawMode === "point") return geometryKind === "point";
+  if (drawMode === "linestring") return geometryKind === "line";
+  if (drawMode === "polygon" || drawMode === "rectangle" || drawMode === "circle") {
+    return geometryKind === "polygon";
+  }
+  return true;
 }
 
 function hydrateProject(project: Qgis2webProject): Qgis2webProject {

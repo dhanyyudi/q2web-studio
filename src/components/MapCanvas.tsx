@@ -22,14 +22,17 @@ type MapCanvasProps = {
   project: Qgis2webProject;
   selectedLayerId: string;
   drawMode: DrawMode;
+  preview?: boolean;
+  onTileError?: (message: string) => void;
   onProjectChange: (project: Qgis2webProject) => void;
 };
 
-export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange }: MapCanvasProps) {
+export function MapCanvas({ project, selectedLayerId, drawMode, preview = false, onTileError, onProjectChange }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const basemapRef = useRef<L.TileLayer | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
+  const tileErrorShownRef = useRef(false);
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
   const selectedLayer = useMemo(
     () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
@@ -57,12 +60,18 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
     if (!map) return;
     basemapRef.current?.remove();
     basemapRef.current = null;
+    tileErrorShownRef.current = false;
     const basemap = createBasemap(project.mapSettings.basemap);
     if (basemap) {
+      basemap.on("tileerror", () => {
+        if (tileErrorShownRef.current) return;
+        tileErrorShownRef.current = true;
+        onTileError?.("Basemap failed to load. Check your connection or pick a different basemap.");
+      });
       basemap.addTo(map);
       basemapRef.current = basemap;
     }
-  }, [project.mapSettings.basemap]);
+  }, [onTileError, project.mapSettings.basemap]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -110,6 +119,12 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
 
   useEffect(() => {
     const map = mapRef.current;
+    if (preview) {
+      drawRef.current?.stop();
+      drawRef.current = null;
+      setDrawStatus("Preview mode");
+      return;
+    }
     if (!map || !selectedLayer) return;
     drawRef.current?.stop();
     drawRef.current = null;
@@ -191,13 +206,14 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
       draw.stop();
       drawRef.current = null;
     };
-  }, [drawMode, selectedLayerId]);
+  }, [drawMode, preview, selectedLayerId]);
 
   useEffect(() => {
+    if (preview) return;
     if (!drawRef.current) return;
     drawRef.current.setMode(drawMode === "delete" ? "select" : drawMode);
     setDrawStatus(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}`);
-  }, [drawMode]);
+  }, [drawMode, preview]);
 
   return (
     <section className="map-shell">
@@ -225,7 +241,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
           <LegendRow key={item.id} item={item} />
         ))}
       </aside>
-      <div className="draw-status">{drawStatus}</div>
+      {!preview && <div className="draw-status">{drawStatus}</div>}
       {project.branding.showFooter && <div className="map-footer-preview">{project.branding.footer}</div>}
     </section>
   );
@@ -235,16 +251,19 @@ function createBasemap(basemap: BasemapId): L.TileLayer | null {
   if (basemap === "none") return null;
   if (basemap === "esri-imagery") {
     return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-      attribution: "Tiles &copy; Esri"
+      attribution: "Tiles &copy; Esri",
+      crossOrigin: "anonymous"
     });
   }
   if (basemap === "carto-voyager") {
     return L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+      crossOrigin: "anonymous"
     });
   }
   return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "OpenStreetMap"
+    attribution: "OpenStreetMap",
+    crossOrigin: "anonymous"
   });
 }
 
