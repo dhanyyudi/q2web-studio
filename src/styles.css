@@ -135,6 +135,9 @@ button:disabled {
   display: grid;
   grid-template-columns: 292px minmax(580px, 1fr) 338px;
   min-height: calc(100vh - 68px);
+  min-width: 0;
+  max-width: 100vw;
+  overflow: hidden;
 }
 
 .side-panel,
@@ -154,6 +157,8 @@ button:disabled {
 
 .main-stage {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   display: grid;
   grid-template-rows: 46px minmax(360px, 1fr) 230px;
   background: #dfe8eb;
@@ -485,6 +490,9 @@ button:disabled {
 
 .attribute-panel {
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   border-top: 1px solid #ccd9de;
   background: #ffffff;
 }
@@ -507,20 +515,35 @@ button:disabled {
 
 .table-scroll {
   height: 181px;
+  width: 100%;
+  max-width: 100%;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 table {
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   font-size: 12px;
+  table-layout: fixed;
 }
 
 th,
 td {
+  width: 160px;
+  max-width: 220px;
   border: 1px solid #e2e9eb;
   padding: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+th:first-child,
+td:first-child {
+  width: 54px;
+  max-width: 54px;
 }
 
 th {
@@ -532,7 +555,8 @@ th {
 }
 
 td input {
-  width: 160px;
+  width: 100%;
+  min-width: 0;
   border: 0;
   outline: 0;
   background: transparent;

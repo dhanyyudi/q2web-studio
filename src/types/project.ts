@@ -109,6 +109,16 @@ export type MapSettings = {
   viewMode: MapViewMode;
 };
 
+export type PopupSettings = {
+  style: "compact" | "card" | "minimal";
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  labelColor: string;
+  radius: number;
+  shadow: number;
+};
+
 export type TextAnnotation = Feature<
   Geometry,
   GeoJsonProperties & {
@@ -129,6 +139,7 @@ export type Qgis2webProject = {
   branding: BrandingSettings;
   theme: ThemeSettings;
   mapSettings: MapSettings;
+  popupSettings: PopupSettings;
   manualLegendItems: LegendItem[];
   textAnnotations: TextAnnotation[];
   diagnostics: string[];

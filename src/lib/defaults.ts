@@ -1,4 +1,4 @@
-import type { BrandingSettings, LayerStyle, MapSettings, Qgis2webProject, ThemeSettings } from "../types/project";
+import type { BrandingSettings, LayerStyle, MapSettings, PopupSettings, Qgis2webProject, ThemeSettings } from "../types/project";
 
 export const defaultTheme: ThemeSettings = {
   accent: "#156f7a",
@@ -26,6 +26,16 @@ export const defaultBranding: BrandingSettings = {
 export const defaultMapSettings: MapSettings = {
   basemap: "carto-voyager",
   viewMode: "all"
+};
+
+export const defaultPopupSettings: PopupSettings = {
+  style: "card",
+  accentColor: "#156f7a",
+  backgroundColor: "#ffffff",
+  textColor: "#172026",
+  labelColor: "#4b5b66",
+  radius: 10,
+  shadow: 22
 };
 
 export const emptyProject: Qgis2webProject | null = null;

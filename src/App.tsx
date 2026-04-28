@@ -34,6 +34,7 @@ import { addField, deleteField, renameField, updateFeatureProperty, updateLayer 
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
+import { defaultPopupSettings } from "./lib/defaults";
 import type {
   BasemapId,
   DrawMode,
@@ -268,6 +269,14 @@ export function App() {
   ) {
     if (!project) return;
     updateProject({ ...project, mapSettings: { ...project.mapSettings, [key]: value } });
+  }
+
+  function setPopupSetting<K extends keyof Qgis2webProject["popupSettings"]>(
+    key: K,
+    value: Qgis2webProject["popupSettings"][K]
+  ) {
+    if (!project) return;
+    updateProject({ ...project, popupSettings: { ...project.popupSettings, [key]: value } });
   }
 
   function addManualLegend() {
@@ -593,6 +602,23 @@ export function App() {
                     ]}
                     onChange={(value) => setMapSetting("viewMode", value as MapViewMode)}
                   />
+                  <PanelTitle title="Popup Style" />
+                  <SelectField
+                    label="Popup style"
+                    value={project.popupSettings.style}
+                    onChange={(style) => setPopupSetting("style", style as Qgis2webProject["popupSettings"]["style"])}
+                    options={[
+                      { value: "card", label: "Card" },
+                      { value: "compact", label: "Compact" },
+                      { value: "minimal", label: "Minimal" }
+                    ]}
+                  />
+                  <ColorInput label="Accent" value={project.popupSettings.accentColor} onChange={(accentColor) => setPopupSetting("accentColor", accentColor)} />
+                  <ColorInput label="Background" value={project.popupSettings.backgroundColor} onChange={(backgroundColor) => setPopupSetting("backgroundColor", backgroundColor)} />
+                  <ColorInput label="Text" value={project.popupSettings.textColor} onChange={(textColor) => setPopupSetting("textColor", textColor)} />
+                  <ColorInput label="Label" value={project.popupSettings.labelColor} onChange={(labelColor) => setPopupSetting("labelColor", labelColor)} />
+                  <RangeInput label="Radius" value={project.popupSettings.radius} min={0} max={22} step={1} onChange={(radius) => setPopupSetting("radius", radius)} />
+                  <RangeInput label="Shadow" value={project.popupSettings.shadow} min={0} max={42} step={1} onChange={(shadow) => setPopupSetting("shadow", shadow)} />
                 </Tabs.Content>
               </Tabs.Root>
             ) : selectedLayer ? (
@@ -864,6 +890,10 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
   return {
     ...project,
     mapSettings: project.mapSettings || { basemap: "carto-voyager", viewMode: "all" },
+    popupSettings: {
+      ...defaultPopupSettings,
+      ...(project.popupSettings || {})
+    },
     theme: {
       ...project.theme,
       headerHeight: project.theme.headerHeight ?? 48

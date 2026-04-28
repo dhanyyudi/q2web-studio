@@ -28,6 +28,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     branding: project.branding,
     theme: project.theme,
     mapSettings: project.mapSettings,
+    popupSettings: project.popupSettings,
     layers: project.layers.map((layer) => ({
       id: layer.id,
       displayName: layer.displayName,

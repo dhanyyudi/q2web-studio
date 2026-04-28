@@ -235,6 +235,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
         </div>
       )}
       <div ref={containerRef} className="map-canvas" />
+      <style>{popupCss(project)}</style>
       <aside className="legend-preview">
         <h3>Legenda</h3>
         {allLegendItems(visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode), project.manualLegendItems).map((item) => (
@@ -301,6 +302,58 @@ function buildPopup(layer: LayerManifest, feature: Feature): string {
     })
     .join("");
   return `<table class="studio-popup">${rows}</table>`;
+}
+
+function popupCss(project: Qgis2webProject): string {
+  const popup = project.popupSettings;
+  const border = popup.style === "minimal" ? "0" : `1px solid ${popup.accentColor}`;
+  const headerBg = popup.style === "compact" ? "transparent" : colorMix(popup.accentColor, "#ffffff", 0.09);
+  return `
+    .leaflet-popup-content-wrapper {
+      border: ${border};
+      border-radius: ${popup.radius}px;
+      background: ${popup.backgroundColor};
+      color: ${popup.textColor};
+      box-shadow: 0 ${Math.max(6, popup.shadow / 2)}px ${Math.max(14, popup.shadow)}px rgba(0, 0, 0, 0.22);
+    }
+    .leaflet-popup-tip {
+      background: ${popup.backgroundColor};
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+    }
+    .studio-popup {
+      border-collapse: collapse;
+      min-width: 210px;
+      max-width: 340px;
+      font: 12px Inter, Segoe UI, Arial, sans-serif;
+    }
+    .studio-popup th,
+    .studio-popup td {
+      border: 1px solid rgba(82, 103, 113, 0.18);
+      padding: ${popup.style === "compact" ? "5px 7px" : "7px 9px"};
+      vertical-align: top;
+    }
+    .studio-popup th {
+      width: 42%;
+      background: ${headerBg};
+      color: ${popup.labelColor};
+      font-weight: 750;
+      text-align: left;
+    }
+    .studio-popup strong {
+      color: ${popup.accentColor};
+    }
+  `;
+}
+
+function colorMix(color: string, fallback: string, opacity: number): string {
+  const hex = color.startsWith("#") ? color.slice(1) : "";
+  if (![3, 6].includes(hex.length)) return fallback;
+  const normalized = hex.length === 3 ? hex.split("").map((char) => char + char).join("") : hex;
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  if ([r, g, b].some((value) => Number.isNaN(value))) return fallback;
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
 function projectBounds(layers: LayerManifest[]): L.LatLngBounds | null {

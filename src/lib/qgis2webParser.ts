@@ -1,5 +1,5 @@
 import type { Feature, FeatureCollection } from "geojson";
-import { defaultBranding, defaultLayerStyle, defaultMapSettings, defaultTheme } from "./defaults";
+import { defaultBranding, defaultLayerStyle, defaultMapSettings, defaultPopupSettings, defaultTheme } from "./defaults";
 import { opacityFromRgba, rgbaToHex } from "./colors";
 import type { LayerManifest, LegendSymbolType, PopupField, Qgis2webProject, VirtualFile } from "../types/project";
 import { isFeatureCollection } from "../types/project";
@@ -88,6 +88,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
     },
     theme: defaultTheme,
     mapSettings: defaultMapSettings,
+    popupSettings: defaultPopupSettings,
     manualLegendItems: [],
     textAnnotations: [],
     diagnostics: detectedEngine === "leaflet" ? [] : ["Parser menemukan export non-Leaflet. MVP hanya mendukung Leaflet."]

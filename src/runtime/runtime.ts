@@ -136,6 +136,42 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
+  function applyPopupStyle(config) {
+    var popup = config.popupSettings || {};
+    var accent = popup.accentColor || "#156f7a";
+    var background = popup.backgroundColor || "#ffffff";
+    var text = popup.textColor || "#172026";
+    var label = popup.labelColor || "#4b5b66";
+    var radius = Number(popup.radius == null ? 10 : popup.radius);
+    var shadow = Number(popup.shadow == null ? 22 : popup.shadow);
+    var style = popup.style || "card";
+    var border = style === "minimal" ? "0" : "1px solid " + accent;
+    var padding = style === "compact" ? "5px 7px" : "7px 9px";
+    var css = [
+      ".leaflet-popup-content-wrapper{border:" + border + ";border-radius:" + radius + "px;background:" + background + ";color:" + text + ";box-shadow:0 " + Math.max(6, shadow / 2) + "px " + Math.max(14, shadow) + "px rgba(0,0,0,.22);}",
+      ".leaflet-popup-tip{background:" + background + ";box-shadow:0 8px 18px rgba(0,0,0,.16);}",
+      ".studio-popup{border-collapse:collapse;min-width:210px;max-width:340px;font:12px Inter,Segoe UI,Arial,sans-serif;}",
+      ".studio-popup th,.studio-popup td{border:1px solid rgba(82,103,113,.18);padding:" + padding + ";vertical-align:top;}",
+      ".studio-popup th{width:42%;background:" + rgbaFromHex(accent, style === "compact" ? 0 : 0.09) + ";color:" + label + ";font-weight:750;text-align:left;}",
+      ".studio-popup strong{color:" + accent + ";}"
+    ].join("");
+    var styleEl = createEl("style", { id: "q2ws-popup-style" }, css);
+    document.head.appendChild(styleEl);
+  }
+
+  function rgbaFromHex(hex, opacity) {
+    var value = String(hex || "").replace("#", "");
+    if (value.length === 3) {
+      value = value.split("").map(function (char) { return char + char; }).join("");
+    }
+    if (value.length !== 6) return "transparent";
+    var r = parseInt(value.slice(0, 2), 16);
+    var g = parseInt(value.slice(2, 4), 16);
+    var b = parseInt(value.slice(4, 6), 16);
+    if ([r, g, b].some(function (channel) { return Number.isNaN(channel); })) return "transparent";
+    return "rgba(" + r + "," + g + "," + b + "," + opacity + ")";
+  }
+
   function escapeHtml(value) {
     return String(value || "").replace(/[&<>"']/g, function (char) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char];
@@ -154,6 +190,7 @@ export const q2wsRuntime = String.raw`(function () {
         applyBasemap(config);
         applyBranding(config);
         applyLayerConfig(config);
+        applyPopupStyle(config);
         applyLegend(config);
         applyTextAnnotations(config);
       })
