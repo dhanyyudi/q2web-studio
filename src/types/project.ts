@@ -21,6 +21,8 @@ export type LayerStyle = {
   pointRadius: number;
   textColor: string;
   textSize: number;
+  symbolType: LegendSymbolType;
+  sourceImagePath: string;
   categoryField: string;
   categories: LayerCategoryStyle[];
 };
@@ -30,6 +32,10 @@ export type LayerCategoryStyle = {
   label: string;
   fillColor: string;
   strokeColor: string;
+  strokeWidth: number;
+  dashArray: string;
+  symbolType: LegendSymbolType;
+  sourceImagePath: string;
   visible: boolean;
 };
 
@@ -64,6 +70,7 @@ export type ThemeSettings = {
   radius: number;
   shadow: number;
   fontFamily: string;
+  headerHeight: number;
 };
 
 export type BrandingSettings = {
@@ -75,15 +82,31 @@ export type BrandingSettings = {
   showWelcome: boolean;
   showSidebar: boolean;
   logoPath: string;
+  logoPlacement: "left" | "center" | "right" | "hidden";
 };
+
+export type LegendSymbolType = "polygon" | "line" | "point" | "image";
 
 export type LegendItem = {
   id: string;
   label: string;
   fillColor: string;
   strokeColor: string;
+  strokeWidth: number;
+  dashArray: string;
+  symbolType: LegendSymbolType;
+  sourceImagePath: string;
   layerId?: string;
   visible: boolean;
+};
+
+export type BasemapId = "osm" | "carto-voyager" | "esri-imagery" | "none";
+
+export type MapViewMode = "all" | "selected";
+
+export type MapSettings = {
+  basemap: BasemapId;
+  viewMode: MapViewMode;
 };
 
 export type TextAnnotation = Feature<
@@ -105,6 +128,7 @@ export type Qgis2webProject = {
   layers: LayerManifest[];
   branding: BrandingSettings;
   theme: ThemeSettings;
+  mapSettings: MapSettings;
   manualLegendItems: LegendItem[];
   textAnnotations: TextAnnotation[];
   diagnostics: string[];

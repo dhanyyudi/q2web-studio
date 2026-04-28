@@ -15,8 +15,8 @@ export function styleForFeature(layer: LayerManifest, feature?: Feature): PathOp
     fillColor,
     fillOpacity: layer.style.fillOpacity,
     opacity: layer.style.strokeOpacity,
-    weight: layer.style.strokeWidth,
-    dashArray: layer.style.dashArray || undefined
+    weight: category?.strokeWidth || layer.style.strokeWidth,
+    dashArray: category?.dashArray || layer.style.dashArray || undefined
   };
 }
 
@@ -32,6 +32,10 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
         label: item.label || item.value,
         fillColor: item.fillColor,
         strokeColor: item.strokeColor,
+        strokeWidth: item.strokeWidth,
+        dashArray: item.dashArray,
+        symbolType: item.symbolType,
+        sourceImagePath: item.sourceImagePath,
         layerId: layer.id,
         visible: true
       }));
@@ -42,6 +46,10 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
       label: layer.displayName,
       fillColor: layer.style.fillColor,
       strokeColor: layer.style.strokeColor,
+      strokeWidth: layer.style.strokeWidth,
+      dashArray: layer.style.dashArray,
+      symbolType: layer.style.symbolType,
+      sourceImagePath: layer.style.sourceImagePath,
       layerId: layer.id,
       visible: true
     }

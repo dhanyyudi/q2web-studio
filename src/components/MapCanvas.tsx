@@ -14,7 +14,8 @@ import type { GeoJSONStoreFeatures } from "terra-draw";
 import { TerraDrawLeafletAdapter } from "terra-draw-leaflet-adapter";
 import type { Feature, FeatureCollection } from "geojson";
 import { styleForFeature } from "../lib/style";
-import type { DrawMode, LayerManifest, Qgis2webProject, TextAnnotation } from "../types/project";
+import { allLegendItems } from "../lib/style";
+import type { BasemapId, DrawMode, LayerManifest, LegendItem, Qgis2webProject, TextAnnotation } from "../types/project";
 import { updateLayerGeojson } from "../lib/projectUpdates";
 
 type MapCanvasProps = {
@@ -27,6 +28,7 @@ type MapCanvasProps = {
 export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const basemapRef = useRef<L.TileLayer | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
   const selectedLayer = useMemo(
@@ -41,9 +43,6 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
       preferCanvas: true
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "OpenStreetMap"
-    }).addTo(map);
     mapRef.current = map;
     return () => {
       drawRef.current?.stop();
@@ -56,9 +55,21 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    basemapRef.current?.remove();
+    basemapRef.current = null;
+    const basemap = createBasemap(project.mapSettings.basemap);
+    if (basemap) {
+      basemap.addTo(map);
+      basemapRef.current = basemap;
+    }
+  }, [project.mapSettings.basemap]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
     const layerGroup = L.layerGroup().addTo(map);
 
-    project.layers.forEach((layer) => {
+    visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode).forEach((layer) => {
       if (!layer.visible) return;
       const geoLayer = L.geoJSON(layer.geojson, {
         style: (feature) => styleForFeature(layer, feature as Feature),
@@ -87,7 +98,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
       }).addTo(layerGroup);
     });
 
-    const bounds = projectBounds(project.layers);
+    const bounds = projectBounds(visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode));
     if (bounds) {
       map.fitBounds(bounds, { padding: [28, 28] });
     }
@@ -95,7 +106,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
     return () => {
       layerGroup.remove();
     };
-  }, [project.layers, project.textAnnotations]);
+  }, [project.layers, project.textAnnotations, project.mapSettings.viewMode, selectedLayerId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -190,40 +201,73 @@ export function MapCanvas({ project, selectedLayerId, drawMode, onProjectChange 
 
   return (
     <section className="map-shell">
-      <div className="map-header-preview" style={{ background: project.theme.accent }}>
-        <strong>{project.branding.title}</strong>
-        <span>{project.branding.subtitle}</span>
-      </div>
+      {project.branding.showHeader && (
+        <div
+          className={`map-header-preview logo-${project.branding.logoPlacement}`}
+          style={{
+            background: project.theme.accent,
+            minHeight: project.theme.headerHeight,
+            borderRadius: project.theme.radius,
+            boxShadow: `0 ${Math.max(8, project.theme.shadow)}px ${Math.max(16, project.theme.shadow * 1.8)}px rgba(0, 0, 0, 0.22)`
+          }}
+        >
+          {project.branding.logoPath && project.branding.logoPlacement !== "hidden" && <img src={project.branding.logoPath} alt="" />}
+          <div>
+            <strong>{project.branding.title}</strong>
+            <span>{project.branding.subtitle}</span>
+          </div>
+        </div>
+      )}
       <div ref={containerRef} className="map-canvas" />
       <aside className="legend-preview">
         <h3>Legenda</h3>
-        {project.layers.flatMap((layer) =>
-          layer.style.categories.length > 0
-            ? layer.style.categories
-                .filter((category) => category.visible)
-                .map((category) => (
-                  <div className="legend-row" key={`${layer.id}-${category.value}`}>
-                    <span style={{ background: category.fillColor, borderColor: category.strokeColor }} />
-                    {category.label || category.value}
-                  </div>
-                ))
-            : [
-                <div className="legend-row" key={layer.id}>
-                  <span style={{ background: layer.style.fillColor, borderColor: layer.style.strokeColor }} />
-                  {layer.displayName}
-                </div>
-              ]
-        )}
-        {project.manualLegendItems.map((item) => (
-          <div className="legend-row" key={item.id}>
-            <span style={{ background: item.fillColor, borderColor: item.strokeColor }} />
-            {item.label}
-          </div>
+        {allLegendItems(visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode), project.manualLegendItems).map((item) => (
+          <LegendRow key={item.id} item={item} />
         ))}
       </aside>
       <div className="draw-status">{drawStatus}</div>
       {project.branding.showFooter && <div className="map-footer-preview">{project.branding.footer}</div>}
     </section>
+  );
+}
+
+function createBasemap(basemap: BasemapId): L.TileLayer | null {
+  if (basemap === "none") return null;
+  if (basemap === "esri-imagery") {
+    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Tiles &copy; Esri"
+    });
+  }
+  if (basemap === "carto-voyager") {
+    return L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+    });
+  }
+  return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "OpenStreetMap"
+  });
+}
+
+function visiblePreviewLayers(layers: LayerManifest[], selectedLayerId: string, viewMode: string): LayerManifest[] {
+  if (viewMode === "selected") {
+    return layers.filter((layer) => layer.id === selectedLayerId);
+  }
+  return layers;
+}
+
+function LegendRow({ item }: { item: LegendItem }) {
+  return (
+    <div className={`legend-row symbol-${item.symbolType}`}>
+      <span
+        style={{
+          background: item.symbolType === "line" ? "transparent" : item.fillColor,
+          borderColor: item.strokeColor,
+          borderTopWidth: item.symbolType === "line" ? Math.max(2, item.strokeWidth) : undefined,
+          borderStyle: item.dashArray ? "dashed" : "solid"
+        }}
+      />
+      {item.label}
+    </div>
   );
 }
 

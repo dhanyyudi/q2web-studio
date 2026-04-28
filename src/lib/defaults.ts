@@ -1,4 +1,4 @@
-import type { BrandingSettings, LayerStyle, Qgis2webProject, ThemeSettings } from "../types/project";
+import type { BrandingSettings, LayerStyle, MapSettings, Qgis2webProject, ThemeSettings } from "../types/project";
 
 export const defaultTheme: ThemeSettings = {
   accent: "#156f7a",
@@ -7,7 +7,8 @@ export const defaultTheme: ThemeSettings = {
   muted: "#66737f",
   radius: 8,
   shadow: 18,
-  fontFamily: "Inter, Segoe UI, Arial, sans-serif"
+  fontFamily: "Inter, Segoe UI, Arial, sans-serif",
+  headerHeight: 48
 };
 
 export const defaultBranding: BrandingSettings = {
@@ -18,7 +19,13 @@ export const defaultBranding: BrandingSettings = {
   showFooter: true,
   showWelcome: false,
   showSidebar: true,
-  logoPath: ""
+  logoPath: "",
+  logoPlacement: "left"
+};
+
+export const defaultMapSettings: MapSettings = {
+  basemap: "carto-voyager",
+  viewMode: "all"
 };
 
 export const emptyProject: Qgis2webProject | null = null;
@@ -39,6 +46,8 @@ export function defaultLayerStyle(geometryType: string, index: number): LayerSty
     pointRadius: 6,
     textColor: "#172026",
     textSize: 13,
+    symbolType: isLine ? "line" : isPoint ? "point" : "polygon",
+    sourceImagePath: "",
     categoryField: "",
     categories: []
   };

@@ -27,6 +27,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     version: 1,
     branding: project.branding,
     theme: project.theme,
+    mapSettings: project.mapSettings,
     layers: project.layers.map((layer) => ({
       id: layer.id,
       displayName: layer.displayName,

@@ -57,11 +57,32 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
+  function applyBasemap(config) {
+    if (!window.L || !window.map) return;
+    var basemap = config.mapSettings && config.mapSettings.basemap;
+    if (!basemap || basemap === "none") return;
+    var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    var attribution = "OpenStreetMap";
+    if (basemap === "carto-voyager") {
+      url = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+      attribution = "&copy; OpenStreetMap contributors &copy; CARTO";
+    }
+    if (basemap === "esri-imagery") {
+      url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+      attribution = "Tiles &copy; Esri";
+    }
+    window.L.tileLayer(url, { attribution: attribution }).addTo(window.map);
+  }
+
   function applyBranding(config) {
     var branding = config.branding || {};
     if (branding.showHeader) {
       var header = createEl("div", { id: "q2ws-header" });
-      header.innerHTML = "<strong>" + escapeHtml(branding.title || "WebGIS") + "</strong><span>" + escapeHtml(branding.subtitle || "") + "</span>";
+      header.className = "q2ws-logo-" + (branding.logoPlacement || "left");
+      var logo = branding.logoPath && branding.logoPlacement !== "hidden"
+        ? '<img src="' + escapeHtml(branding.logoPath) + '" alt="">'
+        : "";
+      header.innerHTML = logo + "<div><strong>" + escapeHtml(branding.title || "WebGIS") + "</strong><span>" + escapeHtml(branding.subtitle || "") + "</span></div>";
       document.body.insertBefore(header, document.body.firstChild);
     }
     if (branding.showFooter) {
@@ -85,9 +106,15 @@ export const q2wsRuntime = String.raw`(function () {
     config.legend.forEach(function (item) {
       if (item.visible === false) return;
       var row = createEl("div", { class: "q2ws-legend-row" });
-      var swatch = createEl("span", { class: "q2ws-swatch" });
-      swatch.style.background = item.fillColor || "transparent";
+      var swatch = createEl("span", { class: "q2ws-swatch q2ws-symbol-" + (item.symbolType || "polygon") });
+      swatch.style.background = item.symbolType === "line" ? "transparent" : item.fillColor || "transparent";
       swatch.style.borderColor = item.strokeColor || item.fillColor || "#333";
+      if (item.symbolType === "line") {
+        swatch.style.borderTopWidth = Math.max(2, item.strokeWidth || 2) + "px";
+      }
+      if (item.dashArray) {
+        swatch.style.borderStyle = "dashed";
+      }
       row.appendChild(swatch);
       row.appendChild(createEl("span", {}, item.label));
       legend.appendChild(row);
@@ -123,6 +150,8 @@ export const q2wsRuntime = String.raw`(function () {
         document.documentElement.style.setProperty("--q2ws-surface", config.theme.surface);
         document.documentElement.style.setProperty("--q2ws-text", config.theme.text);
         document.documentElement.style.setProperty("--q2ws-radius", config.theme.radius + "px");
+        document.documentElement.style.setProperty("--q2ws-header-height", (config.theme.headerHeight || 48) + "px");
+        applyBasemap(config);
         applyBranding(config);
         applyLayerConfig(config);
         applyLegend(config);
@@ -139,6 +168,7 @@ export const q2wsCss = String.raw`:root {
   --q2ws-surface: #ffffff;
   --q2ws-text: #172026;
   --q2ws-radius: 8px;
+  --q2ws-header-height: 48px;
 }
 
 html, body {
@@ -159,13 +189,38 @@ html, body {
   right: 0;
   z-index: 1200;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--q2ws-header-height);
   padding: 12px 22px;
   font-family: Inter, Segoe UI, Arial, sans-serif;
   background: color-mix(in srgb, var(--q2ws-accent) 88%, #111 12%);
   color: white;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+#q2ws-header.q2ws-logo-center {
+  justify-content: center;
+  text-align: center;
+}
+
+#q2ws-header.q2ws-logo-right {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+#q2ws-header img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.16);
+}
+
+#q2ws-header div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 #q2ws-header span {
@@ -219,6 +274,14 @@ html, body {
   border: 2px solid;
   border-radius: 3px;
   flex: 0 0 auto;
+}
+
+.q2ws-symbol-line {
+  height: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0;
 }
 
 #q2ws-welcome {
