@@ -27,7 +27,7 @@ import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
 import { MapCanvas } from "./components/MapCanvas";
 import { ToolbarButton } from "./components/ToolbarButton";
-import { filesFromDirectoryHandle, filesFromFileList } from "./lib/fileImport";
+import { filesFromDataTransferItems, filesFromDirectoryHandle, filesFromFileList } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { addField, deleteField, renameField, updateFeatureProperty, updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
@@ -138,11 +138,33 @@ export function App() {
     }
   }
 
+  async function importVirtualFiles(files: Awaited<ReturnType<typeof filesFromDataTransferItems>>, source: string) {
+    if (files.length === 0) return;
+    setBusy(true);
+    setStatus(`Parsing qgis2web folder from ${source}...`);
+    const toastId = toast.loading("Importing qgis2web folder");
+    try {
+      const parsed = hydrateProject(await parseProjectInWorker(files));
+      setProject(parsed);
+      setSelectedLayerId(parsed.layers[0]?.id || "");
+      await saveProjectToOpfs(parsed);
+      const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
+      setStatus(message);
+      toast.success(message, { id: toastId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Import failed.";
+      setStatus(message);
+      toast.error(message, { id: toastId });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function startImport() {
-    setShowImportDialog(false);
     const directoryPicker = (window as WindowWithDirectoryPicker).showDirectoryPicker;
     if (directoryPicker) {
       try {
+        setShowImportDialog(false);
         const handle = await directoryPicker();
         await importDirectoryHandle(handle);
         return;
@@ -151,9 +173,15 @@ export function App() {
           setStatus("Import cancelled.");
           return;
         }
-        toast.warning("Modern folder picker failed. Falling back to browser upload picker.");
+        toast.error("Modern folder picker failed. Use drag and drop, or choose browser fallback manually.");
+        return;
       }
     }
+    toast.warning("This browser does not expose a stylable folder picker. Drag the folder into the app, or use browser fallback.");
+  }
+
+  function startBrowserFallback() {
+    setShowImportDialog(false);
     inputRef.current?.click();
   }
 
@@ -290,8 +318,13 @@ export function App() {
       <section
         className="workspace"
         onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
+        onDrop={async (event) => {
           event.preventDefault();
+          const droppedFolderFiles = await filesFromDataTransferItems(event.dataTransfer.items);
+          if (droppedFolderFiles.length > 0) {
+            await importVirtualFiles(droppedFolderFiles, "drag and drop");
+            return;
+          }
           importFiles(event.dataTransfer.files);
         }}
       >
@@ -526,13 +559,24 @@ export function App() {
           <Dialog.Content className="dialog-content">
             <Dialog.Title>Import qgis2web folder</Dialog.Title>
             <Dialog.Description>
-              qgis2web Studio reads the selected folder locally in your browser. The folder is not uploaded to a server.
+              qgis2web Studio reads the selected folder locally in your browser. Use the modern picker or drag the folder into the workspace to avoid the browser upload warning.
             </Dialog.Description>
+            <div className="import-choice-grid">
+              <div className="import-choice">
+                <strong>Recommended</strong>
+                <span>Uses File System Access API. No browser upload confirmation dialog.</span>
+              </div>
+              <div className="import-choice muted">
+                <strong>Fallback</strong>
+                <span>Only for browsers without modern folder access. The browser may show its own upload warning.</span>
+              </div>
+            </div>
             <div className="dialog-actions">
               <Dialog.Close asChild>
                 <button type="button" className="btn">Cancel</button>
               </Dialog.Close>
-              <button type="button" className="btn primary" onClick={startImport}>Choose Folder</button>
+              <button type="button" className="btn" onClick={startBrowserFallback}>Browser Fallback</button>
+              <button type="button" className="btn primary" onClick={startImport}>Open Folder Picker</button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

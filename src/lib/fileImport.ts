@@ -14,10 +14,30 @@ type FileSystemDirectoryHandleLike = {
   values: () => AsyncIterable<FileSystemFileHandleLike | FileSystemDirectoryHandleLike>;
 };
 
+type DataTransferItemWithEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => FileSystemEntry | null;
+};
+
 export async function filesFromFileList(fileList: FileList): Promise<VirtualFile[]> {
   const files = Array.from(fileList);
   const virtualFiles = await Promise.all(files.map((file) => readFile(file)));
   return virtualFiles.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+export async function filesFromDataTransferItems(items: DataTransferItemList): Promise<VirtualFile[]> {
+  const entries = Array.from(items)
+    .map((item) => (item as DataTransferItemWithEntry).webkitGetAsEntry?.())
+    .filter((entry): entry is FileSystemEntry => Boolean(entry));
+
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const files: VirtualFile[] = [];
+  for (const entry of entries) {
+    await readWebkitEntry(entry, entry.name, files);
+  }
+  return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 export async function filesFromDirectoryHandle(handle: FileSystemDirectoryHandleLike): Promise<VirtualFile[]> {
@@ -39,6 +59,46 @@ async function readDirectoryHandle(
       files.push(await readFile(await entry.getFile(), path));
     }
   }
+}
+
+async function readWebkitEntry(entry: FileSystemEntry, path: string, files: VirtualFile[]): Promise<void> {
+  if (entry.isFile) {
+    const file = await readWebkitFile(entry as FileSystemFileEntry);
+    files.push(await readFile(file, path));
+    return;
+  }
+
+  if (entry.isDirectory) {
+    const children = await readAllWebkitEntries(entry as FileSystemDirectoryEntry);
+    for (const child of children) {
+      await readWebkitEntry(child, `${path}/${child.name}`, files);
+    }
+  }
+}
+
+function readWebkitFile(entry: FileSystemFileEntry): Promise<File> {
+  return new Promise((resolve, reject) => {
+    entry.file(resolve, reject);
+  });
+}
+
+function readAllWebkitEntries(entry: FileSystemDirectoryEntry): Promise<FileSystemEntry[]> {
+  const reader = entry.createReader();
+  const entries: FileSystemEntry[] = [];
+
+  return new Promise((resolve, reject) => {
+    const readBatch = () => {
+      reader.readEntries((batch) => {
+        if (batch.length === 0) {
+          resolve(entries);
+          return;
+        }
+        entries.push(...batch);
+        readBatch();
+      }, reject);
+    };
+    readBatch();
+  });
 }
 
 async function readFile(file: File, pathOverride?: string): Promise<VirtualFile> {
