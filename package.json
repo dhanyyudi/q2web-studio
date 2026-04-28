@@ -1,0 +1,44 @@
+{
+  "name": "qgis2web-studio",
+  "version": "0.1.0",
+  "description": "A browser-first low-code editor for qgis2web Leaflet exports.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "smoke:fixture": "tsx scripts/smoke-fixture.ts"
+  },
+  "dependencies": {
+    "@turf/bbox": "^7.3.5",
+    "jszip": "^3.10.1",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "terra-draw": "^1.28.8",
+    "terra-draw-leaflet-adapter": "^1.2.0"
+  },
+  "keywords": [
+    "qgis",
+    "qgis2web",
+    "leaflet",
+    "webgis",
+    "geojson",
+    "gis",
+    "low-code",
+    "spatial-data",
+    "terra-draw"
+  ],
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16",
+    "@types/leaflet": "^1.9.16",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}
