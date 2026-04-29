@@ -20,6 +20,7 @@ import { ChevronDown, ChevronRight, Layers3 } from "lucide-react";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
 import type { LegendGroup } from "../lib/style";
 import { styleForFeature } from "../lib/style";
+import { shouldSimplifyLayer, simplifyLayersForPreview } from "../lib/simplifyClient";
 import type { BasemapId, DrawMode, LayerManifest, LegendItem, Qgis2webProject, TextAnnotation } from "../types/project";
 import { updateLayerGeojson } from "../lib/projectUpdates";
 
@@ -53,6 +54,8 @@ export function MapCanvas({
   const tileErrorShownRef = useRef(false);
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
   const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
+  const [mapZoom, setMapZoom] = useState(12);
+  const [simplifiedLayers, setSimplifiedLayers] = useState<Record<string, FeatureCollection>>({});
   const selectedLayer = useMemo(
     () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
     [project.layers, selectedLayerId]
@@ -71,6 +74,14 @@ export function MapCanvas({
         : [{ id: "all", label: "Layers", items: allLegendItems(visibleLayers, project.manualLegendItems) }],
     [project.legendSettings.groupByLayer, project.manualLegendItems, visibleLayers]
   );
+  const renderLayers = useMemo(
+    () =>
+      visibleLayers.map((layer) => {
+        const simplified = simplifiedLayers[layer.id];
+        return simplified ? { ...layer, geojson: simplified } : layer;
+      }),
+    [simplifiedLayers, visibleLayers]
+  );
 
   useEffect(() => {
     setLegendOpen(!project.legendSettings.collapsed);
@@ -83,14 +94,39 @@ export function MapCanvas({
       preferCanvas: true
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
+    const updateZoom = () => setMapZoom(map.getZoom());
+    map.on("zoomend", updateZoom);
     mapRef.current = map;
     return () => {
+      map.off("zoomend", updateZoom);
       drawRef.current?.stop();
       drawRef.current = null;
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const candidates = visibleLayers.filter((layer) => shouldSimplifyLayer(layer, mapZoom));
+    if (candidates.length === 0) {
+      setSimplifiedLayers({});
+      return;
+    }
+    let cancelled = false;
+    simplifyLayersForPreview(candidates, mapZoom)
+      .then((next) => {
+        if (!cancelled) setSimplifiedLayers(next);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn("Preview simplification failed", error);
+          setSimplifiedLayers({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapZoom, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -115,7 +151,7 @@ export function MapCanvas({
     if (!map) return;
     const layerGroup = L.layerGroup().addTo(map);
 
-    visibleLayers.forEach((layer) => {
+    renderLayers.forEach((layer) => {
       const clusterPoints = shouldClusterLayer(layer);
       const geoLayer = L.geoJSON(layer.geojson, {
         style: (feature) => styleForFeature(layer, feature as Feature),
@@ -158,7 +194,7 @@ export function MapCanvas({
       }).addTo(layerGroup);
     });
 
-    const bounds = projectBounds(visibleLayers);
+    const bounds = projectBounds(renderLayers);
     if (bounds && project.mapSettings.initialZoomMode === "fixed") {
       map.setView(bounds.getCenter(), project.mapSettings.initialZoom);
     } else if (bounds) {
@@ -168,7 +204,7 @@ export function MapCanvas({
     return () => {
       layerGroup.remove();
     };
-  }, [project.mapSettings.initialZoom, project.mapSettings.initialZoomMode, project.textAnnotations, visibleLayers]);
+  }, [project.mapSettings.initialZoom, project.mapSettings.initialZoomMode, project.textAnnotations, renderLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -378,9 +414,33 @@ function LegendPanel({
 
 function createBasemap(basemap: BasemapId): L.TileLayer | null {
   if (basemap === "none") return null;
+  if (basemap === "osm-hot") {
+    return L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors, Tiles style by HOT",
+      crossOrigin: "anonymous"
+    });
+  }
   if (basemap === "esri-imagery") {
     return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
       attribution: "Tiles &copy; Esri",
+      crossOrigin: "anonymous"
+    });
+  }
+  if (basemap === "esri-topo") {
+    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Tiles &copy; Esri",
+      crossOrigin: "anonymous"
+    });
+  }
+  if (basemap === "esri-streets") {
+    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Tiles &copy; Esri",
+      crossOrigin: "anonymous"
+    });
+  }
+  if (basemap === "stadia-terrain") {
+    return L.tileLayer("https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors",
       crossOrigin: "anonymous"
     });
   }
@@ -505,7 +565,7 @@ function colorMix(color: string, fallback: string, opacity: number): string {
 }
 
 function projectBounds(layers: LayerManifest[]): L.LatLngBounds | null {
-  const collections = layers.filter((layer) => layer.visible).map((layer) => layer.geojson);
+  const collections = layers.map((layer) => layer.geojson);
   if (collections.length === 0) return null;
   const box = bbox({
     type: "FeatureCollection",

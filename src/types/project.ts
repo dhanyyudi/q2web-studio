@@ -100,7 +100,15 @@ export type LegendItem = {
   visible: boolean;
 };
 
-export type BasemapId = "osm" | "carto-voyager" | "esri-imagery" | "none";
+export type BasemapId =
+  | "osm"
+  | "osm-hot"
+  | "carto-voyager"
+  | "esri-imagery"
+  | "esri-topo"
+  | "esri-streets"
+  | "stadia-terrain"
+  | "none";
 
 export type MapViewMode = "all" | "selected";
 export type InitialZoomMode = "fit" | "fixed";

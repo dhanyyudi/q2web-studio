@@ -15,11 +15,13 @@ import {
   Paintbrush,
   PenLine,
   Plus,
+  Redo2,
   Save,
   Settings2,
   Square,
   Trash2,
   Type,
+  Undo2,
   Wand2
 } from "lucide-react";
 import bbox from "@turf/bbox";
@@ -34,7 +36,7 @@ import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from 
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { logoFileToDataUrl } from "./lib/logo";
 import { updateLayer } from "./lib/projectUpdates";
-import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
+import { loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
 import { defaultLegendSettings, defaultMapSettings, defaultPopupSettings } from "./lib/defaults";
@@ -51,8 +53,12 @@ import type {
 
 const BASEMAP_LABELS: Record<BasemapId, string> = {
   osm: "OpenStreetMap",
+  "osm-hot": "OpenStreetMap HOT",
   "carto-voyager": "Carto Voyager",
   "esri-imagery": "Esri World Imagery",
+  "esri-topo": "Esri World Topographic",
+  "esri-streets": "Esri World Street",
+  "stadia-terrain": "Stamen Terrain",
   none: "None"
 };
 
@@ -60,6 +66,7 @@ type InspectorMode = "project" | "layer";
 type GeometryKind = "point" | "line" | "polygon" | "unknown";
 
 const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
+const HISTORY_LIMIT = 30;
 
 export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -80,6 +87,10 @@ export function App() {
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
   const [renameTo, setRenameTo] = useState("");
+  const [history, setHistory] = useState<{ past: Qgis2webProject[]; future: Qgis2webProject[] }>({
+    past: [],
+    future: []
+  });
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: TABLE_LAYOUT_STORAGE_KEY,
     panelIds: ["map", "attributes"]
@@ -97,14 +108,21 @@ export function App() {
   useEffect(() => {
     inputRef.current?.setAttribute("webkitdirectory", "");
     inputRef.current?.setAttribute("directory", "");
-    loadProjectFromOpfs().then((cached) => {
-      if (cached && !project) {
-        const hydrated = hydrateProject(cached);
-        setProject(hydrated);
-        setSelectedLayerId(hydrated.layers[0]?.id || "");
-        setStatus("Last project restored from browser cache.");
-      }
-    });
+    loadProjectFromOpfs()
+      .then((cached) => {
+        if (cached && !project) {
+          const hydrated = hydrateProject(cached);
+          setProject(hydrated);
+          setSelectedLayerId(hydrated.layers[0]?.id || "");
+          setHistory({ past: [], future: [] });
+          setStatus("Last project restored from browser cache.");
+        }
+      })
+      .catch((error) => {
+        const message = opfsErrorMessage(error);
+        setStatus(message);
+        toast.warning(message);
+      });
   }, []);
 
   useEffect(() => {
@@ -145,6 +163,7 @@ export function App() {
       const parsed = hydrateProject(await parseProjectInWorker(files));
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
+      setHistory({ past: [], future: [] });
       warnAboutLargeDatasets(parsed);
       await persistProject(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
@@ -176,6 +195,7 @@ export function App() {
       const parsed = hydrateProject(await parseProjectInWorker(files));
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
+      setHistory({ past: [], future: [] });
       warnAboutLargeDatasets(parsed);
       await persistProject(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${file.name}.`;
@@ -199,6 +219,7 @@ export function App() {
       const parsed = hydrateProject(await parseProjectInWorker(files));
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
+      setHistory({ past: [], future: [] });
       warnAboutLargeDatasets(parsed);
       await persistProject(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
@@ -242,8 +263,43 @@ export function App() {
 
   function updateProject(next: Qgis2webProject) {
     const hydrated = hydrateProject(next);
+    if (project) {
+      setHistory((current) => ({
+        past: [...current.past.slice(-(HISTORY_LIMIT - 1)), project],
+        future: []
+      }));
+    }
     setProject(hydrated);
     void saveProjectToOpfs(hydrated).then(showOpfsWarning).catch(() => undefined);
+  }
+
+  function restoreProject(next: Qgis2webProject) {
+    const hydrated = hydrateProject(next);
+    setProject(hydrated);
+    setSelectedLayerId((current) => (hydrated.layers.some((layer) => layer.id === current) ? current : hydrated.layers[0]?.id || ""));
+    void saveProjectToOpfs(hydrated).then(showOpfsWarning).catch(() => undefined);
+  }
+
+  function undoProject() {
+    if (!project) return;
+    const previous = history.past[history.past.length - 1];
+    if (!previous) return;
+    restoreProject(previous);
+    setHistory({
+      past: history.past.slice(0, -1),
+      future: [project, ...history.future].slice(0, HISTORY_LIMIT)
+    });
+  }
+
+  function redoProject() {
+    if (!project) return;
+    const next = history.future[0];
+    if (!next) return;
+    restoreProject(next);
+    setHistory({
+      past: [...history.past.slice(-(HISTORY_LIMIT - 1)), project],
+      future: history.future.slice(1)
+    });
   }
 
   async function persistProject(next: Qgis2webProject, successMessage?: string): Promise<boolean> {
@@ -401,6 +457,12 @@ export function App() {
           </Button>
           <Button type="button" variant="outline" disabled={busy} onClick={startImport}>
             <FolderOpen size={16} /> Import Folder
+          </Button>
+          <Button type="button" variant="outline" disabled={!project || busy || history.past.length === 0} onClick={undoProject}>
+            <Undo2 size={16} /> Undo
+          </Button>
+          <Button type="button" variant="outline" disabled={!project || busy || history.future.length === 0} onClick={redoProject}>
+            <Redo2 size={16} /> Redo
           </Button>
           <Button
             type="button"

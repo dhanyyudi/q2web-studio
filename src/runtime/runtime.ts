@@ -121,6 +121,10 @@ export const q2wsRuntime = String.raw`(function () {
     if (!basemap || basemap === "none") return;
     var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
     var attribution = "OpenStreetMap";
+    if (basemap === "osm-hot") {
+      url = "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png";
+      attribution = "&copy; OpenStreetMap contributors, Tiles style by HOT";
+    }
     if (basemap === "carto-voyager") {
       url = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
       attribution = "&copy; OpenStreetMap contributors &copy; CARTO";
@@ -129,7 +133,19 @@ export const q2wsRuntime = String.raw`(function () {
       url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
       attribution = "Tiles &copy; Esri";
     }
-    window.L.tileLayer(url, { attribution: attribution }).addTo(window.map);
+    if (basemap === "esri-topo") {
+      url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+      attribution = "Tiles &copy; Esri";
+    }
+    if (basemap === "esri-streets") {
+      url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
+      attribution = "Tiles &copy; Esri";
+    }
+    if (basemap === "stadia-terrain") {
+      url = "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png";
+      attribution = "&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors";
+    }
+    window.L.tileLayer(url, { attribution: attribution, crossOrigin: "anonymous" }).addTo(window.map);
   }
 
   function applyBranding(config) {
@@ -265,6 +281,13 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
+  function showRuntimeError(error) {
+    var message = error && error.message ? error.message : "Unknown runtime error.";
+    var panel = createEl("div", { id: "q2ws-runtime-error", role: "alert" });
+    panel.innerHTML = "<strong>Studio runtime failed to initialize.</strong><span>Check q2ws-config.json and the browser console.</span><code>" + escapeHtml(message) + "</code>";
+    document.body.appendChild(panel);
+  }
+
   ready(function () {
     fetch("q2ws-config.json")
       .then(function (response) { return response.json(); })
@@ -285,6 +308,7 @@ export const q2wsRuntime = String.raw`(function () {
       })
       .catch(function (error) {
         console.warn("qgis2web Studio runtime failed", error);
+        showRuntimeError(error);
       });
   });
 })();`;
@@ -434,6 +458,30 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#q2ws-runtime-error {
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  z-index: 2000;
+  display: grid;
+  gap: 5px;
+  max-width: min(520px, calc(100vw - 28px));
+  padding: 14px 16px;
+  transform: translateX(-50%);
+  border: 1px solid #f0c36b;
+  border-radius: var(--q2ws-radius);
+  background: #fff8e8;
+  color: #503706;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
+  font: 13px Inter, Segoe UI, Arial, sans-serif;
+}
+
+#q2ws-runtime-error code {
+  overflow: auto;
+  max-width: 100%;
+  font-size: 12px;
 }
 
 #q2ws-legend.q2ws-legend-collapsed {

@@ -28,9 +28,19 @@ export async function loadProjectFromOpfs(): Promise<Qgis2webProject | null> {
     const handle = await root.getFileHandle(PROJECT_FILE);
     const file = await handle.getFile();
     return JSON.parse(await file.text()) as Qgis2webProject;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "NotFoundError") {
+      return null;
+    }
+    throw error;
   }
+}
+
+export function opfsErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `Browser cache could not be restored: ${error.message}`;
+  }
+  return "Browser cache could not be restored.";
 }
 
 async function storageQuotaWarning(): Promise<string | undefined> {
