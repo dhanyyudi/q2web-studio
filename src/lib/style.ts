@@ -2,6 +2,12 @@ import type { Feature } from "geojson";
 import type { PathOptions } from "leaflet";
 import type { LayerManifest, LegendItem } from "../types/project";
 
+export type LegendGroup = {
+  id: string;
+  label: string;
+  items: LegendItem[];
+};
+
 export function styleForFeature(layer: LayerManifest, feature?: Feature): PathOptions {
   const categoryValue = layer.style.categoryField
     ? String(feature?.properties?.[layer.style.categoryField] ?? "")
@@ -58,6 +64,26 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
 
 export function allLegendItems(layers: LayerManifest[], manual: LegendItem[]): LegendItem[] {
   return [...layers.flatMap(legendItemsForLayer), ...manual.filter((item) => item.visible)];
+}
+
+export function legendGroupsForLayers(layers: LayerManifest[], manual: LegendItem[]): LegendGroup[] {
+  const groups = layers
+    .filter((layer) => layer.visible && layer.legendEnabled)
+    .map((layer) => ({
+      id: layer.id,
+      label: layer.displayName,
+      items: legendItemsForLayer(layer)
+    }))
+    .filter((group) => group.items.length > 0);
+  const manualItems = manual.filter((item) => item.visible);
+  if (manualItems.length > 0) {
+    groups.push({
+      id: "manual",
+      label: "Manual legend",
+      items: manualItems
+    });
+  }
+  return groups;
 }
 
 export function fieldNames(layer: LayerManifest): string[] {

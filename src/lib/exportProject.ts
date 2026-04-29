@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { allLegendItems } from "./style";
+import { allLegendItems, legendGroupsForLayers } from "./style";
 import { q2wsCss, q2wsRuntime } from "../runtime/runtime";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
 
@@ -28,6 +28,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     branding: project.branding,
     theme: project.theme,
     mapSettings: project.mapSettings,
+    legendSettings: project.legendSettings,
     popupSettings: project.popupSettings,
     layers: project.layers.map((layer) => ({
       id: layer.id,
@@ -41,6 +42,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
       style: layer.style
     })),
     legend: allLegendItems(project.layers, project.manualLegendItems),
+    legendGroups: legendGroupsForLayers(project.layers, project.manualLegendItems),
     textAnnotations: project.textAnnotations
   };
 }

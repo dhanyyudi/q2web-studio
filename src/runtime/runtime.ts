@@ -100,25 +100,53 @@ export const q2wsRuntime = String.raw`(function () {
   }
 
   function applyLegend(config) {
-    if (!config.legend || !config.legend.length) return;
+    var groups = config.legendGroups && config.legendGroups.length
+      ? config.legendGroups
+      : [{ id: "all", label: "Layers", items: config.legend || [] }];
+    if (!groups.length) return;
+    var settings = config.legendSettings || {};
     var legend = createEl("aside", { id: "q2ws-legend" });
-    legend.innerHTML = "<h3>Legenda</h3>";
-    config.legend.forEach(function (item) {
-      if (item.visible === false) return;
-      var row = createEl("div", { class: "q2ws-legend-row" });
-      var swatch = createEl("span", { class: "q2ws-swatch q2ws-symbol-" + (item.symbolType || "polygon") });
-      swatch.style.background = item.symbolType === "line" ? "transparent" : item.fillColor || "transparent";
-      swatch.style.borderColor = item.strokeColor || item.fillColor || "#333";
-      if (item.symbolType === "line") {
-        swatch.style.borderTopWidth = Math.max(2, item.strokeWidth || 2) + "px";
+    legend.className = "q2ws-legend-" + (settings.position || "bottom-right");
+    var button = createEl("button", { type: "button", class: "q2ws-legend-toggle", "aria-expanded": settings.collapsed ? "false" : "true" });
+    button.appendChild(createEl("span", {}, settings.collapsed ? "+" : "-"));
+    button.appendChild(createEl("strong", {}, "Legenda"));
+    legend.appendChild(button);
+    var content = createEl("div", { class: "q2ws-legend-content" });
+    groups.forEach(function (group) {
+      var visibleItems = (group.items || []).filter(function (item) { return item.visible !== false; });
+      if (!visibleItems.length) return;
+      var section = createEl("section", { class: "q2ws-legend-group" });
+      if (settings.groupByLayer !== false) {
+        section.appendChild(createEl("h4", {}, group.label || "Layer"));
       }
-      if (item.dashArray) {
-        swatch.style.borderStyle = "dashed";
-      }
-      row.appendChild(swatch);
-      row.appendChild(createEl("span", {}, item.label));
-      legend.appendChild(row);
+      visibleItems.forEach(function (item) {
+        var row = createEl("div", { class: "q2ws-legend-row" });
+        var swatch = createEl("span", { class: "q2ws-swatch q2ws-symbol-" + (item.symbolType || "polygon") });
+        swatch.style.background = item.symbolType === "line" ? "transparent" : item.fillColor || "transparent";
+        swatch.style.borderColor = item.strokeColor || item.fillColor || "#333";
+        if (item.symbolType === "line") {
+          swatch.style.borderTopWidth = Math.max(2, item.strokeWidth || 2) + "px";
+        }
+        if (item.dashArray) {
+          swatch.style.borderStyle = "dashed";
+        }
+        row.appendChild(swatch);
+        row.appendChild(createEl("span", {}, item.label));
+        section.appendChild(row);
+      });
+      content.appendChild(section);
     });
+    legend.appendChild(content);
+    if (settings.collapsed) {
+      legend.classList.add("q2ws-legend-collapsed");
+      content.hidden = true;
+    }
+    button.onclick = function () {
+      var collapsed = legend.classList.toggle("q2ws-legend-collapsed");
+      content.hidden = collapsed;
+      button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      button.firstChild.textContent = collapsed ? "+" : "-";
+    };
     document.body.appendChild(legend);
   }
 
@@ -280,8 +308,6 @@ html, body {
 
 #q2ws-legend {
   position: fixed;
-  right: 14px;
-  bottom: 52px;
   z-index: 1100;
   min-width: 190px;
   max-width: 280px;
@@ -293,8 +319,54 @@ html, body {
   color: var(--q2ws-text);
 }
 
-#q2ws-legend h3 {
-  margin: 0 0 10px;
+#q2ws-legend.q2ws-legend-bottom-right {
+  right: 58px;
+  bottom: 52px;
+}
+
+#q2ws-legend.q2ws-legend-bottom-left {
+  left: 14px;
+  bottom: 52px;
+}
+
+#q2ws-legend.q2ws-legend-top-right {
+  top: 76px;
+  right: 14px;
+}
+
+#q2ws-legend.q2ws-legend-top-left {
+  top: 76px;
+  left: 14px;
+}
+
+#q2ws-legend.q2ws-legend-collapsed {
+  min-width: 0;
+  width: auto;
+}
+
+.q2ws-legend-toggle {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--q2ws-text);
+  cursor: pointer;
+  font: 800 13px Inter, Segoe UI, Arial, sans-serif;
+  text-align: left;
+}
+
+.q2ws-legend-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.q2ws-legend-group h4 {
+  margin: 0 0 6px;
+  color: #4f606a;
   font-size: 13px;
 }
 

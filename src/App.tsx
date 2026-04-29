@@ -24,20 +24,23 @@ import {
 import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
+import { ColorField } from "./components/ColorField";
 import { MapCanvas } from "./components/MapCanvas";
 import { PreviewOverlay } from "./components/PreviewOverlay";
 import { ToolbarButton } from "./components/ToolbarButton";
+import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
-import { defaultPopupSettings } from "./lib/defaults";
+import { defaultLegendSettings, defaultPopupSettings } from "./lib/defaults";
 import type {
   BasemapId,
   DrawMode,
   LayerManifest,
+  LegendPosition,
   MapViewMode,
   Qgis2webProject,
   TextAnnotation
@@ -274,6 +277,14 @@ export function App() {
     updateProject({ ...project, popupSettings: { ...project.popupSettings, [key]: value } });
   }
 
+  function setLegendSetting<K extends keyof Qgis2webProject["legendSettings"]>(
+    key: K,
+    value: Qgis2webProject["legendSettings"][K]
+  ) {
+    if (!project) return;
+    updateProject({ ...project, legendSettings: { ...project.legendSettings, [key]: value } });
+  }
+
   function addManualLegend() {
     if (!project) return;
     updateProject({
@@ -354,15 +365,15 @@ export function App() {
             tabIndex={-1}
             onChange={(event) => importZip(event.target.files)}
           />
-          <button type="button" className="btn primary" disabled={busy} onClick={startZipImport}>
+          <Button type="button" disabled={busy} onClick={startZipImport}>
             <FolderOpen size={16} /> Import ZIP
-          </button>
-          <button type="button" className="btn" disabled={busy} onClick={startImport}>
+          </Button>
+          <Button type="button" variant="outline" disabled={busy} onClick={startImport}>
             <FolderOpen size={16} /> Import Folder
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="btn"
+            variant="outline"
             disabled={!project || busy}
             onClick={() =>
               project &&
@@ -373,13 +384,13 @@ export function App() {
             }
           >
             <Save size={16} /> Save Local
-          </button>
-          <button type="button" className="btn" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
+          </Button>
+          <Button type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
             <Eye size={16} /> Preview
-          </button>
-          <button type="button" className="btn" disabled={!project || busy} onClick={exportZip}>
+          </Button>
+          <Button type="button" variant="outline" disabled={!project || busy} onClick={exportZip}>
             <Download size={16} /> Export ZIP
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -535,12 +546,12 @@ export function App() {
               <h2>Import qgis2web export</h2>
               <p>Import a qgis2web export to start editing.</p>
               <div className="empty-actions">
-                <button type="button" className="btn primary" disabled={busy} onClick={startZipImport}>
+                <Button type="button" disabled={busy} onClick={startZipImport}>
                   <FolderOpen size={16} /> Import ZIP
-                </button>
-                <button type="button" className="btn" disabled={busy} onClick={startImport}>
+                </Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={startImport}>
                   <FolderOpen size={16} /> Import Folder
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -618,6 +629,36 @@ export function App() {
                     ]}
                     onChange={(value) => setMapSetting("viewMode", value as MapViewMode)}
                   />
+                  <PanelTitle title="Legend" />
+                  <SelectField
+                    label="Position"
+                    value={project.legendSettings.position}
+                    onChange={(position) => setLegendSetting("position", position as LegendPosition)}
+                    options={[
+                      { value: "top-left", label: "Top left" },
+                      { value: "top-right", label: "Top right" },
+                      { value: "bottom-left", label: "Bottom left" },
+                      { value: "bottom-right", label: "Bottom right" }
+                    ]}
+                  />
+                  <div className="toggle-grid">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={project.legendSettings.groupByLayer}
+                        onChange={(event) => setLegendSetting("groupByLayer", event.target.checked)}
+                      />
+                      Group by layer
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={project.legendSettings.collapsed}
+                        onChange={(event) => setLegendSetting("collapsed", event.target.checked)}
+                      />
+                      Start collapsed
+                    </label>
+                  </div>
                   <PanelTitle title="Popup Style" />
                   <SelectField
                     label="Popup style"
@@ -780,7 +821,7 @@ function SegmentedControl(props: { label: string; value: string; options: { valu
 }
 
 function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="field inline"><span>{label}</span><input type="color" value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+  return <ColorField label={label} value={value} onChange={onChange} />;
 }
 
 function RangeInput(props: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
@@ -812,6 +853,10 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
   return {
     ...project,
     mapSettings: project.mapSettings || { basemap: "carto-voyager", viewMode: "all" },
+    legendSettings: {
+      ...defaultLegendSettings,
+      ...(project.legendSettings || {})
+    },
     popupSettings: {
       ...defaultPopupSettings,
       ...(project.popupSettings || {})

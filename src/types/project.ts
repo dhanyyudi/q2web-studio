@@ -109,6 +109,14 @@ export type MapSettings = {
   viewMode: MapViewMode;
 };
 
+export type LegendPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+
+export type LegendSettings = {
+  position: LegendPosition;
+  collapsed: boolean;
+  groupByLayer: boolean;
+};
+
 export type PopupSettings = {
   style: "compact" | "card" | "minimal";
   accentColor: string;
@@ -139,6 +147,7 @@ export type Qgis2webProject = {
   branding: BrandingSettings;
   theme: ThemeSettings;
   mapSettings: MapSettings;
+  legendSettings: LegendSettings;
   popupSettings: PopupSettings;
   manualLegendItems: LegendItem[];
   textAnnotations: TextAnnotation[];

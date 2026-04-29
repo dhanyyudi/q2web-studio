@@ -1,4 +1,24 @@
+@tailwind components;
+
 :root {
+  --background: 190 24% 94%;
+  --foreground: 200 25% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 200 25% 12%;
+  --primary: 186 70% 28%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 190 24% 96%;
+  --secondary-foreground: 197 28% 22%;
+  --muted: 192 19% 93%;
+  --muted-foreground: 202 11% 44%;
+  --accent: 178 48% 88%;
+  --accent-foreground: 186 70% 22%;
+  --destructive: 0 57% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 194 22% 83%;
+  --input: 194 22% 83%;
+  --ring: 186 70% 28%;
+  --radius: 0.5rem;
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #eef3f4;
@@ -14,6 +34,10 @@
 body {
   margin: 0;
   min-width: 1120px;
+}
+
+#root {
+  height: 100vh;
 }
 
 button,
@@ -41,7 +65,8 @@ button:disabled {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -134,7 +159,8 @@ button:disabled {
   flex: 1;
   display: grid;
   grid-template-columns: 292px minmax(580px, 1fr) 338px;
-  min-height: calc(100vh - 68px);
+  height: calc(100vh - 68px);
+  min-height: 0;
   min-width: 0;
   max-width: 100vw;
   overflow: hidden;
@@ -214,6 +240,42 @@ button:disabled {
 .field input[type="color"],
 .category-row input[type="color"] {
   padding: 2px;
+}
+
+.color-field {
+  grid-template-columns: 1fr;
+}
+
+.color-trigger {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.color-trigger span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid #b8c9ce;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.color-popover .react-colorful {
+  width: 220px;
+  height: 160px;
+}
+
+.color-hex-input {
+  width: 220px;
+  height: 34px;
+  margin-top: 10px;
+  padding: 0 10px;
 }
 
 .segmented {
@@ -440,21 +502,67 @@ button:disabled {
 
 .legend-preview {
   position: absolute;
-  right: 14px;
-  bottom: 54px;
   z-index: 720;
   width: 230px;
   max-height: 48%;
   overflow: auto;
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
 }
 
-.legend-preview h3 {
-  margin: 0 0 8px;
+.legend-bottom-right {
+  right: 58px;
+  bottom: 54px;
+}
+
+.legend-bottom-left {
+  left: 14px;
+  bottom: 54px;
+}
+
+.legend-top-right {
+  top: 82px;
+  right: 14px;
+}
+
+.legend-top-left {
+  top: 82px;
+  left: 14px;
+}
+
+.legend-preview.collapsed {
+  width: auto;
+  max-height: none;
+}
+
+.legend-toggle {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #172026;
   font-size: 13px;
+  font-weight: 800;
+}
+
+.legend-groups {
+  display: grid;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.legend-group h4 {
+  margin: 0 0 5px;
+  color: #50606b;
+  font-size: 13px;
+  line-height: 1.2;
 }
 
 .legend-row {
@@ -869,3 +977,5 @@ td input {
     display: none;
   }
 }
+
+@tailwind utilities;

@@ -1,4 +1,12 @@
-import type { BrandingSettings, LayerStyle, MapSettings, PopupSettings, Qgis2webProject, ThemeSettings } from "../types/project";
+import type {
+  BrandingSettings,
+  LayerStyle,
+  LegendSettings,
+  MapSettings,
+  PopupSettings,
+  Qgis2webProject,
+  ThemeSettings
+} from "../types/project";
 
 export const defaultTheme: ThemeSettings = {
   accent: "#156f7a",
@@ -26,6 +34,12 @@ export const defaultBranding: BrandingSettings = {
 export const defaultMapSettings: MapSettings = {
   basemap: "carto-voyager",
   viewMode: "all"
+};
+
+export const defaultLegendSettings: LegendSettings = {
+  position: "bottom-right",
+  collapsed: false,
+  groupByLayer: true
 };
 
 export const defaultPopupSettings: PopupSettings = {

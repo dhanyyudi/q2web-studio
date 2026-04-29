@@ -16,8 +16,10 @@ import {
 import type { GeoJSONStoreFeatures } from "terra-draw";
 import { TerraDrawLeafletAdapter } from "terra-draw-leaflet-adapter";
 import type { Feature, FeatureCollection } from "geojson";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { allLegendItems, legendGroupsForLayers } from "../lib/style";
+import type { LegendGroup } from "../lib/style";
 import { styleForFeature } from "../lib/style";
-import { allLegendItems } from "../lib/style";
 import type { BasemapId, DrawMode, LayerManifest, LegendItem, Qgis2webProject, TextAnnotation } from "../types/project";
 import { updateLayerGeojson } from "../lib/projectUpdates";
 
@@ -37,10 +39,26 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
   const drawRef = useRef<TerraDraw | null>(null);
   const tileErrorShownRef = useRef(false);
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
+  const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
   const selectedLayer = useMemo(
     () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
     [project.layers, selectedLayerId]
   );
+  const visibleLayers = useMemo(
+    () => visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode),
+    [project.layers, project.mapSettings.viewMode, selectedLayerId]
+  );
+  const legendGroups = useMemo(
+    () =>
+      project.legendSettings.groupByLayer
+        ? legendGroupsForLayers(visibleLayers, project.manualLegendItems)
+        : [{ id: "all", label: "Layers", items: allLegendItems(visibleLayers, project.manualLegendItems) }],
+    [project.legendSettings.groupByLayer, project.manualLegendItems, visibleLayers]
+  );
+
+  useEffect(() => {
+    setLegendOpen(!project.legendSettings.collapsed);
+  }, [project.legendSettings.collapsed]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -81,7 +99,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
     if (!map) return;
     const layerGroup = L.layerGroup().addTo(map);
 
-    visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode).forEach((layer) => {
+    visibleLayers.forEach((layer) => {
       if (!layer.visible) return;
       const clusterPoints = shouldClusterLayer(layer);
       const geoLayer = L.geoJSON(layer.geojson, {
@@ -125,7 +143,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
       }).addTo(layerGroup);
     });
 
-    const bounds = projectBounds(visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode));
+    const bounds = projectBounds(visibleLayers);
     if (bounds) {
       map.fitBounds(bounds, { padding: [28, 28] });
     }
@@ -133,7 +151,7 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
     return () => {
       layerGroup.remove();
     };
-  }, [project.layers, project.textAnnotations, project.mapSettings.viewMode, selectedLayerId]);
+  }, [project.textAnnotations, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -254,15 +272,50 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
       )}
       <div ref={containerRef} className="map-canvas" />
       <style>{popupCss(project)}</style>
-      <aside className="legend-preview">
-        <h3>Legenda</h3>
-        {allLegendItems(visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode), project.manualLegendItems).map((item) => (
-          <LegendRow key={item.id} item={item} />
-        ))}
-      </aside>
+      {legendGroups.some((group) => group.items.length > 0) && (
+        <LegendPanel
+          groups={legendGroups}
+          open={legendOpen}
+          position={project.legendSettings.position}
+          onOpenChange={setLegendOpen}
+        />
+      )}
       {!preview && <div className="draw-status">{drawStatus}</div>}
       {project.branding.showFooter && <div className="map-footer-preview">{project.branding.footer}</div>}
     </section>
+  );
+}
+
+function LegendPanel({
+  groups,
+  open,
+  position,
+  onOpenChange
+}: {
+  groups: LegendGroup[];
+  open: boolean;
+  position: Qgis2webProject["legendSettings"]["position"];
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <aside className={`legend-preview legend-${position} ${open ? "" : "collapsed"}`}>
+      <button type="button" className="legend-toggle" onClick={() => onOpenChange(!open)} aria-expanded={open}>
+        {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <span>Legenda</span>
+      </button>
+      {open && (
+        <div className="legend-groups">
+          {groups.map((group) => (
+            <div className="legend-group" key={group.id}>
+              <h4>{group.label}</h4>
+              {group.items.map((item) => (
+                <LegendRow key={item.id} item={item} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </aside>
   );
 }
 

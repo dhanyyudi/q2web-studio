@@ -1,5 +1,12 @@
 import type { Feature, FeatureCollection } from "geojson";
-import { defaultBranding, defaultLayerStyle, defaultMapSettings, defaultPopupSettings, defaultTheme } from "./defaults";
+import {
+  defaultBranding,
+  defaultLayerStyle,
+  defaultLegendSettings,
+  defaultMapSettings,
+  defaultPopupSettings,
+  defaultTheme
+} from "./defaults";
 import { opacityFromRgba, rgbaToHex } from "./colors";
 import type { LayerManifest, LegendSymbolType, PopupField, Qgis2webProject, VirtualFile } from "../types/project";
 import { isFeatureCollection } from "../types/project";
@@ -88,6 +95,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
     },
     theme: defaultTheme,
     mapSettings: defaultMapSettings,
+    legendSettings: defaultLegendSettings,
     popupSettings: defaultPopupSettings,
     manualLegendItems: [],
     textAnnotations: [],
