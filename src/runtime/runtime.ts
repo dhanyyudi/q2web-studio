@@ -57,6 +57,64 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
+  function layerBounds(config) {
+    if (!window.L || !window.map) return null;
+    var bounds = null;
+    (config.layers || []).forEach(function (layerConfig) {
+      if (layerConfig.visible === false) return;
+      var layer = window[layerConfig.layerVariable];
+      if (!layer || !layer.getBounds) return;
+      var layerBounds = layer.getBounds();
+      if (!layerBounds || !layerBounds.isValid || !layerBounds.isValid()) return;
+      bounds = bounds ? bounds.extend(layerBounds) : layerBounds;
+    });
+    return bounds;
+  }
+
+  function applyInitialView(config) {
+    if (!window.map) return;
+    var settings = config.mapSettings || {};
+    var bounds = layerBounds(config);
+    if (!bounds) return;
+    if (settings.initialZoomMode === "fixed") {
+      window.map.setView(bounds.getCenter(), Number(settings.initialZoom || 13));
+      return;
+    }
+    window.map.fitBounds(bounds, { padding: [28, 28] });
+  }
+
+  function applyLayerToggle(config) {
+    if (!window.map) return;
+    var layers = (config.layers || []).filter(function (layerConfig) {
+      return layerConfig.showInLayerControl !== false && window[layerConfig.layerVariable];
+    });
+    if (!layers.length) return;
+    var originalControl = document.querySelector(".leaflet-control-layers");
+    if (originalControl) {
+      originalControl.style.display = "none";
+    }
+    var control = createEl("aside", { id: "q2ws-layer-control" });
+    control.innerHTML = "<h3>Layers</h3>";
+    layers.forEach(function (layerConfig) {
+      var row = createEl("label", {});
+      var input = createEl("input", { type: "checkbox" });
+      input.checked = layerConfig.visible !== false;
+      input.onchange = function () {
+        var layer = window[layerConfig.layerVariable];
+        if (!layer) return;
+        if (input.checked) {
+          window.map.addLayer(layer);
+        } else {
+          window.map.removeLayer(layer);
+        }
+      };
+      row.appendChild(input);
+      row.appendChild(createEl("span", {}, layerConfig.displayName || layerConfig.id));
+      control.appendChild(row);
+    });
+    document.body.appendChild(control);
+  }
+
   function applyBasemap(config) {
     if (!window.L || !window.map) return;
     var basemap = config.mapSettings && config.mapSettings.basemap;
@@ -100,11 +158,12 @@ export const q2wsRuntime = String.raw`(function () {
   }
 
   function applyLegend(config) {
+    var settings = config.legendSettings || {};
+    if (settings.enabled === false) return;
     var groups = config.legendGroups && config.legendGroups.length
       ? config.legendGroups
       : [{ id: "all", label: "Layers", items: config.legend || [] }];
     if (!groups.length) return;
-    var settings = config.legendSettings || {};
     var legend = createEl("aside", { id: "q2ws-legend" });
     legend.className = "q2ws-legend-" + (settings.position || "bottom-right");
     var button = createEl("button", { type: "button", class: "q2ws-legend-toggle", "aria-expanded": settings.collapsed ? "false" : "true" });
@@ -218,6 +277,8 @@ export const q2wsRuntime = String.raw`(function () {
         applyBasemap(config);
         applyBranding(config);
         applyLayerConfig(config);
+        applyInitialView(config);
+        applyLayerToggle(config);
         applyPopupStyle(config);
         applyLegend(config);
         applyTextAnnotations(config);
@@ -331,12 +392,48 @@ html, body {
 
 #q2ws-legend.q2ws-legend-top-right {
   top: 76px;
-  right: 14px;
+  right: 248px;
 }
 
 #q2ws-legend.q2ws-legend-top-left {
   top: 76px;
   left: 14px;
+}
+
+#q2ws-layer-control {
+  position: fixed;
+  top: 76px;
+  right: 14px;
+  z-index: 1110;
+  width: 220px;
+  max-height: 42vh;
+  overflow: auto;
+  padding: 13px;
+  border-radius: var(--q2ws-radius);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+  font: 13px Inter, Segoe UI, Arial, sans-serif;
+  color: var(--q2ws-text);
+}
+
+#q2ws-layer-control h3 {
+  margin: 0 0 9px;
+  font-size: 13px;
+}
+
+#q2ws-layer-control label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+#q2ws-layer-control span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #q2ws-legend.q2ws-legend-collapsed {

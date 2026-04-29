@@ -33,10 +33,13 @@ export const defaultBranding: BrandingSettings = {
 
 export const defaultMapSettings: MapSettings = {
   basemap: "carto-voyager",
-  viewMode: "all"
+  viewMode: "all",
+  initialZoomMode: "fit",
+  initialZoom: 13
 };
 
 export const defaultLegendSettings: LegendSettings = {
+  enabled: true,
   position: "bottom-right",
   collapsed: false,
   groupByLayer: true

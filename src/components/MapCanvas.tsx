@@ -16,7 +16,7 @@ import {
 import type { GeoJSONStoreFeatures } from "terra-draw";
 import { TerraDrawLeafletAdapter } from "terra-draw-leaflet-adapter";
 import type { Feature, FeatureCollection } from "geojson";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Layers3 } from "lucide-react";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
 import type { LegendGroup } from "../lib/style";
 import { styleForFeature } from "../lib/style";
@@ -28,11 +28,24 @@ type MapCanvasProps = {
   selectedLayerId: string;
   drawMode: DrawMode;
   preview?: boolean;
+  showLayerControl?: boolean;
+  layerVisibility?: Record<string, boolean>;
+  onLayerVisibilityChange?: (layerId: string, visible: boolean) => void;
   onTileError?: (message: string) => void;
   onProjectChange: (project: Qgis2webProject) => void;
 };
 
-export function MapCanvas({ project, selectedLayerId, drawMode, preview = false, onTileError, onProjectChange }: MapCanvasProps) {
+export function MapCanvas({
+  project,
+  selectedLayerId,
+  drawMode,
+  preview = false,
+  showLayerControl = false,
+  layerVisibility,
+  onLayerVisibilityChange,
+  onTileError,
+  onProjectChange
+}: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const basemapRef = useRef<L.TileLayer | null>(null);
@@ -45,8 +58,11 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
     [project.layers, selectedLayerId]
   );
   const visibleLayers = useMemo(
-    () => visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode),
-    [project.layers, project.mapSettings.viewMode, selectedLayerId]
+    () =>
+      visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode).filter(
+        (layer) => layerVisibility?.[layer.id] ?? layer.visible
+      ),
+    [layerVisibility, project.layers, project.mapSettings.viewMode, selectedLayerId]
   );
   const legendGroups = useMemo(
     () =>
@@ -100,7 +116,6 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
     const layerGroup = L.layerGroup().addTo(map);
 
     visibleLayers.forEach((layer) => {
-      if (!layer.visible) return;
       const clusterPoints = shouldClusterLayer(layer);
       const geoLayer = L.geoJSON(layer.geojson, {
         style: (feature) => styleForFeature(layer, feature as Feature),
@@ -144,14 +159,16 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
     });
 
     const bounds = projectBounds(visibleLayers);
-    if (bounds) {
+    if (bounds && project.mapSettings.initialZoomMode === "fixed") {
+      map.setView(bounds.getCenter(), project.mapSettings.initialZoom);
+    } else if (bounds) {
       map.fitBounds(bounds, { padding: [28, 28] });
     }
 
     return () => {
       layerGroup.remove();
     };
-  }, [project.textAnnotations, visibleLayers]);
+  }, [project.mapSettings.initialZoom, project.mapSettings.initialZoomMode, project.textAnnotations, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -272,7 +289,14 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
       )}
       <div ref={containerRef} className="map-canvas" />
       <style>{popupCss(project)}</style>
-      {legendGroups.some((group) => group.items.length > 0) && (
+      {showLayerControl && (
+        <LayerControl
+          layers={visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode)}
+          layerVisibility={layerVisibility}
+          onLayerVisibilityChange={onLayerVisibilityChange}
+        />
+      )}
+      {project.legendSettings.enabled && legendGroups.some((group) => group.items.length > 0) && (
         <LegendPanel
           groups={legendGroups}
           open={legendOpen}
@@ -283,6 +307,39 @@ export function MapCanvas({ project, selectedLayerId, drawMode, preview = false,
       {!preview && <div className="draw-status">{drawStatus}</div>}
       {project.branding.showFooter && <div className="map-footer-preview">{project.branding.footer}</div>}
     </section>
+  );
+}
+
+function LayerControl({
+  layers,
+  layerVisibility,
+  onLayerVisibilityChange
+}: {
+  layers: LayerManifest[];
+  layerVisibility?: Record<string, boolean>;
+  onLayerVisibilityChange?: (layerId: string, visible: boolean) => void;
+}) {
+  const toggleableLayers = layers.filter((layer) => layer.showInLayerControl);
+  if (toggleableLayers.length === 0) return null;
+  return (
+    <aside className="layer-toggle-preview">
+      <h3>
+        <Layers3 size={15} /> Layers
+      </h3>
+      {toggleableLayers.map((layer) => {
+        const checked = layerVisibility?.[layer.id] ?? layer.visible;
+        return (
+          <label key={layer.id}>
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(event) => onLayerVisibilityChange?.(layer.id, event.target.checked)}
+            />
+            <span>{layer.displayName}</span>
+          </label>
+        );
+      })}
+    </aside>
   );
 }
 

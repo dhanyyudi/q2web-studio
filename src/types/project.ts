@@ -103,15 +103,19 @@ export type LegendItem = {
 export type BasemapId = "osm" | "carto-voyager" | "esri-imagery" | "none";
 
 export type MapViewMode = "all" | "selected";
+export type InitialZoomMode = "fit" | "fixed";
 
 export type MapSettings = {
   basemap: BasemapId;
   viewMode: MapViewMode;
+  initialZoomMode: InitialZoomMode;
+  initialZoom: number;
 };
 
 export type LegendPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 export type LegendSettings = {
+  enabled: boolean;
   position: LegendPosition;
   collapsed: boolean;
   groupByLayer: boolean;

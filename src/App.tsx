@@ -35,10 +35,11 @@ import { updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
-import { defaultLegendSettings, defaultPopupSettings } from "./lib/defaults";
+import { defaultLegendSettings, defaultMapSettings, defaultPopupSettings } from "./lib/defaults";
 import type {
   BasemapId,
   DrawMode,
+  InitialZoomMode,
   LayerManifest,
   LegendPosition,
   MapViewMode,
@@ -629,7 +630,34 @@ export function App() {
                     ]}
                     onChange={(value) => setMapSetting("viewMode", value as MapViewMode)}
                   />
+                  <SelectField
+                    label="Initial zoom"
+                    value={project.mapSettings.initialZoomMode}
+                    onChange={(initialZoomMode) => setMapSetting("initialZoomMode", initialZoomMode as InitialZoomMode)}
+                    options={[
+                      { value: "fit", label: "Fit visible layers" },
+                      { value: "fixed", label: "Use fixed zoom level" }
+                    ]}
+                  />
+                  <RangeInput
+                    label="Zoom level"
+                    value={project.mapSettings.initialZoom}
+                    min={5}
+                    max={20}
+                    step={1}
+                    onChange={(initialZoom) => setMapSetting("initialZoom", initialZoom)}
+                  />
                   <PanelTitle title="Legend" />
+                  <div className="toggle-grid">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={project.legendSettings.enabled}
+                        onChange={(event) => setLegendSetting("enabled", event.target.checked)}
+                      />
+                      Show legend
+                    </label>
+                  </div>
                   <SelectField
                     label="Position"
                     value={project.legendSettings.position}
@@ -852,7 +880,10 @@ function isDrawModeAllowed(drawMode: DrawMode, geometryKind: GeometryKind): bool
 function hydrateProject(project: Qgis2webProject): Qgis2webProject {
   return {
     ...project,
-    mapSettings: project.mapSettings || { basemap: "carto-voyager", viewMode: "all" },
+    mapSettings: {
+      ...defaultMapSettings,
+      ...(project.mapSettings || {})
+    },
     legendSettings: {
       ...defaultLegendSettings,
       ...(project.legendSettings || {})

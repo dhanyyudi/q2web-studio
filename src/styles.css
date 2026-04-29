@@ -524,7 +524,7 @@ button:disabled {
 
 .legend-top-right {
   top: 82px;
-  right: 14px;
+  right: 248px;
 }
 
 .legend-top-left {
@@ -535,6 +535,44 @@ button:disabled {
 .legend-preview.collapsed {
   width: auto;
   max-height: none;
+}
+
+.layer-toggle-preview {
+  position: absolute;
+  top: 82px;
+  right: 14px;
+  z-index: 730;
+  width: 220px;
+  max-height: 42%;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+}
+
+.layer-toggle-preview h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 9px;
+  font-size: 13px;
+}
+
+.layer-toggle-preview label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  color: #172026;
+  font-size: 12px;
+}
+
+.layer-toggle-preview span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .legend-toggle {
