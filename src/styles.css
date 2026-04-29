@@ -216,6 +216,21 @@ button:disabled {
   line-height: 1.45;
 }
 
+.diagnostics-panel {
+  display: grid;
+  gap: 7px;
+}
+
+.diagnostic-row {
+  padding: 9px 10px;
+  border: 1px solid #f0d8a6;
+  border-radius: 8px;
+  background: #fff8e8;
+  color: #63420d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .field {
   display: grid;
   gap: 5px;

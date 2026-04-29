@@ -3,6 +3,9 @@ import { allLegendItems, legendGroupsForLayers } from "./style";
 import { q2wsCss, q2wsRuntime } from "../runtime/runtime";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
 
+const CSP_META =
+  '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; img-src \'self\' data: https:; style-src \'self\' \'unsafe-inline\'; script-src \'self\' \'unsafe-inline\'; connect-src \'self\' https:;">';
+
 export async function exportProjectZip(project: Qgis2webProject): Promise<Blob> {
   const zip = new JSZip();
   const files = rewriteProjectFiles(project);
@@ -87,6 +90,9 @@ function serializeDataLayer(layer: LayerManifest): string {
 
 function patchIndexHtml(indexHtml: string): string {
   let html = indexHtml;
+  if (!html.includes("Content-Security-Policy")) {
+    html = html.replace("</head>", `        ${CSP_META}\n    </head>`);
+  }
   if (!html.includes("q2ws-custom.css")) {
     html = html.replace("</head>", '        <link rel="stylesheet" href="q2ws-custom.css">\n    </head>');
   }

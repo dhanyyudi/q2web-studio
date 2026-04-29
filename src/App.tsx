@@ -4,6 +4,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { Toaster, toast } from "sonner";
 import {
+  AlertTriangle,
   Circle,
   Download,
   Eye,
@@ -31,6 +32,7 @@ import { ToolbarButton } from "./components/ToolbarButton";
 import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
+import { logoFileToDataUrl } from "./lib/logo";
 import { updateLayer } from "./lib/projectUpdates";
 import { loadProjectFromOpfs, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
@@ -144,7 +146,7 @@ export function App() {
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
       warnAboutLargeDatasets(parsed);
-      await saveProjectToOpfs(parsed);
+      await persistProject(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
       setStatus(message);
       toast.success(message, { id: toastId });
@@ -175,7 +177,7 @@ export function App() {
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
       warnAboutLargeDatasets(parsed);
-      await saveProjectToOpfs(parsed);
+      await persistProject(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${file.name}.`;
       setStatus(message);
       toast.success(message, { id: toastId });
@@ -198,7 +200,7 @@ export function App() {
       setProject(parsed);
       setSelectedLayerId(parsed.layers[0]?.id || "");
       warnAboutLargeDatasets(parsed);
-      await saveProjectToOpfs(parsed);
+      await persistProject(parsed);
       const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
       setStatus(message);
       toast.success(message, { id: toastId });
@@ -241,7 +243,28 @@ export function App() {
   function updateProject(next: Qgis2webProject) {
     const hydrated = hydrateProject(next);
     setProject(hydrated);
-    saveProjectToOpfs(hydrated);
+    void saveProjectToOpfs(hydrated).then(showOpfsWarning).catch(() => undefined);
+  }
+
+  async function persistProject(next: Qgis2webProject, successMessage?: string): Promise<boolean> {
+    try {
+      const result = await saveProjectToOpfs(next);
+      showOpfsWarning(result);
+      if (successMessage) {
+        toast.success(successMessage);
+      }
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Project could not be saved to browser cache.";
+      toast.error(message);
+      return false;
+    }
+  }
+
+  function showOpfsWarning(result: { warning?: string }) {
+    if (result.warning) {
+      toast.warning(result.warning, { duration: 9000 });
+    }
   }
 
   function warnAboutLargeDatasets(next: Qgis2webProject) {
@@ -330,9 +353,16 @@ export function App() {
   async function importLogo(fileList: FileList | null) {
     const file = fileList?.[0];
     if (!file || !project) return;
-    const dataUrl = await fileToDataUrl(file);
-    updateProject({ ...project, branding: { ...project.branding, logoPath: dataUrl, logoPlacement: "left" } });
-    toast.success("Logo added to header preview");
+    try {
+      const dataUrl = await logoFileToDataUrl(file);
+      updateProject({ ...project, branding: { ...project.branding, logoPath: dataUrl, logoPlacement: "left" } });
+      toast.success("Logo added to header preview");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Logo import failed.";
+      toast.error(message);
+    } finally {
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
   }
 
   return (
@@ -378,9 +408,8 @@ export function App() {
             disabled={!project || busy}
             onClick={() =>
               project &&
-              saveProjectToOpfs(project).then(() => {
-                setStatus("Project saved to browser cache.");
-                toast.success("Project saved locally");
+              persistProject(project, "Project saved locally").then((saved) => {
+                if (saved) setStatus("Project saved to browser cache.");
               })
             }
           >
@@ -400,17 +429,23 @@ export function App() {
         onDragOver={(event) => event.preventDefault()}
         onDrop={async (event) => {
           event.preventDefault();
-          const droppedFolderFiles = await filesFromDataTransferItems(event.dataTransfer.items);
-          if (droppedFolderFiles.length > 0) {
-            await importVirtualFiles(droppedFolderFiles, "drag and drop");
-            return;
+          try {
+            const droppedFolderFiles = await filesFromDataTransferItems(event.dataTransfer.items);
+            if (droppedFolderFiles.length > 0) {
+              await importVirtualFiles(droppedFolderFiles, "drag and drop");
+              return;
+            }
+            const zipFile = Array.from(event.dataTransfer.files).find((file) => file.name.toLowerCase().endsWith(".zip"));
+            if (zipFile) {
+              await importZipFile(zipFile);
+              return;
+            }
+            importFiles(event.dataTransfer.files);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Import failed.";
+            setStatus(message);
+            toast.error(message);
           }
-          const zipFile = Array.from(event.dataTransfer.files).find((file) => file.name.toLowerCase().endsWith(".zip"));
-          if (zipFile) {
-            await importZipFile(zipFile);
-            return;
-          }
-          importFiles(event.dataTransfer.files);
         }}
       >
         <aside className="side-panel">
@@ -466,6 +501,18 @@ export function App() {
                   </div>
                 ))}
               </div>
+              {project.diagnostics.length > 0 && (
+                <>
+                  <PanelTitle icon={<AlertTriangle size={16} />} title="Diagnostics" />
+                  <div className="diagnostics-panel">
+                    {project.diagnostics.map((item, index) => (
+                      <div className="diagnostic-row" key={`${index}-${item}`}>
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </aside>
@@ -892,6 +939,7 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       ...defaultPopupSettings,
       ...(project.popupSettings || {})
     },
+    diagnostics: project.diagnostics || [],
     theme: {
       ...project.theme,
       headerHeight: project.theme.headerHeight ?? 48
@@ -924,15 +972,6 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       sourceImagePath: item.sourceImagePath || ""
     }))
   };
-}
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 }
 
 function projectCenter(project: Qgis2webProject): [number, number] {

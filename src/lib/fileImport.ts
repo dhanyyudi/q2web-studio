@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import type { VirtualFile } from "../types/project";
 
 const TEXT_EXTENSIONS = new Set([".html", ".htm", ".js", ".css", ".json", ".txt", ".svg", ".xml"]);
+const MAX_IMPORT_FILES = 5000;
 
 type FileSystemFileHandleLike = {
   kind: "file";
@@ -21,6 +22,7 @@ type DataTransferItemWithEntry = DataTransferItem & {
 
 export async function filesFromFileList(fileList: FileList): Promise<VirtualFile[]> {
   const files = Array.from(fileList);
+  assertFileCount(files.length);
   const virtualFiles = await Promise.all(files.map((file) => readFile(file)));
   return virtualFiles.sort((a, b) => a.path.localeCompare(b.path));
 }
@@ -28,6 +30,7 @@ export async function filesFromFileList(fileList: FileList): Promise<VirtualFile
 export async function filesFromZipFile(file: File): Promise<VirtualFile[]> {
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.includes("__MACOSX/"));
+  assertFileCount(entries.length);
   const virtualFiles = await Promise.all(
     entries.map(async (entry) => {
       const path = normalizePath(entry.name);
@@ -67,12 +70,14 @@ export async function filesFromDataTransferItems(items: DataTransferItemList): P
   for (const entry of entries) {
     await readWebkitEntry(entry, entry.name, files);
   }
+  assertFileCount(files.length);
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 export async function filesFromDirectoryHandle(handle: FileSystemDirectoryHandleLike): Promise<VirtualFile[]> {
   const files: VirtualFile[] = [];
   await readDirectoryHandle(handle, handle.name, files);
+  assertFileCount(files.length);
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -87,6 +92,7 @@ async function readDirectoryHandle(
       await readDirectoryHandle(entry, path, files);
     } else {
       files.push(await readFile(await entry.getFile(), path));
+      assertFileCount(files.length);
     }
   }
 }
@@ -95,6 +101,7 @@ async function readWebkitEntry(entry: FileSystemEntry, path: string, files: Virt
   if (entry.isFile) {
     const file = await readWebkitFile(entry as FileSystemFileEntry);
     files.push(await readFile(file, path));
+    assertFileCount(files.length);
     return;
   }
 
@@ -158,7 +165,20 @@ function isTextFile(path: string): boolean {
 }
 
 function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/").replace(/^\/+/, "");
+  const normalized = path.replaceAll("\\", "/").replace(/^\/+/, "");
+  const segments = normalized.split("/").filter(Boolean);
+  const hasTraversal = segments.some((segment) => segment === "..");
+  const hasDrivePrefix = /^[a-z]:\//i.test(normalized);
+  if (!normalized || hasTraversal || hasDrivePrefix) {
+    throw new Error(`Unsafe import path rejected: ${path}`);
+  }
+  return normalized;
+}
+
+function assertFileCount(count: number): void {
+  if (count > MAX_IMPORT_FILES) {
+    throw new Error(`Import contains ${count.toLocaleString()} files. Please use a smaller qgis2web export.`);
+  }
 }
 
 function guessMime(path: string): string {
