@@ -89,6 +89,10 @@ if (!project.basemaps.some((basemap) => basemap.label.includes("Voyager")) || !p
   throw new Error(`Expected imported Carto Voyager and Esri imagery basemaps. Got: ${project.basemaps.map((basemap) => basemap.label).join(", ")}`);
 }
 
+if (!project.basemaps[0]?.label.includes("Imagery") || !project.basemaps[1]?.label.includes("Voyager")) {
+  throw new Error(`Expected basemap order to preserve qgis2web layer tree. Got: ${project.basemaps.map((basemap) => basemap.label).join(", ")}`);
+}
+
 if (project.basemaps.some((basemap) => basemap.label.toLowerCase().startsWith("layer "))) {
   throw new Error(`Expected imported basemap labels to strip layer_ prefix. Got: ${project.basemaps.map((basemap) => basemap.label).join(", ")}`);
 }
@@ -97,9 +101,27 @@ if (boundary?.label?.field !== "NAMOBJ") {
   throw new Error(`Expected Batas Desa label field NAMOBJ. Got: ${boundary?.label?.field || "none"}`);
 }
 
+if (!boundary?.label?.htmlTemplate?.includes("font-size: 10pt") || !boundary.label.htmlTemplate.includes("{{NAMOBJ}}")) {
+  throw new Error(`Expected Batas Desa label template to preserve original inline HTML. Got: ${boundary?.label?.htmlTemplate || "none"}`);
+}
+
+if (!boundary?.label?.cssText?.includes("text-shadow") || !boundary.label.cssText.includes("#fafafa")) {
+  throw new Error(`Expected Batas Desa label CSS to preserve original halo. Got: ${boundary?.label?.cssText || "none"}`);
+}
+
+const uniqueBasemapUrls = new Set(project.basemaps.map((basemap) => basemap.url));
+if (uniqueBasemapUrls.size !== project.basemaps.length) {
+  throw new Error(`Expected imported basemaps to avoid duplicate default URLs. Got: ${project.basemaps.map((basemap) => `${basemap.id}:${basemap.url}`).join(", ")}`);
+}
+
 const zntPopupLabels = znt?.popupTemplate?.fields.map((field) => field.label).join(" | ") || "";
 if (!zntPopupLabels.includes("Kabupaten/Kota") || !zntPopupLabels.includes("Kisaran Nilai Tanah") || !zntPopupLabels.includes("Tahun Data")) {
   throw new Error(`Expected ZNT popup labels from original HTML. Got: ${zntPopupLabels}`);
+}
+
+const zntPopupHtml = znt?.popupTemplate?.html || "";
+if (zntPopupHtml.includes("/g,") || zntPopupHtml.includes("popupopen")) {
+  throw new Error(`Expected ZNT popup template to exclude qgis2web JS fragments. Got: ${zntPopupHtml}`);
 }
 
 console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legend labels, and line styles verified.`);

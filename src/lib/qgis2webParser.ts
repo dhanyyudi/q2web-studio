@@ -47,7 +47,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
   const overlays = parseOverlays(indexHtml);
   const basemaps = parseBasemaps(indexHtml);
   const widgets = parseWidgets(indexHtml, files);
-  const labels = parseLayerLabels(indexHtml);
+  const labels = parseLayerLabels(indexHtml, files);
   const popupTemplates = parsePopupTemplates(indexHtml);
   const layerVars = parseLayerVariables(indexHtml);
   const layerByDataVar = new Map(layerVars.map((entry) => [entry.dataVariable, entry]));
@@ -79,7 +79,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       visible: indexHtml.includes(`map.addLayer(${layerVariable})`),
       showInLayerControl: overlays.size === 0 ? true : overlays.has(layerVariable),
       popupEnabled: indexHtml.includes(`onEachFeature: pop_${layerVariable.replace(/^layer_/, "")}`),
-      legendEnabled: false,
+      legendEnabled: Boolean(overlay?.legendRows.length || style.categories?.length || overlay),
       popupFields,
       popupTemplate: importedPopupTemplate,
       label: labels.get(layerVariable),
@@ -153,12 +153,17 @@ function parseWidgets(indexHtml: string, files: VirtualFile[]): RuntimeWidget[] 
 
 function parseBasemaps(indexHtml: string): BasemapConfig[] {
   const labelByVariable = new Map<string, string>();
+  const orderByVariable = new Map<string, number>();
   const baseMapsBody = indexHtml.match(/var\s+baseMaps\s*=\s*\{([\s\S]*?)\};/)?.[1] || "";
-  for (const match of baseMapsBody.matchAll(/["']([^"']+)["']\s*:\s*([A-Za-z0-9_]+)/g)) {
+  for (const [index, match] of Array.from(baseMapsBody.matchAll(/["']([^"']+)["']\s*:\s*([A-Za-z0-9_]+)/g)).entries()) {
     labelByVariable.set(match[2], htmlToText(match[1]));
+    orderByVariable.set(match[2], index);
+  }
+  for (const [index, match] of Array.from(indexHtml.matchAll(/\{label:\s*(["'])(.*?)\1,\s*layer:\s*([A-Za-z0-9_]+),\s*radioGroup:\s*['"]bm['"]/gs)).entries()) {
+    if (!orderByVariable.has(match[3])) orderByVariable.set(match[3], index);
   }
 
-  const basemaps: BasemapConfig[] = [];
+  const basemapEntries: Array<BasemapConfig & { _variable: string }> = [];
   const tileLayerMatches = indexHtml.matchAll(/var\s+([A-Za-z0-9_]+)\s*=\s*L\.tileLayer\(\s*(['"])(.*?)\2\s*,\s*\{([\s\S]*?)\}\s*\);/g);
   for (const match of tileLayerMatches) {
     const variable = match[1];
@@ -166,8 +171,10 @@ function parseBasemaps(indexHtml: string): BasemapConfig[] {
     const options = match[4];
     if (!url.includes("/{z}/") && !url.includes("{z}")) continue;
     const normalizedVariable = variable.replace(/^layer_/, "").replace(/^basemap_/, "");
-    basemaps.push({
-      id: normalizedVariable || `basemap-${basemaps.length + 1}`,
+    const id = knownBasemapId(url) || normalizedVariable || `basemap-${basemapEntries.length + 1}`;
+    basemapEntries.push({
+      _variable: variable,
+      id,
       label: labelByVariable.get(variable) || prettifyLayerName(normalizedVariable || variable),
       url,
       attribution: readOptionString(options, "attribution") || "",
@@ -177,57 +184,68 @@ function parseBasemaps(indexHtml: string): BasemapConfig[] {
       source: "imported"
     });
   }
-
+  basemapEntries.sort((a, b) => (orderByVariable.get(a._variable) ?? Number.MAX_SAFE_INTEGER) - (orderByVariable.get(b._variable) ?? Number.MAX_SAFE_INTEGER));
   const addedLayerMatch = indexHtml.match(/map\.addLayer\(([^)]+)\)/);
-  if (addedLayerMatch) {
-    const defaultId = addedLayerMatch[1].trim().replace(/^layer_/, "").replace(/^basemap_/, "");
-    basemaps.forEach((basemap) => {
-      basemap.default = basemap.id === defaultId || addedLayerMatch[1].trim() === basemap.id;
-    });
-  }
+  const defaultVariable = addedLayerMatch?.[1]?.trim() || "";
+  basemapEntries.forEach((entry) => {
+    entry.default = entry._variable === defaultVariable || entry.id === defaultVariable.replace(/^layer_/, "").replace(/^basemap_/, "");
+  });
+  const basemaps = basemapEntries.map(({ _variable, ...basemap }) => basemap);
+
   if (basemaps.length > 0 && !basemaps.some((basemap) => basemap.default)) {
     basemaps[0].default = true;
   }
   return basemaps;
 }
 
-function parseLayerLabels(indexHtml: string): Map<string, LayerLabelConfig> {
+function knownBasemapId(url: string): string | null {
+  if (url.includes("basemaps.cartocdn.com/rastertiles/voyager")) return "carto-voyager";
+  if (url.includes("arcgisonline.com/ArcGIS/rest/services/World_Imagery")) return "esri-imagery";
+  if (url.includes("tile.openstreetmap.org")) return "osm";
+  return null;
+}
+
+function parseLayerLabels(indexHtml: string, files: VirtualFile[]): Map<string, LayerLabelConfig> {
   const labels = new Map<string, LayerLabelConfig>();
+  const labelCss = readLabelCss(files);
   const matches = indexHtml.matchAll(/(layer_[A-Za-z0-9_]+)\.bindTooltip\(([\s\S]*?)\{([\s\S]*?)\}\s*\)/g);
   for (const match of matches) {
     const expression = match[2];
     const field = expression.match(/properties\[['"]([^'"]+)['"]\]/)?.[1];
     if (!field) continue;
     const options = match[3];
-    labels.set(match[1], {
-      enabled: true,
-      field,
-      permanent: /permanent\s*:\s*true/.test(options),
-      offset: parseOffset(options),
-      className: readOptionString(options, "className"),
-      fontSize: 12,
-      textColor: "#172026",
-      haloColor: "#ffffff"
-    });
+    const className = readOptionString(options, "className");
+    labels.set(match[1], buildLabelConfig(field, options, className, expression, labelCss));
   }
   const eachLayerMatches = indexHtml.matchAll(/(layer_[A-Za-z0-9_]+)\.eachLayer\(function\(layer\)\s*\{([\s\S]*?)\n\s*\}\);/g);
   for (const match of eachLayerMatches) {
     if (labels.has(match[1]) || !match[2].includes("bindTooltip")) continue;
-    const field = match[2].match(/properties\[['"]([^'"]+)['"]\]/)?.[1];
+    const body = match[2];
+    const field = body.match(/properties\[['"]([^'"]+)['"]\]/)?.[1];
     if (!field) continue;
-    const tooltipCall = match[2].match(/bindTooltip\([\s\S]*?,\s*\{([\s\S]*?)\}\s*\)/)?.[1] || "";
-    labels.set(match[1], {
-      enabled: true,
-      field,
-      permanent: /permanent\s*:\s*true/.test(tooltipCall),
-      offset: parseOffset(tooltipCall),
-      className: readOptionString(tooltipCall, "className"),
-      fontSize: 12,
-      textColor: "#172026",
-      haloColor: "#ffffff"
-    });
+    const tooltipMatch = body.match(/bindTooltip\(([\s\S]*?),\s*\{([\s\S]*?)\}\s*\)/);
+    const expression = tooltipMatch?.[1] || "";
+    const options = tooltipMatch?.[2] || "";
+    const className = readOptionString(options, "className");
+    labels.set(match[1], buildLabelConfig(field, options, className, expression, labelCss));
   }
   return labels;
+}
+
+function buildLabelConfig(field: string, options: string, className: string, expression: string, labelCss: Map<string, string>): LayerLabelConfig {
+  const htmlTemplate = labelTemplateFromExpression(expression, field);
+  return {
+    enabled: true,
+    field,
+    permanent: /permanent\s*:\s*true/.test(options),
+    offset: parseOffset(options),
+    className,
+    htmlTemplate,
+    cssText: className ? labelCss.get(className) : undefined,
+    fontSize: 12,
+    textColor: "#172026",
+    haloColor: "#ffffff"
+  };
 }
 
 function parsePopupTemplates(indexHtml: string): Map<string, PopupTemplate> {
@@ -237,11 +255,12 @@ function parsePopupTemplates(indexHtml: string): Map<string, PopupTemplate> {
     const body = readFunctionBody(indexHtml, `pop_${suffix}`);
     const layerVariable = `layer_${suffix}`;
     const fields = parsePopupFieldsFromBody(body);
-    if (fields.length === 0) continue;
+    const originalHtml = parsePopupHtmlFromBody(body);
+    if (fields.length === 0 && !originalHtml) continue;
     templates.set(layerVariable, {
       mode: "original",
       source: "imported",
-      html: popupHtmlFromFields(fields),
+      html: fields.length > 0 ? popupHtmlFromFields(fields) : originalHtml,
       fields
     });
   }
@@ -390,6 +409,20 @@ function parseLegendRows(rawLabel: string): ParsedLegendRow[] {
   return [];
 }
 
+function parsePopupHtmlFromBody(body: string): string {
+  const assigned = body.match(/var\s+popupContent\s*=\s*([\s\S]*?);\s*(?:return|layer\.bindPopup|bindPopup)/)?.[1]?.trim();
+  if (!assigned) return "";
+  const normalized = assigned.replace(/\\\r?\n\s*/g, "");
+  const segments = Array.from(normalized.matchAll(/(['"])(.*?)(?<!\\)\1|feature\.properties\[['"]([^'"]+)['"]\]/g));
+  if (segments.length === 0) return "";
+  return segments
+    .map((segment) => {
+      if (segment[3]) return `{{${segment[3]}}}`;
+      return unescapeJsString(segment[2] || "");
+    })
+    .join("");
+}
+
 function parsePopupFieldsFromBody(body: string): PopupField[] {
   const fields: PopupField[] = [];
   const rowMatches = body.matchAll(/<tr[\s\S]*?<\/(?:tr)>/g);
@@ -408,6 +441,11 @@ function parsePopupFieldsFromBody(body: string): PopupField[] {
     });
   }
   return dedupePopupFields(fields);
+}
+
+function isUsablePopupTemplate(html: string): boolean {
+  const normalized = html.trim();
+  return Boolean(normalized && /<\w+/.test(normalized) && (/\{\{\s*[A-Za-z0-9_:-]+\s*\}\}/.test(normalized) || /<table|<div|<span|<p/i.test(normalized)));
 }
 
 function popupHtmlFromFields(fields: PopupField[]): string {
@@ -480,6 +518,36 @@ function parseOffset(options: string): [number, number] {
 
 function escapeHtmlText(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
+}
+
+function labelTemplateFromExpression(expression: string, field: string): string | undefined {
+  const normalized = expression.trim();
+  if (!normalized) return undefined;
+  const stringMatch = normalized.match(/String\((['"])([\s\S]*?)\1\s*\+\s*layer\.feature\.properties\[['"][^'"]+['"]\]\s*\+\s*(['"])([\s\S]*?)\3\)/);
+  if (stringMatch) {
+    return `${unescapeJsString(stringMatch[2])}{{${field}}}${unescapeJsString(stringMatch[4])}`;
+  }
+  const qgisStringMatch = normalized.match(/String\((['"])([\s\S]*?)\1\s*\+\s*layer\.feature\.properties\[['"][^'"]+['"]\]\)\s*\+\s*(['"])([\s\S]*?)\3/);
+  if (qgisStringMatch) {
+    return `${unescapeJsString(qgisStringMatch[2])}{{${field}}}${unescapeJsString(qgisStringMatch[4])}`;
+  }
+  const simpleConcatMatch = normalized.match(/(['"])([\s\S]*?)\1\s*\+\s*layer\.feature\.properties\[['"][^'"]+['"]\]\s*\+\s*(['"])([\s\S]*?)\3/);
+  if (simpleConcatMatch) {
+    return `${unescapeJsString(simpleConcatMatch[2])}{{${field}}}${unescapeJsString(simpleConcatMatch[4])}`;
+  }
+  return undefined;
+}
+
+function readLabelCss(files: VirtualFile[]): Map<string, string> {
+  const css = files
+    .filter((file) => file.kind === "text" && file.text && file.path.endsWith(".css"))
+    .map((file) => file.text || "")
+    .join("\n");
+  const rules = new Map<string, string>();
+  for (const match of css.matchAll(/\.([A-Za-z0-9_-]+)\s*\{([\s\S]*?)\}/g)) {
+    rules.set(match[1], match[2].trim());
+  }
+  return rules;
 }
 
 function htmlToText(value: string): string {

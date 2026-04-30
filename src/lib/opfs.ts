@@ -110,7 +110,7 @@ function deserializeProject(value: unknown): Qgis2webProject {
       ...defaultMapSettings,
       ...(project.mapSettings || {})
     },
-    basemaps: mergeBasemapDefaults(project.basemaps),
+    basemaps: normalizeBasemaps(project.basemaps),
     runtime: {
       ...defaultRuntimeSettings,
       ...(project.runtime || {})
@@ -130,10 +130,9 @@ function deserializeProject(value: unknown): Qgis2webProject {
   } as Qgis2webProject;
 }
 
-function mergeBasemapDefaults(basemaps: Qgis2webProject["basemaps"] | undefined): Qgis2webProject["basemaps"] {
-  const current = basemaps?.length ? basemaps : [];
-  const existingIds = new Set(current.map((basemap) => basemap.id));
-  return [...current, ...defaultBasemaps.filter((basemap) => !existingIds.has(basemap.id))];
+function normalizeBasemaps(basemaps: Qgis2webProject["basemaps"] | undefined): Qgis2webProject["basemaps"] {
+  if (basemaps?.length) return basemaps;
+  return defaultBasemaps;
 }
 
 function hydrateLayer(layer: LayerManifest): LayerManifest {
@@ -155,7 +154,9 @@ function hydrateLayer(layer: LayerManifest): LayerManifest {
       ? {
           ...layer.label,
           offset: layer.label.offset || [0, 0],
-          className: layer.label.className || ""
+          className: layer.label.className || "",
+          htmlTemplate: layer.label.htmlTemplate,
+          cssText: layer.label.cssText
         }
       : undefined,
     style: {

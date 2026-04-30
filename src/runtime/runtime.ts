@@ -74,7 +74,7 @@ export const q2wsRuntime = String.raw`(function () {
         if (layerConfig.label.enabled && layerConfig.label.field) {
           var labelValue = feature.properties && feature.properties[layerConfig.label.field];
           if (labelValue != null && labelValue !== "") {
-            featureLayer.bindTooltip(escapeHtml(labelValue), {
+            featureLayer.bindTooltip(renderLabel(layerConfig, feature), {
               permanent: Boolean(layerConfig.label.permanent),
               offset: window.L.point(layerConfig.label.offset || [0, 0]),
               className: "q2ws-label " + (layerConfig.label.className || "")
@@ -83,6 +83,17 @@ export const q2wsRuntime = String.raw`(function () {
         }
       }
     });
+  }
+
+  function renderLabel(layerConfig, feature) {
+    var label = layerConfig.label || {};
+    if (label.htmlTemplate) {
+      return sanitizeLabelHtml(String(label.htmlTemplate || "").replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, function (_match, key) {
+        return escapeHtml(feature.properties && feature.properties[key]);
+      }));
+    }
+    var labelValue = feature.properties && feature.properties[label.field];
+    return escapeHtml(labelValue);
   }
 
   function renderPopup(layerConfig, feature) {
@@ -99,6 +110,23 @@ export const q2wsRuntime = String.raw`(function () {
         : '<tr><th>' + escapeHtml(field.label) + '</th><td>' + value + '</td></tr>';
     }).join("");
     return '<table class="studio-popup">' + rows + '</table>';
+  }
+
+  function sanitizeLabelHtml(html) {
+    var template = document.createElement("template");
+    template.innerHTML = html;
+    var allowedTags = ["DIV", "SPAN", "B", "I", "EM", "STRONG", "BR"];
+    var allowedAttrs = ["class", "style"];
+    template.content.querySelectorAll("*").forEach(function (element) {
+      if (allowedTags.indexOf(element.tagName) === -1) {
+        element.replaceWith(document.createTextNode(element.textContent || ""));
+        return;
+      }
+      Array.from(element.attributes).forEach(function (attr) {
+        if (allowedAttrs.indexOf(attr.name.toLowerCase()) === -1) element.removeAttribute(attr.name);
+      });
+    });
+    return template.innerHTML;
   }
 
   function sanitizePopupHtml(html) {
@@ -201,7 +229,7 @@ export const q2wsRuntime = String.raw`(function () {
     if (!window.L || !window.map) return;
     var selected = config.mapSettings && config.mapSettings.basemap;
     if (!selected || selected === "none") return;
-    var basemaps = config.basemaps || [];
+    var basemaps = (config.basemaps || []).filter(function (item) { return item.enabled !== false; });
     var basemap = basemaps.find(function (item) { return item.id === selected; }) || basemaps.find(function (item) { return item.default; }) || basemaps[0];
     if (!basemap || !basemap.url) return;
     window.map.eachLayer(function (layer) {
@@ -228,7 +256,10 @@ export const q2wsRuntime = String.raw`(function () {
         highlight: ""
       };
       var selector = selectors[widget.id];
-      if (!selector) return;
+      if (!selector) {
+        console.warn("qgis2web Studio cannot disable this preserved widget automatically:", widget.id);
+        return;
+      }
       document.querySelectorAll(selector).forEach(function (element) {
         element.style.display = "none";
       });
@@ -343,6 +374,21 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
+  function applyLabelCss(config) {
+    var css = (config.layers || []).map(function (layerConfig) {
+      var label = layerConfig.label || {};
+      if (!label.className || !label.cssText) return "";
+      return "." + label.className + " { " + label.cssText + " }";
+    }).filter(Boolean).join("\n");
+    if (!css) return;
+    var style = document.getElementById("q2ws-label-css");
+    if (!style) {
+      style = createEl("style", { id: "q2ws-label-css" });
+      document.head.appendChild(style);
+    }
+    style.textContent = css;
+  }
+
   function applyPopupStyle(config) {
     var popup = config.popupSettings || {};
     var accent = popup.accentColor || "#156f7a";
@@ -413,6 +459,7 @@ export const q2wsRuntime = String.raw`(function () {
         document.documentElement.style.setProperty("--q2ws-header-height", (config.theme.headerHeight || 48) + "px");
         applyBasemap(config);
         applyBranding(config);
+        applyLabelCss(config);
         applyLayerConfig(config);
         applyInitialView(config);
         applyLayerToggle(config);

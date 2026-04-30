@@ -4,6 +4,7 @@ import type { Qgis2webProject } from "../types/project";
 
 export type RuntimePreviewBundle = {
   srcdoc: string;
+  url: string;
   urls: string[];
 };
 
@@ -48,8 +49,12 @@ export async function buildRuntimePreview(project: Qgis2webProject): Promise<Run
     throw new Error("Runtime preview could not find index.html in export ZIP.");
   }
 
+  const srcdoc = rewriteIndexHtml(indexHtml, urlByRelativePath);
+  const url = URL.createObjectURL(new Blob([srcdoc], { type: "text/html" }));
+  urls.push(url);
   return {
-    srcdoc: rewriteIndexHtml(indexHtml, urlByRelativePath),
+    srcdoc,
+    url,
     urls
   };
 }

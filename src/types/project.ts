@@ -54,6 +54,8 @@ export type LayerLabelConfig = {
   permanent: boolean;
   offset: [number, number];
   className: string;
+  htmlTemplate?: string;
+  cssText?: string;
   fontSize: number;
   textColor: string;
   haloColor: string;

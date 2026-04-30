@@ -5,6 +5,8 @@ import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "react-re
 import { Toaster, toast } from "sonner";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Circle,
   Download,
   Eye,
@@ -46,6 +48,7 @@ import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
 import { defaultBasemaps, defaultLegendSettings, defaultMapSettings, defaultPopupSettings, defaultRuntimeSettings } from "./lib/defaults";
 import type {
+  BasemapConfig,
   DrawMode,
   InitialZoomMode,
   LayerControlMode,
@@ -64,6 +67,35 @@ type AppThemeMode = "light" | "dark" | "system";
 const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
 const APP_THEME_STORAGE_KEY = "q2ws-app-theme";
 const HISTORY_LIMIT = 30;
+const BASEMAP_PRESET_GROUPS: { name: string; items: BasemapConfig[] }[] = [
+  {
+    name: "OpenStreetMap",
+    items: [
+      { id: "osm", label: "OpenStreetMap", url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: "© OpenStreetMap contributors", maxZoom: 19, default: false, enabled: true, source: "studio" },
+      { id: "osm-hot", label: "OSM Humanitarian", url: "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", attribution: "© OpenStreetMap contributors, HOT", maxZoom: 20, default: false, enabled: true, source: "studio" }
+    ]
+  },
+  {
+    name: "Esri",
+    items: [
+      { id: "esri-imagery", label: "World Imagery", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "Tiles © Esri", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "esri-topo", label: "World Topo Map", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", attribution: "Tiles © Esri", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "esri-streets", label: "World Street Map", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attribution: "Tiles © Esri", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "esri-light-gray", label: "Light Gray Base", url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", attribution: "Tiles © Esri", maxZoom: 16, default: false, enabled: true, source: "studio" },
+      { id: "esri-dark-gray", label: "Dark Gray Base", url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", attribution: "Tiles © Esri", maxZoom: 16, default: false, enabled: true, source: "studio" }
+    ]
+  },
+  {
+    name: "Carto",
+    items: [
+      { id: "carto-voyager", label: "Carto Voyager", url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "carto-positron", label: "Carto Positron", url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "carto-dark-matter", label: "Carto Dark Matter", url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "carto-positron-nolabels", label: "Carto Positron No Labels", url: "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 20, default: false, enabled: true, source: "studio" },
+      { id: "carto-dark-matter-nolabels", label: "Carto Dark Matter No Labels", url: "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", attribution: "© OpenStreetMap contributors © CARTO", maxZoom: 20, default: false, enabled: true, source: "studio" }
+    ]
+  }
+];
 
 export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -78,6 +110,7 @@ export function App() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [tableMode, setTableMode] = useState<TableMode>("open");
   const [attributeFilter, setAttributeFilter] = useState("");
+  const [presetBasemapProvider, setPresetBasemapProvider] = useState(BASEMAP_PRESET_GROUPS[0]?.name || "OpenStreetMap");
   const [status, setStatus] = useState("Import a qgis2web export to start editing.");
   const [busy, setBusy] = useState(false);
   const [appTheme, setAppTheme] = useState<AppThemeMode>(() => readStoredTheme());
@@ -374,6 +407,31 @@ export function App() {
     updateProject(updateLayer(project, selectedLayer.id, patch));
   }
 
+  function ensureLayerLabel(layer: LayerManifest) {
+    const firstField = fieldNames(layer)[0] || "";
+    return layer.label || {
+      enabled: false,
+      field: firstField,
+      permanent: true,
+      offset: [0, -16] as [number, number],
+      className: "",
+      htmlTemplate: firstField ? `{{${firstField}}}` : "",
+      cssText: "",
+      fontSize: 12,
+      textColor: "#172026",
+      haloColor: "#ffffff"
+    };
+  }
+
+  function ensurePopupTemplate(layer: LayerManifest) {
+    return layer.popupTemplate || {
+      mode: "field-grid" as const,
+      source: "studio" as const,
+      html: popupHtmlFromLayer(layer),
+      fields: layer.popupFields
+    };
+  }
+
   function setMapSetting<K extends keyof Qgis2webProject["mapSettings"]>(
     key: K,
     value: Qgis2webProject["mapSettings"][K]
@@ -418,6 +476,15 @@ export function App() {
     });
   }
 
+  function addPresetBasemap(template: BasemapConfig) {
+    if (!project) return;
+    if (project.basemaps.some((basemap) => basemap.id === template.id || basemap.url === template.url)) return;
+    updateProject({
+      ...project,
+      basemaps: [...project.basemaps, { ...template, default: false, enabled: true, source: "user" }]
+    });
+  }
+
   function addCustomBasemap() {
     if (!project) return;
     const id = `custom-${Date.now()}`;
@@ -454,11 +521,25 @@ export function App() {
     });
   }
 
-  function updateBasemapField(basemapId: string, field: string, value: string) {
+  function updateBasemapField<K extends keyof Qgis2webProject["basemaps"][number]>(basemapId: string, field: K, value: Qgis2webProject["basemaps"][number][K]) {
     if (!project) return;
     updateProject({
       ...project,
       basemaps: project.basemaps.map((basemap) => basemap.id === basemapId ? { ...basemap, [field]: value } : basemap)
+    });
+  }
+
+  function moveBasemap(basemapId: string, direction: -1 | 1) {
+    if (!project) return;
+    const index = project.basemaps.findIndex((basemap) => basemap.id === basemapId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= project.basemaps.length) return;
+    const basemaps = [...project.basemaps];
+    const [item] = basemaps.splice(index, 1);
+    basemaps.splice(nextIndex, 0, item);
+    updateProject({
+      ...project,
+      basemaps
     });
   }
 
@@ -641,12 +722,20 @@ export function App() {
               </button>
 
               <PanelTitle icon={<Settings2 size={16} />} title="Map View" />
-              <SelectField
-                label="Basemap"
-                value={project.mapSettings.basemap}
-                onChange={(value) => setMapSetting("basemap", value)}
-                options={project.basemaps.map((basemap) => ({ value: basemap.id, label: basemap.label }))}
-              />
+              {project.basemaps.length > 0 && (
+                <div className="sidebar-basemap-grid">
+                  {project.basemaps.map((basemap) => {
+                    const active = project.mapSettings.basemap === basemap.id || basemap.default;
+                    return (
+                      <button key={basemap.id} type="button" className={`basemap-card compact ${active ? "active" : ""} ${basemap.enabled ? "" : "disabled"}`} onClick={() => setDefaultBasemap(basemap.id)}>
+                        <span className="basemap-card-preview" style={{ backgroundImage: `url(${basemapPreviewUrl(basemap.url)})` }} />
+                        <strong>{basemap.label}</strong>
+                        <small>{basemap.source}{basemap.enabled ? "" : " · disabled"}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <SegmentedControl
                 label="Layer display"
                 value={project.mapSettings.viewMode}
@@ -909,15 +998,9 @@ export function App() {
 
                 <Tabs.Content value="map" className="tabs-content">
                   <PanelTitle title="Map View" />
-                  <SelectField
-                    label="Basemap"
-                    value={project.mapSettings.basemap}
-                    onChange={(value) => setMapSetting("basemap", value)}
-                    options={project.basemaps.map((basemap) => ({ value: basemap.id, label: basemap.label }))}
-                  />
                   {project.basemaps.length > 0 && (
                     <div className="basemap-list">
-                      {project.basemaps.map((basemap) => (
+                      {project.basemaps.map((basemap, index) => (
                         <div key={basemap.id} className="basemap-row">
                           <input
                             type="radio"
@@ -927,22 +1010,53 @@ export function App() {
                           />
                           <div className="basemap-row-content">
                             <input className="basemap-label-input" value={basemap.label} onChange={(event) => updateBasemapField(basemap.id, "label", event.target.value)} />
-                            {basemap.source === "user" && (
-                              <input className="basemap-url-input" value={basemap.url} placeholder="Tile URL https://..." onChange={(event) => updateBasemapField(basemap.id, "url", event.target.value)} />
-                            )}
+                            <input className="basemap-url-input" value={basemap.url} placeholder="Tile URL https://..." onChange={(event) => updateBasemapField(basemap.id, "url", event.target.value)} />
+                            <input className="basemap-url-input" value={basemap.attribution} placeholder="Attribution" onChange={(event) => updateBasemapField(basemap.id, "attribution", event.target.value)} />
+                            <input className="basemap-url-input" type="number" min="1" max="24" value={basemap.maxZoom} onChange={(event) => updateBasemapField(basemap.id, "maxZoom", Number(event.target.value) || 20)} />
+                            <label>
+                              <input type="checkbox" checked={basemap.enabled} onChange={(event) => updateBasemapField(basemap.id, "enabled", event.target.checked)} /> Enabled
+                            </label>
                           </div>
                           <small>{basemap.source}</small>
-                          {project.basemaps.length > 1 && (
-                            <button type="button" className="icon-button" title="Remove basemap" onClick={() => removeBasemap(basemap.id)}>
-                              <Trash2 size={14} />
+                          <div className="basemap-row-actions">
+                            <button type="button" className="icon-button" title="Move up" disabled={index === 0} onClick={() => moveBasemap(basemap.id, -1)}>
+                              <ArrowUp size={14} />
                             </button>
-                          )}
+                            <button type="button" className="icon-button" title="Move down" disabled={index === project.basemaps.length - 1} onClick={() => moveBasemap(basemap.id, 1)}>
+                              <ArrowDown size={14} />
+                            </button>
+                            {project.basemaps.length > 1 && (
+                              <button type="button" className="icon-button" title="Remove basemap" onClick={() => removeBasemap(basemap.id)}>
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
+                  <PanelTitle title="Add Basemap" />
+                  <div className="basemap-provider-tabs">
+                    {BASEMAP_PRESET_GROUPS.map((group) => (
+                      <button key={group.name} type="button" className={presetBasemapProvider === group.name ? "active" : ""} onClick={() => setPresetBasemapProvider(group.name)}>
+                        {group.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="basemap-card-grid preset-grid">
+                    {(BASEMAP_PRESET_GROUPS.find((group) => group.name === presetBasemapProvider)?.items || []).map((basemap) => {
+                      const added = project.basemaps.some((item) => item.id === basemap.id || item.url === basemap.url);
+                      return (
+                        <button key={basemap.id} type="button" className="basemap-card" disabled={added} onClick={() => addPresetBasemap(basemap)}>
+                          <span className="basemap-card-preview" style={{ backgroundImage: `url(${basemapPreviewUrl(basemap.url)})` }} />
+                          <strong>{basemap.label}</strong>
+                          <small>{added ? "Added" : presetBasemapProvider}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <button type="button" className="btn compact full" onClick={addCustomBasemap}>
-                    <Plus size={14} /> Add custom basemap
+                    <Plus size={14} /> Add custom tile URL
                   </button>
                   <SegmentedControl
                     label="Layer display"
@@ -1078,21 +1192,26 @@ export function App() {
                     <label><input type="checkbox" checked={selectedLayer.legendEnabled} onChange={(event) => patchSelectedLayer({ legendEnabled: event.target.checked })} />Legend</label>
                     <label><input type="checkbox" checked={selectedLayer.showInLayerControl} onChange={(event) => patchSelectedLayer({ showInLayerControl: event.target.checked })} />Layer toggle</label>
                   </div>
-                  {selectedLayer.label && (
-                    <>
-                      <PanelTitle title="Labels" />
-                      <div className="toggle-grid">
-                        <label><input type="checkbox" checked={selectedLayer.label.enabled} onChange={(event) => patchSelectedLayer({ label: { ...selectedLayer.label!, enabled: event.target.checked } })} />Show labels</label>
-                        <label><input type="checkbox" checked={selectedLayer.label.permanent} onChange={(event) => patchSelectedLayer({ label: { ...selectedLayer.label!, permanent: event.target.checked } })} />Permanent</label>
-                      </div>
-                      <SelectField
-                        label="Label field"
-                        value={selectedLayer.label.field}
-                        onChange={(field) => patchSelectedLayer({ label: { ...selectedLayer.label!, field } })}
-                        options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))}
-                      />
-                    </>
-                  )}
+                  {(() => {
+                    const layerLabel = ensureLayerLabel(selectedLayer);
+                    return (
+                      <>
+                        <PanelTitle title="Labels" />
+                        <div className="toggle-grid">
+                          <label><input type="checkbox" checked={layerLabel.enabled} onChange={(event) => patchSelectedLayer({ label: { ...layerLabel, enabled: event.target.checked } })} />Show labels</label>
+                          <label><input type="checkbox" checked={layerLabel.permanent} onChange={(event) => patchSelectedLayer({ label: { ...layerLabel, permanent: event.target.checked } })} />Permanent</label>
+                        </div>
+                        <SelectField
+                          label="Label field"
+                          value={layerLabel.field}
+                          onChange={(field) => patchSelectedLayer({ label: { ...layerLabel, field, htmlTemplate: `{{${field}}}` } })}
+                          options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))}
+                        />
+                        <RangeInput label="Label offset X" value={layerLabel.offset[0]} min={-40} max={40} step={1} onChange={(offsetX) => patchSelectedLayer({ label: { ...layerLabel, offset: [offsetX, layerLabel.offset[1]] } })} />
+                        <RangeInput label="Label offset Y" value={layerLabel.offset[1]} min={-40} max={40} step={1} onChange={(offsetY) => patchSelectedLayer({ label: { ...layerLabel, offset: [layerLabel.offset[0], offsetY] } })} />
+                      </>
+                    );
+                  })()}
                 </Tabs.Content>
 
                 <Tabs.Content value="style" className="tabs-content">
@@ -1134,31 +1253,35 @@ export function App() {
                 </Tabs.Content>
 
                 <Tabs.Content value="popup" className="tabs-content">
-                  {selectedLayer.popupTemplate && (
-                    <>
-                      <PanelTitle title="Popup Template" />
-                      <SelectField
-                        label="Template mode"
-                        value={selectedLayer.popupTemplate.mode}
-                        onChange={(mode) => patchSelectedLayer({ popupTemplate: { ...selectedLayer.popupTemplate!, mode: mode as PopupTemplateMode } })}
-                        options={[
-                          { value: "original", label: "Original HTML" },
-                          { value: "field-grid", label: "Field grid" },
-                          { value: "custom", label: "Custom HTML" }
-                        ]}
-                      />
-                    </>
-                  )}
-                  {selectedLayer.popupTemplate?.mode === "custom" && (
+                  {(() => {
+                    const popupTemplate = ensurePopupTemplate(selectedLayer);
+                    return (
+                      <>
+                        <PanelTitle title="Popup Template" />
+                        <SelectField
+                          label="Template mode"
+                          value={popupTemplate.mode}
+                          onChange={(mode) => patchSelectedLayer({ popupTemplate: { ...popupTemplate, mode: mode as PopupTemplateMode, fields: selectedLayer.popupFields } })}
+                          options={[
+                            { value: "original", label: "Original HTML" },
+                            { value: "field-grid", label: "Field grid" },
+                            { value: "custom", label: "Custom HTML" }
+                          ]}
+                        />
+                      </>
+                    );
+                  })()}
+                  {ensurePopupTemplate(selectedLayer).mode === "custom" && (
                     <>
                       <PanelTitle title="Custom Popup HTML" />
-                      <textarea
-                        className="popup-custom-textarea"
-                        rows={6}
-                        value={selectedLayer.popupTemplate?.html || ""}
-                        placeholder="<table><tr><th>Field</th><td>{{FIELDNAME}}</td></tr></table>"
-                        onChange={(event) => patchSelectedLayer({ popupTemplate: { ...selectedLayer.popupTemplate!, html: event.target.value } })}
-                      />
+                        <textarea
+                          className="popup-custom-textarea"
+                          rows={6}
+                          value={ensurePopupTemplate(selectedLayer).html || ""}
+                          placeholder="<table><tr><th>Field</th><td>{{FIELDNAME}}</td></tr></table>"
+                          onChange={(event) => patchSelectedLayer({ popupTemplate: { ...ensurePopupTemplate(selectedLayer), html: event.target.value, fields: selectedLayer.popupFields } })}
+                        />
+
                       <small className="popup-custom-hint">Use {"{{FIELDNAME}}"} for dynamic values. Allowed tags: table, tr, th, td, strong, br, span, div, p, b, i, em.</small>
                     </>
                   )}
@@ -1185,7 +1308,11 @@ export function App() {
                         <input
                           type="checkbox"
                           checked={field.visible}
-                          onChange={(event) => patchSelectedLayer({ popupFields: selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item) })}
+                            onChange={(event) => {
+                              const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item);
+                              patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                            }}
+
                         />
                         {field.label}
                       </label>
@@ -1285,14 +1412,32 @@ function applyAppTheme(theme: AppThemeMode): void {
   document.documentElement.dataset.themePreference = theme;
 }
 
-function mergeBasemapDefaults(basemaps: Qgis2webProject["basemaps"] | undefined): Qgis2webProject["basemaps"] {
-  const current = basemaps?.length ? basemaps : [];
-  const existingIds = new Set(current.map((basemap) => basemap.id));
-  return [...current, ...defaultBasemaps.filter((basemap) => !existingIds.has(basemap.id))];
+function normalizeBasemaps(basemaps: Qgis2webProject["basemaps"] | undefined): Qgis2webProject["basemaps"] {
+  if (basemaps?.length) return basemaps;
+  return defaultBasemaps;
 }
 
 function layerHasMultiGeometry(layer: LayerManifest): boolean {
   return layer.geometryType.includes("Multi") || layer.geojson.features.some((feature) => feature.geometry?.type.startsWith("Multi"));
+}
+
+function basemapPreviewUrl(url: string): string {
+  return url
+    .replaceAll("{s}", "a")
+    .replaceAll("{z}", "6")
+    .replaceAll("{x}", "52")
+    .replaceAll("{y}", "32")
+    .replaceAll("{r}", "");
+}
+
+function popupHtmlFromLayer(layer: LayerManifest): string {
+  const rows = layer.popupFields
+    .filter((field) => field.visible)
+    .map((field) => field.header
+      ? `<tr><td colspan="2"><strong>${field.label}</strong><br>{{${field.key}}}</td></tr>`
+      : `<tr><th scope="row">${field.label}</th><td>{{${field.key}}}</td></tr>`)
+    .join("");
+  return `<table>${rows}</table>`;
 }
 
 function geometryKindOf(geometryType: string): GeometryKind {
@@ -1341,7 +1486,7 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       ...defaultMapSettings,
       ...(project.mapSettings || {})
     },
-    basemaps: mergeBasemapDefaults(project.basemaps),
+    basemaps: normalizeBasemaps(project.basemaps),
     runtime: {
       ...defaultRuntimeSettings,
       ...(project.runtime || {})

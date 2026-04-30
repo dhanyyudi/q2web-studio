@@ -107,8 +107,8 @@ export function PreviewOverlay({
             <iframe
               title="Runtime preview"
               className="runtime-preview-frame"
-              sandbox="allow-scripts allow-popups"
-              srcDoc={runtimePreview.srcdoc}
+              sandbox="allow-scripts allow-popups allow-same-origin"
+              src={runtimePreview.url}
             />
           ) : (
             <div className="runtime-preview-loading">Building runtime preview...</div>
