@@ -342,6 +342,82 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
+  function applySidebar(config) {
+    var sidebar = config.sidebar || {};
+    if (!sidebar.enabled) return;
+    document.body.classList.add("q2ws-has-sidebar", "q2ws-has-sidebar-" + (sidebar.side || "right"));
+    var panel = createEl("aside", { id: "q2ws-sidebar", class: "q2ws-sidebar-" + (sidebar.side || "right") });
+    panel.style.width = Math.max(260, Math.min(520, Number(sidebar.width || 360))) + "px";
+    panel.innerHTML = renderMarkdown(sidebar.content || "");
+    document.body.appendChild(panel);
+  }
+
+  function renderMarkdown(markdown) {
+    var lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+    var html = [];
+    var listType = "";
+    var paragraph = [];
+    function flushParagraph() {
+      if (paragraph.length) {
+        html.push("<p>" + inlineMarkdown(paragraph.join(" ")) + "</p>");
+        paragraph = [];
+      }
+    }
+    function closeList() {
+      if (listType) {
+        html.push("</" + listType + ">");
+        listType = "";
+      }
+    }
+    function openList(type) {
+      if (listType === type) return;
+      closeList();
+      html.push("<" + type + ">");
+      listType = type;
+    }
+    lines.forEach(function (line) {
+      var trimmed = line.trim();
+      if (!trimmed) {
+        flushParagraph();
+        closeList();
+        return;
+      }
+      var heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+      if (heading) {
+        flushParagraph();
+        closeList();
+        html.push("<h" + heading[1].length + ">" + inlineMarkdown(heading[2]) + "</h" + heading[1].length + ">");
+        return;
+      }
+      var unorderedListItem = trimmed.match(/^(?:[-*])\s+(.+)$/);
+      if (unorderedListItem) {
+        flushParagraph();
+        openList("ul");
+        html.push("<li>" + inlineMarkdown(unorderedListItem[1]) + "</li>");
+        return;
+      }
+      var orderedListItem = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (orderedListItem) {
+        flushParagraph();
+        openList("ol");
+        html.push("<li>" + inlineMarkdown(orderedListItem[1]) + "</li>");
+        return;
+      }
+      paragraph.push(trimmed);
+    });
+    flushParagraph();
+    closeList();
+    return html.join("");
+  }
+
+  function inlineMarkdown(value) {
+    return escapeHtml(value)
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/\x60([^\x60]+)\x60/g, "<code>$1</code>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  }
+
   function applyBranding(config) {
     var branding = config.branding || {};
     if (branding.showHeader && branding.headerPlacement !== "hidden") {
@@ -536,6 +612,7 @@ export const q2wsRuntime = String.raw`(function () {
         document.documentElement.style.setProperty("--q2ws-header-height", (config.theme.headerHeight || 48) + "px");
         applyBasemap(config);
         applyBranding(config);
+        applySidebar(config);
         applyLabelCss(config);
         applyLayerConfig(config);
         applyInitialView(config);
@@ -658,6 +735,55 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
   color: var(--q2ws-text);
   font-weight: 700;
   text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+}
+
+#q2ws-sidebar {
+  position: fixed;
+  top: calc(var(--q2ws-header-height) + 32px);
+  bottom: 56px;
+  z-index: 1090;
+  overflow: auto;
+  padding: 16px;
+  border-radius: var(--q2ws-radius);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
+  font: 13px Inter, Segoe UI, Arial, sans-serif;
+  line-height: 1.55;
+  color: var(--q2ws-text);
+}
+
+#q2ws-sidebar.q2ws-sidebar-left {
+  left: 14px;
+}
+
+#q2ws-sidebar.q2ws-sidebar-right {
+  right: 14px;
+}
+
+#q2ws-sidebar h1,
+#q2ws-sidebar h2,
+#q2ws-sidebar h3 {
+  margin: 0 0 10px;
+  color: var(--q2ws-accent);
+}
+
+#q2ws-sidebar p,
+#q2ws-sidebar ul,
+#q2ws-sidebar ol {
+  margin: 0 0 12px;
+}
+
+#q2ws-sidebar ul,
+#q2ws-sidebar ol {
+  padding-left: 20px;
+}
+
+#q2ws-sidebar a {
+  color: var(--q2ws-accent);
+}
+
+#q2ws-sidebar code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 #q2ws-footer {

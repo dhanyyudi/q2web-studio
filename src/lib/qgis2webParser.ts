@@ -7,6 +7,7 @@ import {
   defaultMapSettings,
   defaultPopupSettings,
   defaultRuntimeSettings,
+  defaultSidebarSettings,
   defaultTheme
 } from "./defaults";
 import { opacityFromRgba, rgbaToHex } from "./colors";
@@ -117,6 +118,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
     },
     legendSettings: defaultLegendSettings,
     popupSettings: defaultPopupSettings,
+    sidebar: defaultSidebarSettings,
     manualLegendItems: [],
     textAnnotations: [],
     diagnostics: detectedEngine === "leaflet" ? [] : ["Parser menemukan export non-Leaflet. MVP hanya mendukung Leaflet."]

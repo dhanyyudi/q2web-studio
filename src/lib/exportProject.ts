@@ -35,6 +35,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     runtime: project.runtime,
     legendSettings: project.legendSettings,
     popupSettings: project.popupSettings,
+    sidebar: project.sidebar,
     layers: project.layers.map((layer) => ({
       id: layer.id,
       displayName: layer.displayName,
