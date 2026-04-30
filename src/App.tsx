@@ -226,6 +226,8 @@ export function App() {
         return;
       }
 
+      if (showShortcutDialog) return;
+
       if (event.key === "?") {
         event.preventDefault();
         setShowShortcutDialog(true);

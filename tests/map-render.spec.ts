@@ -102,6 +102,8 @@ test("imports fixture and renders map", async ({ page }) => {
 
   await page.keyboard.press("?");
   await expect(page.getByRole("dialog", { name: /Editing Shortcuts/i })).toBeVisible();
+  await page.keyboard.press("3");
+  await expect(page.getByRole("dialog", { name: /Editing Shortcuts/i })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: /Editing Shortcuts/i })).toHaveCount(0);
 
