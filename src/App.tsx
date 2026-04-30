@@ -1321,6 +1321,7 @@ export function App() {
                       <ColorInput label="Text" value={selectedLayer.popupSettings.textColor} onChange={(textColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, textColor } })} />
                       <ColorInput label="Label" value={selectedLayer.popupSettings.labelColor} onChange={(labelColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, labelColor } })} />
                       <RangeInput label="Radius" value={selectedLayer.popupSettings.radius} min={0} max={22} step={1} onChange={(radius) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, radius } })} />
+                      <RangeInput label="Shadow" value={selectedLayer.popupSettings.shadow} min={0} max={42} step={1} onChange={(shadow) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, shadow } })} />
                     </>
                   )}
                   <PanelTitle title="Popup Fields" />
@@ -1562,6 +1563,12 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
         ? {
             ...layer.popupTemplate,
             fields: layer.popupTemplate.fields || layer.popupFields || []
+          }
+        : undefined,
+      popupSettings: layer.popupSettings
+        ? {
+            ...defaultPopupSettings,
+            ...layer.popupSettings
           }
         : undefined,
       style: {

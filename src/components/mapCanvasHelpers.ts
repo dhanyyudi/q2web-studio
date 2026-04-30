@@ -132,7 +132,7 @@ export function popupCss(project: Qgis2webProject): string {
     .filter((layer) => layer.popupSettings)
     .map((layer) => {
       const override = layer.popupSettings!;
-      return `.popup-layer-${layer.id} .leaflet-popup-content-wrapper { border-color: ${override.accentColor}; border-radius: ${override.radius}px; background: ${override.backgroundColor}; color: ${override.textColor}; }
+      return `.popup-layer-${layer.id} .leaflet-popup-content-wrapper { border-color: ${override.accentColor}; border-radius: ${override.radius}px; background: ${override.backgroundColor}; color: ${override.textColor}; box-shadow: 0 ${Math.max(6, override.shadow / 2)}px ${Math.max(14, override.shadow)}px rgba(0, 0, 0, 0.22); }
 .popup-layer-${layer.id} .leaflet-popup-tip { background: ${override.backgroundColor}; }
 .popup-layer-${layer.id} .studio-popup th { color: ${override.labelColor}; }
 .popup-layer-${layer.id} .studio-popup strong { color: ${override.accentColor}; }`;

@@ -124,6 +124,29 @@ const sidebarConfig = JSON.parse(await zipText(sidebarZip, `${root}q2ws-config.j
 if (!sidebarConfig.sidebar?.enabled || !String(sidebarConfig.sidebar?.content || "").includes("Tentang peta")) {
   throw new Error("Expected q2ws-config.json to preserve enabled sidebar settings.");
 }
+const popupOverrideProject = cloneProject(project);
+popupOverrideProject.layers = popupOverrideProject.layers.map((layer) =>
+  layer.displayName === "Batas Desa"
+    ? {
+        ...layer,
+        popupSettings: {
+          ...popupOverrideProject.popupSettings,
+          accentColor: "#1976d2",
+          backgroundColor: "#eff6ff",
+          textColor: "#0f172a",
+          labelColor: "#1d4ed8",
+          radius: 17,
+          shadow: 34
+        }
+      }
+    : layer
+);
+const popupOverrideZip = await exportZip(popupOverrideProject);
+const popupOverrideConfig = JSON.parse(await zipText(popupOverrideZip, `${root}q2ws-config.json`));
+const popupOverrideLayer = popupOverrideConfig.layers?.find((layer: { displayName: string; popupSettings?: { accentColor?: string; shadow?: number } }) => layer.displayName === "Batas Desa");
+if (!popupOverrideLayer?.popupSettings || popupOverrideLayer.popupSettings.accentColor !== "#1976d2" || popupOverrideLayer.popupSettings.shadow !== 34) {
+  throw new Error("Expected q2ws-config.json to preserve per-layer popup style overrides.");
+}
 const welcomeProject = cloneProject(project);
 welcomeProject.branding = {
   ...welcomeProject.branding,
