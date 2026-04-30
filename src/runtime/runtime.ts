@@ -239,29 +239,102 @@ export const q2wsRuntime = String.raw`(function () {
     window.L.tileLayer(basemap.url, { attribution: basemap.attribution || "", maxZoom: basemap.maxZoom || 20 }).addTo(window.map);
   }
 
-  function applyWidgetVisibility(config) {
+  function applyDisabledWidgets(config) {
     var widgets = (config.runtime && config.runtime.widgets) || [];
     widgets.forEach(function (widget) {
       if (widget.enabled !== false) return;
-      var selectors = {
-        measure: ".leaflet-control-measure",
-        photon: ".leaflet-control-photon, .leaflet-photon",
-        layersTree: ".leaflet-control-layers",
-        scale: ".leaflet-control-scale",
-        hash: "",
-        labels: ".q2ws-label, .leaflet-tooltip",
-        pattern: "",
-        rotatedMarker: "",
-        fullscreen: ".leaflet-control-fullscreen",
-        highlight: ""
-      };
-      var selector = selectors[widget.id];
-      if (!selector) {
-        console.warn("qgis2web Studio cannot disable this preserved widget automatically:", widget.id);
+      if (widget.id === "measure") {
+        removeControlCandidate(window.measureControl);
+        removeElements(".leaflet-control-measure, .leaflet-measure-resultpopup");
         return;
       }
-      document.querySelectorAll(selector).forEach(function (element) {
-        element.style.display = "none";
+      if (widget.id === "photon") {
+        removeControlCandidate(window.photonControl);
+        removeElements(".leaflet-control-photon, .leaflet-photon, .photon-autocomplete");
+        return;
+      }
+      if (widget.id === "layersTree") {
+        removeElements(".leaflet-control-layers");
+        return;
+      }
+      if (widget.id === "scale") {
+        removeElements(".leaflet-control-scale");
+        return;
+      }
+      if (widget.id === "fullscreen") {
+        removeElements(".leaflet-control-fullscreen");
+        return;
+      }
+      if (widget.id === "hash") {
+        removeHashControl();
+        return;
+      }
+      if (widget.id === "labels") {
+        disableLabels(config);
+        return;
+      }
+      if (widget.id === "highlight") {
+        clearHighlightState(config);
+        return;
+      }
+      if (widget.id === "pattern" || widget.id === "rotatedMarker") {
+        return;
+      }
+      console.warn("qgis2web Studio cannot disable this preserved widget automatically:", widget.id);
+    });
+  }
+
+  function removeControlCandidate(control) {
+    if (!control) return;
+    try {
+      if (window.map && window.map.removeControl && control.remove) {
+        control.remove();
+        return;
+      }
+      if (window.map && window.map.removeControl) {
+        window.map.removeControl(control);
+      }
+    } catch (error) {
+      console.warn("qgis2web Studio failed to remove widget control", error);
+    }
+  }
+
+  function removeElements(selector) {
+    document.querySelectorAll(selector).forEach(function (element) {
+      element.remove();
+    });
+  }
+
+  function removeHashControl() {
+    var hashControl = window.hash;
+    if (hashControl && typeof hashControl.remove === "function") {
+      hashControl.remove();
+    }
+    if (window.history && window.location.hash) {
+      window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+    }
+  }
+
+  function disableLabels(config) {
+    removeElements(".q2ws-label, .leaflet-tooltip");
+    (config.layers || []).forEach(function (layerConfig) {
+      var layer = window[layerConfig.layerVariable];
+      if (!layer || !layer.eachLayer) return;
+      layer.eachLayer(function (featureLayer) {
+        if (featureLayer.unbindTooltip) featureLayer.unbindTooltip();
+      });
+    });
+  }
+
+  function clearHighlightState(config) {
+    if (!window.L) return;
+    (config.layers || []).forEach(function (layerConfig) {
+      var layer = window[layerConfig.layerVariable];
+      if (!layer || !layer.eachLayer) return;
+      layer.eachLayer(function (featureLayer) {
+        if (featureLayer.setStyle && featureLayer.feature) {
+          featureLayer.setStyle(styleFor(layerConfig, featureLayer.feature));
+        }
       });
     });
   }
@@ -463,7 +536,7 @@ export const q2wsRuntime = String.raw`(function () {
         applyLayerConfig(config);
         applyInitialView(config);
         applyLayerToggle(config);
-        applyWidgetVisibility(config);
+        applyDisabledWidgets(config);
         applyPopupStyle(config);
         applyLegend(config);
         applyTextAnnotations(config);

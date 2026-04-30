@@ -122,33 +122,64 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
 }
 
 function parseWidgets(indexHtml: string, files: VirtualFile[]): RuntimeWidget[] {
-  const widgetDefinitions: { id: RuntimeWidgetId; label: string; patterns: RegExp[] }[] = [
-    { id: "measure", label: "Measure tool", patterns: [/leaflet-measure/i, /L\.Control\.Measure/i] },
-    { id: "photon", label: "Address search", patterns: [/leaflet\.photon/i, /control\.photon/i, /L\.Control\.Photon/i] },
-    { id: "fullscreen", label: "Fullscreen", patterns: [/Control\.Fullscreen/i, /leaflet-fullscreen/i] },
+  const widgetDefinitions: { id: RuntimeWidgetId; label: string; patterns: RegExp[]; assetPatterns?: RegExp[] }[] = [
+    { id: "measure", label: "Measure tool", patterns: [/leaflet-measure/i, /L\.Control\.Measure/i], assetPatterns: [/leaflet-measure/i] },
+    { id: "photon", label: "Address search", patterns: [/leaflet\.photon/i, /control\.photon/i, /L\.Control\.Photon/i], assetPatterns: [/leaflet\.photon/i, /photon/i] },
+    { id: "fullscreen", label: "Fullscreen", patterns: [/Control\.Fullscreen/i, /leaflet-fullscreen/i], assetPatterns: [/fullscreen/i] },
     { id: "scale", label: "Scale bar", patterns: [/L\.control\.scale/i] },
-    { id: "hash", label: "URL hash", patterns: [/leaflet-hash/i, /new\s+L\.Hash/i] },
-    { id: "rotatedMarker", label: "Rotated marker", patterns: [/leaflet\.rotatedMarker/i] },
-    { id: "pattern", label: "Pattern fill", patterns: [/leaflet\.pattern/i] },
-    { id: "labels", label: "Permanent labels", patterns: [/labelgun/i, /labels\.js/i, /bindTooltip/i] },
-    { id: "layersTree", label: "Layer tree control", patterns: [/L\.Control\.Layers\.Tree/i, /Layers\.Tree/i] },
+    { id: "hash", label: "URL hash", patterns: [/leaflet-hash/i, /new\s+L\.Hash/i], assetPatterns: [/leaflet-hash/i] },
+    { id: "rotatedMarker", label: "Rotated marker", patterns: [/leaflet\.rotatedMarker/i], assetPatterns: [/rotatedMarker/i] },
+    { id: "pattern", label: "Pattern fill", patterns: [/leaflet\.pattern/i], assetPatterns: [/leaflet\.pattern/i] },
+    { id: "labels", label: "Permanent labels", patterns: [/labelgun/i, /labels\.js/i, /bindTooltip/i], assetPatterns: [/labelgun/i, /labels\.js/i, /rbush/i] },
+    { id: "layersTree", label: "Layer tree control", patterns: [/L\.Control\.Layers\.Tree/i, /Layers\.Tree/i], assetPatterns: [/L\.Control\.Layers\.Tree/i] },
     { id: "highlight", label: "Highlight on hover", patterns: [/highlightFeature/i, /resetHighlight/i] }
   ];
-  const text = `${indexHtml}\n${files.map((file) => file.path).join("\n")}`;
+  const referencedAssetPaths = referencedAssets(indexHtml, files);
+  const searchableText = `${indexHtml}\n${files.map((file) => `${file.path}\n${file.text || ""}`).join("\n")}`;
   return widgetDefinitions
     .map((definition) => {
-      const detected = definition.patterns.some((pattern) => pattern.test(text));
+      const detected = definition.patterns.some((pattern) => pattern.test(searchableText));
+      const assetPatterns = definition.assetPatterns || definition.patterns;
       return {
         id: definition.id,
         label: definition.label,
         enabled: detected,
         detected,
-        assetPaths: files
-          .filter((file) => detected && definition.patterns.some((pattern) => pattern.test(file.path)))
-          .map((file) => file.path)
+        assetPaths: detected
+          ? referencedAssetPaths.filter((path) => assetPatterns.some((pattern) => pattern.test(path)))
+          : []
       } satisfies RuntimeWidget;
     })
     .filter((widget) => widget.detected);
+}
+
+function referencedAssets(indexHtml: string, files: VirtualFile[]): string[] {
+  const indexPath = files.find((file) => file.path.endsWith("index.html"))?.path || "index.html";
+  const root = indexPath.includes("/") ? indexPath.slice(0, indexPath.lastIndexOf("/") + 1) : "";
+  const availablePaths = new Set(files.map((file) => file.path));
+  const paths: string[] = [];
+  const matches = indexHtml.matchAll(/<(?:script|link)\b[^>]+(?:src|href)=["']([^"']+)["'][^>]*>/gi);
+  for (const match of matches) {
+    const raw = match[1];
+    if (/^(?:https?:)?\/\//i.test(raw) || raw.startsWith("data:") || raw.startsWith("#")) continue;
+    const normalized = normalizeAssetPath(`${root}${stripUrlSuffix(raw)}`);
+    if (availablePaths.has(normalized) && !paths.includes(normalized)) paths.push(normalized);
+  }
+  return paths;
+}
+
+function normalizeAssetPath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function stripUrlSuffix(path: string): string {
+  return path.split("#", 1)[0].split("?", 1)[0];
 }
 
 function parseBasemaps(indexHtml: string): BasemapConfig[] {

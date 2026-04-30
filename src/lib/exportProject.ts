@@ -115,20 +115,38 @@ function patchIndexHtml(indexHtml: string, project: Qgis2webProject): string {
   if (!html.includes("q2ws-runtime.js")) {
     html = html.replace("</body>", '        <script src="q2ws-runtime.js"></script>\n    </body>');
   }
-  const disabledWidgets = (project.runtime?.widgets || []).filter((widget) => !widget.enabled);
-  for (const widget of disabledWidgets) {
-    for (const assetPath of widget.assetPaths) {
-      const filename = assetPath.split("/").pop() || "";
-      if (!filename) continue;
-      html = html.replace(new RegExp(`<script[^>]+${escapeRegExpExport(filename)}[^>]*></script>\\s*`, "gi"), "");
-      html = html.replace(new RegExp(`<link[^>]+${escapeRegExpExport(filename)}[^>]*>\\s*`, "gi"), "");
-    }
+  const disabledAssetPaths = new Set(
+    (project.runtime?.widgets || [])
+      .filter((widget) => !widget.enabled)
+      .flatMap((widget) => widget.assetPaths)
+  );
+  if (disabledAssetPaths.size) {
+    html = removeDisabledAssetTags(html, project.indexHtmlPath, disabledAssetPaths);
   }
   return html;
 }
 
-function escapeRegExpExport(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function removeDisabledAssetTags(indexHtml: string, indexHtmlPath: string, disabledAssetPaths: Set<string>): string {
+  const indexRoot = indexHtmlPath.includes("/") ? indexHtmlPath.slice(0, indexHtmlPath.lastIndexOf("/") + 1) : "";
+  return indexHtml.replace(/\s*<(script|link)\b[^>]+(?:src|href)=["']([^"']+)["'][^>]*(?:><\/script>|>)\s*/gi, (tag, _tagName, rawPath) => {
+    if (/^(?:https?:)?\/\//i.test(rawPath) || rawPath.startsWith("data:") || rawPath.startsWith("#")) return tag;
+    const normalized = normalizeAssetPath(`${indexRoot}${stripUrlSuffix(rawPath)}`);
+    return disabledAssetPaths.has(normalized) ? "\n" : tag;
+  });
+}
+
+function normalizeAssetPath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function stripUrlSuffix(path: string): string {
+  return path.split("#", 1)[0].split("?", 1)[0];
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
