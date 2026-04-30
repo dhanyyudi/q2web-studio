@@ -111,6 +111,14 @@ if (project.layers.some((layer) => layer.showInLayerControl === false)) {
   throw new Error(`Expected imported fixture layers to stay available in layer control. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.showInLayerControl}`).join(", ")}`);
 }
 
+if (project.mapSettings.layerControlMode !== "expanded") {
+  throw new Error(`Expected fresh imports to default to expanded Studio layer control. Got: ${project.mapSettings.layerControlMode}`);
+}
+
+if (project.legendSettings.enabled || project.legendSettings.placement !== "hidden") {
+  throw new Error(`Expected fresh imports to keep legend hidden by default. Got: enabled=${project.legendSettings.enabled}, placement=${project.legendSettings.placement}`);
+}
+
 if (boundary?.label?.field !== "NAMOBJ") {
   throw new Error(`Expected Batas Desa label field NAMOBJ. Got: ${boundary?.label?.field || "none"}`);
 }

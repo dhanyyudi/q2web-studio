@@ -178,8 +178,8 @@ export const q2wsRuntime = String.raw`(function () {
   function applyLayerToggle(config) {
     if (!window.map) return;
     var settings = config.mapSettings || {};
-    var mode = settings.layerControlMode || "original";
-    if (mode === "original") return;
+    var mode = settings.layerControlMode || "expanded";
+    if (["compact", "expanded", "tree"].indexOf(mode) === -1) mode = "expanded";
     var layers = (config.layers || []).filter(function (layerConfig) {
       return layerConfig.showInLayerControl !== false && window[layerConfig.layerVariable];
     });

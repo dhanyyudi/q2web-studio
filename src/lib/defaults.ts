@@ -49,7 +49,7 @@ export const defaultMapSettings: MapSettings = {
   viewMode: "all",
   initialZoomMode: "fit",
   initialZoom: 13,
-  layerControlMode: "original"
+  layerControlMode: "expanded"
 };
 
 export const defaultBasemaps: BasemapConfig[] = [

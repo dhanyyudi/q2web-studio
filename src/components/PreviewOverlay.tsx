@@ -119,7 +119,7 @@ export function PreviewOverlay({
             selectedLayerId={selectedLayerId}
             drawMode="select"
             preview
-            showLayerControl={project.mapSettings.layerControlMode !== "original"}
+            showLayerControl
             layerVisibility={layerVisibility}
             onLayerVisibilityChange={(layerId, visible) =>
               setLayerVisibility((current) => ({
