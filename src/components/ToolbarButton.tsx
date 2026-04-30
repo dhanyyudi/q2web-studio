@@ -4,14 +4,16 @@ type ToolbarButtonProps = {
   active?: boolean;
   disabled?: boolean;
   title: string;
+  shortcut?: string;
   children: ReactNode;
   onClick: () => void;
 };
 
-export function ToolbarButton({ active, disabled, title, children, onClick }: ToolbarButtonProps) {
+export function ToolbarButton({ active, disabled, title, shortcut, children, onClick }: ToolbarButtonProps) {
   return (
-    <button className={active ? "tool-button active" : "tool-button"} disabled={disabled} title={title} type="button" onClick={onClick}>
+    <button className={active ? "tool-button active" : "tool-button"} disabled={disabled} title={shortcut ? `${title} (${shortcut})` : title} type="button" onClick={onClick}>
       {children}
+      {shortcut && <span className="tool-keycap">{shortcut}</span>}
     </button>
   );
 }
