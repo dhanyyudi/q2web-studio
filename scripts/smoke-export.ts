@@ -113,12 +113,16 @@ sidebarProject.sidebar = {
   enabled: true,
   side: "right",
   width: 340,
-  content: "# Tentang peta\n\n- Sumber: BPN\n- Tahun: **2026**"
+  content: "# Tentang peta\n\n1. Sumber: BPN\n2. Tahun: **2026**"
 };
 const sidebarZip = await exportZip(sidebarProject);
 const sidebarConfig = JSON.parse(await zipText(sidebarZip, `${root}q2ws-config.json`));
 if (!sidebarConfig.sidebar?.enabled || !String(sidebarConfig.sidebar?.content || "").includes("Tentang peta")) {
   throw new Error("Expected q2ws-config.json to preserve enabled sidebar settings.");
+}
+const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+if (!runtimeSource.includes('openList("ol")') || !runtimeSource.includes('^\\d+\\.\\s+(.+)$')) {
+  throw new Error("Expected runtime sidebar markdown renderer to preserve ordered lists.");
 }
 
 const disabledProject = cloneProject(project);

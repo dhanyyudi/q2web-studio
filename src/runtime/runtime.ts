@@ -355,7 +355,7 @@ export const q2wsRuntime = String.raw`(function () {
   function renderMarkdown(markdown) {
     var lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
     var html = [];
-    var listOpen = false;
+    var listType = "";
     var paragraph = [];
     function flushParagraph() {
       if (paragraph.length) {
@@ -364,10 +364,16 @@ export const q2wsRuntime = String.raw`(function () {
       }
     }
     function closeList() {
-      if (listOpen) {
-        html.push("</ul>");
-        listOpen = false;
+      if (listType) {
+        html.push("</" + listType + ">");
+        listType = "";
       }
+    }
+    function openList(type) {
+      if (listType === type) return;
+      closeList();
+      html.push("<" + type + ">");
+      listType = type;
     }
     lines.forEach(function (line) {
       var trimmed = line.trim();
@@ -383,14 +389,18 @@ export const q2wsRuntime = String.raw`(function () {
         html.push("<h" + heading[1].length + ">" + inlineMarkdown(heading[2]) + "</h" + heading[1].length + ">");
         return;
       }
-      var listItem = trimmed.match(/^(?:[-*])\s+(.+)$/);
-      if (listItem) {
+      var unorderedListItem = trimmed.match(/^(?:[-*])\s+(.+)$/);
+      if (unorderedListItem) {
         flushParagraph();
-        if (!listOpen) {
-          html.push("<ul>");
-          listOpen = true;
-        }
-        html.push("<li>" + inlineMarkdown(listItem[1]) + "</li>");
+        openList("ul");
+        html.push("<li>" + inlineMarkdown(unorderedListItem[1]) + "</li>");
+        return;
+      }
+      var orderedListItem = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (orderedListItem) {
+        flushParagraph();
+        openList("ol");
+        html.push("<li>" + inlineMarkdown(orderedListItem[1]) + "</li>");
         return;
       }
       paragraph.push(trimmed);
@@ -758,11 +768,13 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
 }
 
 #q2ws-sidebar p,
-#q2ws-sidebar ul {
+#q2ws-sidebar ul,
+#q2ws-sidebar ol {
   margin: 0 0 12px;
 }
 
-#q2ws-sidebar ul {
+#q2ws-sidebar ul,
+#q2ws-sidebar ol {
   padding-left: 20px;
 }
 
