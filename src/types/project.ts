@@ -70,6 +70,7 @@ export type LayerManifest = {
   geometryType: string;
   visible: boolean;
   showInLayerControl: boolean;
+  layerTreeGroup?: string;
   popupEnabled: boolean;
   legendEnabled: boolean;
   popupFields: PopupField[];

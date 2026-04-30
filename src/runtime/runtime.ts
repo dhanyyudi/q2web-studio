@@ -193,6 +193,30 @@ export const q2wsRuntime = String.raw`(function () {
     header.appendChild(createEl("strong", {}, "Layers"));
     control.appendChild(header);
     var content = createEl("div", { class: "q2ws-layer-control-content" });
+    var rowsHost = content;
+    var treeHosts = null;
+    if (mode === "tree") {
+      content.classList.add("q2ws-layer-control-tree");
+      treeHosts = {};
+      layers.forEach(function (layerConfig) {
+        var groupName = layerConfig.layerTreeGroup || "Layers";
+        if (treeHosts[groupName]) return;
+        var treeGroup = createEl("div", { class: "q2ws-layer-tree-group" });
+        var treeToggle = createEl("button", { type: "button", class: "q2ws-layer-tree-toggle", "aria-expanded": "true" });
+        treeToggle.appendChild(createEl("span", { class: "q2ws-layer-tree-icon" }, "-"));
+        treeToggle.appendChild(createEl("strong", {}, groupName));
+        var treeItems = createEl("div", { class: "q2ws-layer-tree-items" });
+        treeToggle.onclick = function () {
+          treeItems.hidden = !treeItems.hidden;
+          treeToggle.setAttribute("aria-expanded", treeItems.hidden ? "false" : "true");
+          treeToggle.firstChild.textContent = treeItems.hidden ? "+" : "-";
+        };
+        treeGroup.appendChild(treeToggle);
+        treeGroup.appendChild(treeItems);
+        content.appendChild(treeGroup);
+        treeHosts[groupName] = treeItems;
+      });
+    }
     layers.forEach(function (layerConfig) {
       var row = createEl("label", {});
       var input = createEl("input", { type: "checkbox" });
@@ -208,11 +232,9 @@ export const q2wsRuntime = String.raw`(function () {
       };
       row.appendChild(input);
       row.appendChild(createEl("span", {}, layerConfig.displayName || layerConfig.id));
-      content.appendChild(row);
+      var groupName = layerConfig.layerTreeGroup || "Layers";
+      (treeHosts && treeHosts[groupName] ? treeHosts[groupName] : rowsHost).appendChild(row);
     });
-    if (mode === "tree") {
-      content.classList.add("q2ws-layer-control-tree");
-    }
     var legendSection = buildLegendSection(config);
     if (legendSection && (config.legendSettings || {}).placement === "inside-control") {
       content.appendChild(legendSection);
@@ -919,7 +941,27 @@ body.q2ws-has-header-top-right-pill #q2ws-layer-control {
   margin-top: 8px;
 }
 
-.q2ws-layer-control-tree label {
+.q2ws-layer-tree-group {
+  display: grid;
+  gap: 8px;
+}
+
+.q2ws-layer-tree-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--q2ws-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.q2ws-layer-tree-items {
+  display: grid;
+  gap: 2px;
   padding-left: 10px;
   border-left: 2px solid rgba(21, 111, 122, 0.18);
 }

@@ -960,6 +960,31 @@ button:disabled {
   border-left: 3px solid color-mix(in srgb, var(--brand) 28%, white 72%);
 }
 
+.layer-tree-group {
+  display: grid;
+  gap: 8px;
+}
+
+.layer-tree-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-fg);
+  font-weight: 800;
+  text-align: left;
+}
+
+.layer-tree-items {
+  display: grid;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--brand) 18%, white 82%);
+}
+
 
 .map-shell-header-top-full .layer-toggle-preview,
 .map-shell-header-top-full .legend-preview.legend-top-left,

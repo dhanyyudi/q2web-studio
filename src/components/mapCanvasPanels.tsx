@@ -77,6 +77,14 @@ export function LayerControl({
   onLegendOpenChange: (open: boolean) => void;
 }) {
   const toggleableLayers = layers.filter((layer) => layer.showInLayerControl);
+  const treeGroups = Array.from(toggleableLayers.reduce((groups, layer) => {
+    const key = layer.layerTreeGroup || "Layers";
+    const bucket = groups.get(key) || [];
+    bucket.push(layer);
+    groups.set(key, bucket);
+    return groups;
+  }, new Map<string, LayerManifest[]>()).entries());
+  const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>({});
   if (toggleableLayers.length === 0) return null;
   const effectiveMode = mode === "compact" || mode === "tree" ? mode : "expanded";
   return (
@@ -84,7 +92,31 @@ export function LayerControl({
       <h3>
         <Layers3 size={15} /> Layers
       </h3>
-      {toggleableLayers.map((layer) => {
+      {effectiveMode === "tree" ? treeGroups.map(([group, groupLayers]) => (
+        <div className="layer-tree-group" key={group}>
+          <button type="button" className="layer-tree-toggle" onClick={() => setTreeOpen((current) => ({ ...current, [group]: current[group] === false ? true : false }))} aria-expanded={treeOpen[group] !== false}>
+            {treeOpen[group] !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>{group}</span>
+          </button>
+          {treeOpen[group] !== false && (
+            <div className="layer-tree-items">
+              {groupLayers.map((layer) => {
+                const checked = layerVisibility?.[layer.id] ?? layer.visible;
+                return (
+                  <label key={layer.id}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => onLayerVisibilityChange?.(layer.id, event.target.checked)}
+                    />
+                    <span>{layer.displayName}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )) : toggleableLayers.map((layer) => {
         const checked = layerVisibility?.[layer.id] ?? layer.visible;
         return (
           <label key={layer.id}>

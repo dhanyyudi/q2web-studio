@@ -180,6 +180,29 @@ for (const expectedEditorCss of [".legend-bottom-right", ".legend-bottom-left", 
   }
 }
 
+const treeModeProject = cloneProject(project);
+treeModeProject.mapSettings = {
+  ...treeModeProject.mapSettings,
+  layerControlMode: "tree"
+};
+const treeModeZip = await exportZip(treeModeProject);
+const treeModeConfig = JSON.parse(await zipText(treeModeZip, `${root}q2ws-config.json`));
+if (treeModeConfig.mapSettings?.layerControlMode !== "tree") {
+  throw new Error(`Expected q2ws-config.json to preserve tree layer control mode. Got: ${treeModeConfig.mapSettings?.layerControlMode}`);
+}
+const runtimeSourceForTree = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+for (const expectedTreeCode of ["q2ws-layer-tree-group", "q2ws-layer-tree-toggle", "q2ws-layer-tree-items", "treeToggle.onclick"] ) {
+  if (!runtimeSourceForTree.includes(expectedTreeCode)) {
+    throw new Error(`Expected runtime tree layer control support to include: ${expectedTreeCode}`);
+  }
+}
+const editorPanelSourceForTree = await readFile(join(process.cwd(), "src", "components", "mapCanvasPanels.tsx"), "utf8");
+for (const expectedEditorTreeCode of ["layer-tree-group", "layer-tree-toggle", "layer-tree-items", "setTreeOpen"]) {
+  if (!editorPanelSourceForTree.includes(expectedEditorTreeCode)) {
+    throw new Error(`Expected editor tree layer control support to include: ${expectedEditorTreeCode}`);
+  }
+}
+
 const welcomeProject = cloneProject(project);
 welcomeProject.branding = {
   ...welcomeProject.branding,

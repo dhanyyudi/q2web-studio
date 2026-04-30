@@ -24,6 +24,7 @@ type ParsedOverlay = {
   layerVariable: string;
   label: string;
   legendRows: ParsedLegendRow[];
+  treeGroup?: string;
 };
 
 type ParsedLegendRow = {
@@ -71,18 +72,19 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       ...parseStyleForLayer(indexHtml, layerVariable, geometryType, overlay?.legendRows || [])
     };
 
-    return {
-      id: dataFile.variable.replace(/^json_/, ""),
-      displayName,
-      sourcePath: dataFile.path,
-      dataVariable: dataFile.variable,
-      layerVariable,
-      geometryType,
+      return {
+        id: dataFile.variable.replace(/^json_/, ""),
+        displayName,
+        sourcePath: dataFile.path,
+        dataVariable: dataFile.variable,
+        layerVariable,
+        geometryType,
         visible: indexHtml.includes(`map.addLayer(${layerVariable})`),
         showInLayerControl: overlays.size === 0 && layerControlVariables.size === 0 ? true : overlays.has(layerVariable) || layerControlVariables.has(layerVariable),
+        layerTreeGroup: overlay?.treeGroup,
         popupEnabled: indexHtml.includes(`onEachFeature: pop_${layerVariable.replace(/^layer_/, "")}`),
+        legendEnabled: Boolean(overlay?.legendRows.length || style.categories?.length || overlay),
 
-      legendEnabled: Boolean(overlay?.legendRows.length || style.categories?.length || overlay),
       popupFields,
       popupTemplate: importedPopupTemplate,
       label: labels.get(layerVariable),
@@ -331,6 +333,13 @@ function parseDataFiles(files: VirtualFile[]): ParsedDataFile[] {
 
 function parseOverlays(indexHtml: string): Map<string, ParsedOverlay> {
   const overlays = new Map<string, ParsedOverlay>();
+  const treeEntries = parseOverlayTreeEntries(indexHtml);
+  if (treeEntries.length > 0) {
+    for (const entry of treeEntries) {
+      overlays.set(entry.layerVariable, entry);
+    }
+    return overlays;
+  }
   const matches = indexHtml.matchAll(/\{label:\s*(['"])(.*?)\1,\s*layer:\s*(layer_[A-Za-z0-9_]+)/gs);
   for (const match of matches) {
     const rawLabel = unescapeJsString(match[2]);
@@ -342,6 +351,29 @@ function parseOverlays(indexHtml: string): Map<string, ParsedOverlay> {
     });
   }
   return overlays;
+}
+
+function parseOverlayTreeEntries(indexHtml: string): ParsedOverlay[] {
+  const entries: ParsedOverlay[] = [];
+  const treeBody = indexHtml.match(/var\s+overlaysTree\s*=\s*\[([\s\S]*?)\]\s*\n\s*var\s+lay\s*=/)?.[1] || "";
+  if (!treeBody) return entries;
+  let currentGroup = "Layers";
+  const matches = treeBody.matchAll(/\{label:\s*(['"])(.*?)\1\s*,\s*(?:children:\s*\[|layer:\s*(layer_[A-Za-z0-9_]+))/gs);
+  for (const match of matches) {
+    const rawLabel = unescapeJsString(match[2]);
+    const layerVariable = match[3];
+    if (!layerVariable) {
+      currentGroup = cleanHtmlLabel(rawLabel) || "Layers";
+      continue;
+    }
+    entries.push({
+      layerVariable,
+      label: cleanHtmlLabel(rawLabel),
+      legendRows: parseLegendRows(rawLabel),
+      treeGroup: currentGroup
+    });
+  }
+  return entries;
 }
 
 function parseLayerControlVariables(indexHtml: string): Set<string> {

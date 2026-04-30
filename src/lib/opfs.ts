@@ -154,6 +154,7 @@ function hydrateLayer(layer: LayerManifest): LayerManifest {
           fields: layer.popupTemplate.fields || layer.popupFields || []
         }
       : undefined,
+    layerTreeGroup: layer.layerTreeGroup || "Layers",
     popupSettings: layer.popupSettings
       ? {
           ...defaultPopupSettings,
