@@ -107,6 +107,7 @@ export function App() {
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>("project");
   const [drawMode, setDrawMode] = useState<DrawMode>("select");
+  const [snapEnabled, setSnapEnabled] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [tableMode, setTableMode] = useState<TableMode>("open");
   const [attributeFilter, setAttributeFilter] = useState("");
@@ -177,15 +178,19 @@ export function App() {
 
   useEffect(() => {
     if (!selectedLayer) return;
-    if (!canEditGeometry && drawMode !== "select") {
-      setDrawMode("select");
+    if (!canEditGeometry) {
+      if (drawMode !== "select") {
+        setDrawMode("select");
+        return;
+      }
+      if (snapEnabled) setSnapEnabled(false);
       return;
     }
     if (drawMode === "select" || drawMode === "delete") return;
     if (!isDrawModeAllowed(drawMode, selectedGeometryKind)) {
       setDrawMode("select");
     }
-  }, [canEditGeometry, drawMode, selectedGeometryKind, selectedLayer]);
+  }, [canEditGeometry, drawMode, selectedGeometryKind, selectedLayer, snapEnabled]);
 
   useEffect(() => {
     if (tableMode === "maximized") {
@@ -869,6 +874,9 @@ export function App() {
                 <ToolbarButton title={canEditGeometry ? "Delete selected" : "Multi-geometry layers are preview-only"} active={drawMode === "delete"} disabled={!canEditGeometry} onClick={() => setDrawModeWithGuard("delete")}>
                   <Trash2 size={17} />
                 </ToolbarButton>
+                <button type="button" className={snapEnabled ? "snap-toggle active" : "snap-toggle"} disabled={!canEditGeometry} aria-pressed={snapEnabled} onClick={() => setSnapEnabled((current) => !current)}>
+                  Snap
+                </button>
                 <ToolbarButton title="Add text annotation" onClick={addTextAnnotation}>
                   <Type size={17} />
                 </ToolbarButton>
@@ -887,6 +895,7 @@ export function App() {
                     project={project}
                     selectedLayerId={selectedLayer.id}
                     drawMode={drawMode}
+                    snapEnabled={snapEnabled}
                     geometryEditingDisabled={!canEditGeometry}
                     onProjectChange={updateProject}
                     onTileError={handleTileError}

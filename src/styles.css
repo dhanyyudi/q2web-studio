@@ -666,6 +666,28 @@ button:disabled {
   color: #fff;
 }
 
+.snap-toggle {
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.snap-toggle.active {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 14%, var(--panel-bg));
+  color: var(--brand);
+}
+
+.snap-toggle:disabled {
+  background: var(--panel-muted);
+  color: var(--muted-text);
+}
+
 .project-settings-button {
   width: 100%;
   height: 36px;

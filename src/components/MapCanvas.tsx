@@ -9,6 +9,7 @@ type MapCanvasProps = {
   project: Qgis2webProject;
   selectedLayerId: string;
   drawMode: DrawMode;
+  snapEnabled?: boolean;
   geometryEditingDisabled?: boolean;
   preview?: boolean;
   showLayerControl?: boolean;
@@ -22,6 +23,7 @@ export function MapCanvas({
   project,
   selectedLayerId,
   drawMode,
+  snapEnabled = false,
   geometryEditingDisabled = false,
   preview = false,
   showLayerControl = false,
@@ -95,6 +97,7 @@ export function MapCanvas({
     project,
     selectedLayer,
     drawMode,
+    snapEnabled,
     geometryEditingDisabled,
     preview,
     onProjectChange,

@@ -116,6 +116,7 @@ test("imports fixture and renders map", async ({ page }) => {
   await page.evaluate(() => {
     (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
   });
+  await expect(page.getByRole("button", { name: "Snap" })).toBeDisabled();
   await page.waitForTimeout(400);
   const autoFitEvents = await page.evaluate(() => {
     const events = (window as Window & { __q2wsDebugEvents?: Array<{ source?: string; event?: string }> }).__q2wsDebugEvents || [];

@@ -90,6 +90,15 @@ function debugLog(source: string, event: string, detail: Record<string, unknown>
   console.debug("[q2ws-debug]", entry);
 }
 
+function snapOptions(enabled: boolean) {
+  return enabled
+    ? {
+        toLine: true,
+        toCoordinate: true
+      }
+    : undefined;
+}
+
 export function useBasemap(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, basemaps: BasemapConfig[], activeBasemapId: string, onTileError?: (message: string) => void) {
   const basemapRef = useRef<L.TileLayer | null>(null);
   const tileErrorShownRef = useRef(false);
@@ -295,6 +304,7 @@ export function useTerraDrawEditor({
   drawMode,
   geometryEditingDisabled,
   preview,
+  snapEnabled,
   onProjectChange,
   onDrawStatusChange
 }: {
@@ -305,6 +315,7 @@ export function useTerraDrawEditor({
   drawMode: DrawMode;
   geometryEditingDisabled: boolean;
   preview: boolean;
+  snapEnabled: boolean;
   onProjectChange: (project: Qgis2webProject) => void;
   onDrawStatusChange: (status: string) => void;
 }) {
@@ -341,7 +352,8 @@ export function useTerraDrawEditor({
                 coordinates: {
                   draggable: true,
                   midpoints: true,
-                  deletable: true
+                  deletable: true,
+                  snappable: snapOptions(snapEnabled)
                 }
               }
             },
@@ -351,7 +363,8 @@ export function useTerraDrawEditor({
                 coordinates: {
                   draggable: true,
                   midpoints: true,
-                  deletable: true
+                  deletable: true,
+                  snappable: snapOptions(snapEnabled)
                 }
               }
             },
@@ -363,8 +376,8 @@ export function useTerraDrawEditor({
           }
         }),
         new TerraDrawPointMode(),
-        new TerraDrawLineStringMode(),
-        new TerraDrawPolygonMode({ showCoordinatePoints: true }),
+        new TerraDrawLineStringMode({ snapping: snapOptions(snapEnabled) }),
+        new TerraDrawPolygonMode({ showCoordinatePoints: true, snapping: snapOptions(snapEnabled) }),
         new TerraDrawRectangleMode(),
         new TerraDrawCircleMode()
       ]
@@ -381,9 +394,10 @@ export function useTerraDrawEditor({
     }
     onDrawStatusChange(
       unsupportedCount > 0
-        ? `${editableFeatures.length} simple features editable. ${unsupportedCount} multi features remain preview-only.`
-        : `${editableFeatures.length} features loaded into geometry editor.`
+        ? `${editableFeatures.length} simple features editable. ${unsupportedCount} multi features remain preview-only.${snapEnabled ? " Snap is on." : ""}`
+        : `${editableFeatures.length} features loaded into geometry editor.${snapEnabled ? " Snap is on." : ""}`
     );
+    debugLog("terradraw", "snap-mode", { enabled: snapEnabled, layerId: selectedLayer.id });
 
     const syncLayer = () => {
       const snapshot = draw.getSnapshot();
@@ -414,12 +428,12 @@ export function useTerraDrawEditor({
       draw.stop();
       drawRef.current = null;
     };
-  }, [drawMode, geometryEditingDisabled, mapInstanceVersion, mapRef, onDrawStatusChange, onProjectChange, preview, project, selectedLayer]);
+  }, [drawMode, geometryEditingDisabled, mapInstanceVersion, mapRef, onDrawStatusChange, onProjectChange, preview, project, selectedLayer, snapEnabled]);
 
   useEffect(() => {
     if (preview || geometryEditingDisabled) return;
     if (!drawRef.current) return;
     drawRef.current.setMode(drawMode === "delete" ? "select" : drawMode);
-    onDrawStatusChange(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}`);
-  }, [drawMode, geometryEditingDisabled, onDrawStatusChange, preview]);
+    onDrawStatusChange(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}${snapEnabled ? " · snap on" : ""}`);
+  }, [drawMode, geometryEditingDisabled, onDrawStatusChange, preview, snapEnabled]);
 }
