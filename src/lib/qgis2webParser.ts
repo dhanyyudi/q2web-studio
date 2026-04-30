@@ -45,6 +45,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
   const indexHtml = indexFile.text;
   const detectedEngine = indexHtml.includes("L.map(") || indexHtml.includes("leaflet") ? "leaflet" : "unknown";
   const overlays = parseOverlays(indexHtml);
+  const layerControlVariables = parseLayerControlVariables(indexHtml);
   const basemaps = parseBasemaps(indexHtml);
   const widgets = parseWidgets(indexHtml, files);
   const labels = parseLayerLabels(indexHtml, files);
@@ -76,9 +77,10 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       dataVariable: dataFile.variable,
       layerVariable,
       geometryType,
-      visible: indexHtml.includes(`map.addLayer(${layerVariable})`),
-      showInLayerControl: overlays.size === 0 ? true : overlays.has(layerVariable),
-      popupEnabled: indexHtml.includes(`onEachFeature: pop_${layerVariable.replace(/^layer_/, "")}`),
+        visible: indexHtml.includes(`map.addLayer(${layerVariable})`),
+        showInLayerControl: overlays.size === 0 && layerControlVariables.size === 0 ? true : overlays.has(layerVariable) || layerControlVariables.has(layerVariable),
+        popupEnabled: indexHtml.includes(`onEachFeature: pop_${layerVariable.replace(/^layer_/, "")}`),
+
       legendEnabled: Boolean(overlay?.legendRows.length || style.categories?.length || overlay),
       popupFields,
       popupTemplate: importedPopupTemplate,
@@ -338,6 +340,18 @@ function parseOverlays(indexHtml: string): Map<string, ParsedOverlay> {
     });
   }
   return overlays;
+}
+
+function parseLayerControlVariables(indexHtml: string): Set<string> {
+  const variables = new Set<string>();
+  const controlMatches = indexHtml.matchAll(/L\.control\.layers\([\s\S]*?\)\.addTo\(map\)/g);
+  for (const match of controlMatches) {
+    const layerMatches = match[0].matchAll(/['"][^'"]+['"]\s*:\s*(layer_[A-Za-z0-9_]+)/g);
+    for (const layerMatch of layerMatches) {
+      variables.add(layerMatch[1]);
+    }
+  }
+  return variables;
 }
 
 function parseLayerVariables(indexHtml: string): { layerVariable: string; dataVariable: string }[] {

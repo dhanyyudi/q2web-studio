@@ -101,8 +101,12 @@ export function MapCanvas({
     onDrawStatusChange: setDrawStatus
   });
 
+  const headerPlacementClass = project.branding.showHeader && project.branding.headerPlacement !== "hidden"
+    ? `map-shell-header-${project.branding.headerPlacement}`
+    : "map-shell-header-hidden";
+
   return (
-    <section className="map-shell">
+    <section className={`map-shell ${headerPlacementClass}`}>
       <MapHeader project={project} />
       <div ref={containerRef} className="map-canvas" />
       <style>{popupCss(project)}</style>

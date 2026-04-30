@@ -1,4 +1,7 @@
 export const q2wsRuntime = String.raw`(function () {
+  // Runtime overlays configuration onto the original qgis2web export.
+  // It intentionally depends on globals created by the preserved index.html,
+  // especially window.map and window.layer_* variables.
   function ready(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn);
@@ -342,6 +345,7 @@ export const q2wsRuntime = String.raw`(function () {
   function applyBranding(config) {
     var branding = config.branding || {};
     if (branding.showHeader && branding.headerPlacement !== "hidden") {
+      document.body.classList.add("q2ws-has-header", "q2ws-has-header-" + (branding.headerPlacement || "top-full"));
       var header = createEl("div", { id: "q2ws-header" });
       header.className = "q2ws-header-" + (branding.headerPlacement || "top-full") + " q2ws-logo-" + (branding.logoPlacement || "left");
       var logo = branding.logoPath && branding.logoPlacement !== "hidden"
@@ -567,6 +571,16 @@ html, body {
   height: 100vh !important;
 }
 
+body.q2ws-has-header .leaflet-top {
+  top: calc(var(--q2ws-header-height) + 32px);
+}
+
+body.q2ws-has-header-top-left-pill .leaflet-top.leaflet-left,
+body.q2ws-has-header-top-center-card .leaflet-top.leaflet-left,
+body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
+  top: calc(var(--q2ws-header-height) + 40px);
+}
+
 #q2ws-header {
   position: fixed;
   top: 0;
@@ -708,6 +722,21 @@ html, body {
 #q2ws-legend.q2ws-legend-top-left {
   top: 76px;
   left: 14px;
+}
+
+body.q2ws-has-header-top-full #q2ws-legend.q2ws-legend-top-left,
+body.q2ws-has-header-top-full #q2ws-legend.q2ws-legend-top-right,
+body.q2ws-has-header-top-full #q2ws-layer-control {
+  top: 96px;
+}
+
+body.q2ws-has-header-top-left-pill #q2ws-legend.q2ws-legend-top-left,
+body.q2ws-has-header-top-center-card #q2ws-legend.q2ws-legend-top-left,
+body.q2ws-has-header-top-right-pill #q2ws-legend.q2ws-legend-top-right,
+body.q2ws-has-header-top-left-pill #q2ws-layer-control,
+body.q2ws-has-header-top-center-card #q2ws-layer-control,
+body.q2ws-has-header-top-right-pill #q2ws-layer-control {
+  top: 92px;
 }
 
 #q2ws-layer-control {

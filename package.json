@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "smoke:fixture": "tsx scripts/smoke-fixture.ts",
+    "smoke:export": "tsx scripts/smoke-export.ts",
     "smoke:map": "playwright test"
   },
   "dependencies": {
