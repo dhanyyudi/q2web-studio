@@ -316,7 +316,7 @@ export function useTerraDrawEditor({
   geometryEditingDisabled: boolean;
   preview: boolean;
   snapEnabled: boolean;
-  onProjectChange: (project: Qgis2webProject) => void;
+  onProjectChange: (project: Qgis2webProject, options?: { label?: string; group?: string }) => void;
   onDrawStatusChange: (status: string) => void;
 }) {
   const drawRef = useRef<TerraDraw | null>(null);
@@ -410,7 +410,8 @@ export function useTerraDrawEditor({
         updateLayerGeojson(project, selectedLayer.id, {
           ...selectedLayer.geojson,
           features: [...existingUnsupported, ...features]
-        })
+        }),
+        { label: `Edit ${selectedLayer.displayName} geometry`, group: `geometry:${selectedLayer.id}` }
       );
     };
 

@@ -24,7 +24,7 @@ type AttributeTableProps = {
   setRenameFrom: (value: string) => void;
   renameTo: string;
   setRenameTo: (value: string) => void;
-  updateProject: (project: Qgis2webProject) => void;
+  updateProject: (project: Qgis2webProject, options?: { label?: string; group?: string }) => void;
 };
 
 export function AttributeTable(props: AttributeTableProps) {
@@ -118,7 +118,8 @@ export function AttributeTable(props: AttributeTableProps) {
                           value={String(feature.properties?.[field] ?? "")}
                           onChange={(event) =>
                             props.updateProject(
-                              updateFeatureProperty(props.project, props.layer.id, sourceIndex, field, event.target.value)
+                              updateFeatureProperty(props.project, props.layer.id, sourceIndex, field, event.target.value),
+                              { label: `Edit ${field}`, group: `feature-property:${props.layer.id}:${sourceIndex}:${field}` }
                             )
                           }
                         />

@@ -10,7 +10,7 @@ type PreviewOverlayProps = {
   selectedLayerId: string;
   onClose: () => void;
   onExport: () => void;
-  onProjectChange: (project: Qgis2webProject) => void;
+  onProjectChange: (project: Qgis2webProject, options?: { label?: string; group?: string }) => void;
   onTileError: (message: string) => void;
 };
 

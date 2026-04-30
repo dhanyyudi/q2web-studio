@@ -63,6 +63,8 @@ import type {
 type InspectorMode = "project" | "layer";
 type GeometryKind = "point" | "line" | "polygon" | "unknown";
 type AppThemeMode = "light" | "dark" | "system";
+type HistoryEntry = { project: Qgis2webProject; label: string; group?: string };
+type UpdateProjectOptions = { label?: string; group?: string };
 
 const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
 const APP_THEME_STORAGE_KEY = "q2ws-app-theme";
@@ -120,7 +122,7 @@ export function App() {
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
   const [renameTo, setRenameTo] = useState("");
-  const [history, setHistory] = useState<{ past: Qgis2webProject[]; future: Qgis2webProject[] }>({
+  const [history, setHistory] = useState<{ past: HistoryEntry[]; future: HistoryEntry[] }>({
     past: [],
     future: []
   });
@@ -376,11 +378,15 @@ export function App() {
     }
   }
 
-  function updateProject(next: Qgis2webProject) {
+  function updateProject(next: Qgis2webProject, options: UpdateProjectOptions = {}) {
     const hydrated = hydrateProject(next);
     if (project) {
       setHistory((current) => ({
-        past: [...current.past.slice(-(HISTORY_LIMIT - 1)), project],
+        past: pushHistoryEntry(current.past, {
+          project,
+          label: options.label || "Project change",
+          group: options.group
+        }),
         future: []
       }));
     }
@@ -399,22 +405,24 @@ export function App() {
     if (!project) return;
     const previous = history.past[history.past.length - 1];
     if (!previous) return;
-    restoreProject(previous);
+    restoreProject(previous.project);
     setHistory({
       past: history.past.slice(0, -1),
-      future: [project, ...history.future].slice(0, HISTORY_LIMIT)
+      future: [{ project, label: previous.label, group: previous.group }, ...history.future].slice(0, HISTORY_LIMIT)
     });
+    toast.info(`Undid ${previous.label}`);
   }
 
   function redoProject() {
     if (!project) return;
     const next = history.future[0];
     if (!next) return;
-    restoreProject(next);
+    restoreProject(next.project);
     setHistory({
-      past: [...history.past.slice(-(HISTORY_LIMIT - 1)), project],
+      past: pushHistoryEntry(history.past, { project, label: next.label, group: next.group }),
       future: history.future.slice(1)
     });
+    toast.info(`Redid ${next.label}`);
   }
 
   async function persistProject(next: Qgis2webProject, successMessage?: string): Promise<boolean> {
@@ -702,10 +710,10 @@ export function App() {
             <FolderOpen size={16} /> Import Folder
           </Button>
           <Button type="button" variant="outline" disabled={!project || busy || history.past.length === 0} onClick={undoProject}>
-            <Undo2 size={16} /> Undo
+            <Undo2 size={16} /> Undo {history.past[history.past.length - 1] ? `(${history.past[history.past.length - 1]?.label})` : ""}
           </Button>
           <Button type="button" variant="outline" disabled={!project || busy || history.future.length === 0} onClick={redoProject}>
-            <Redo2 size={16} /> Redo
+            <Redo2 size={16} /> Redo {history.future[0] ? `(${history.future[0]?.label})` : ""}
           </Button>
           <div className="theme-toggle" aria-label="App theme">
             <button type="button" className={appTheme === "light" ? "active" : ""} title="Light theme" onClick={() => setAppTheme("light")}>
@@ -1596,6 +1604,13 @@ function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeomet
   const mode = modeByKey[key];
   if (!mode) return null;
   return isDrawModeAllowed(mode, geometryKind) ? mode : null;
+}
+
+function pushHistoryEntry(entries: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
+  if (entry.group && entries[entries.length - 1]?.group === entry.group) {
+    return entries;
+  }
+  return [...entries.slice(-(HISTORY_LIMIT - 1)), entry];
 }
 
 function shortcutRows(geometryKind: GeometryKind, canEditGeometry: boolean): { keycap: string; label: string }[] {
