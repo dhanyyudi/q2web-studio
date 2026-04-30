@@ -115,6 +115,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [appTheme, setAppTheme] = useState<AppThemeMode>(() => readStoredTheme());
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
+  const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
   const [renameTo, setRenameTo] = useState("");
@@ -200,6 +201,49 @@ export function App() {
     mapPanelRef.current?.resize("74%");
     tablePanelRef.current?.resize("26%");
   }, [mapPanelRef, tableMode, tablePanelRef]);
+
+  useEffect(() => {
+    function handleKeydown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName || "";
+      const isTypingTarget = target?.isContentEditable || tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+      if (isTypingTarget) return;
+
+      const metaOrCtrl = event.metaKey || event.ctrlKey;
+      if (metaOrCtrl && event.key.toLowerCase() === "z") {
+        if (!project) return;
+        event.preventDefault();
+        if (event.shiftKey) redoProject();
+        else undoProject();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (showShortcutDialog) {
+          event.preventDefault();
+          setShowShortcutDialog(false);
+        }
+        return;
+      }
+
+      if (showShortcutDialog) return;
+
+      if (event.key === "?") {
+        event.preventDefault();
+        setShowShortcutDialog(true);
+        return;
+      }
+
+      if (!project || !selectedLayer || previewOpen) return;
+      const nextMode = shortcutDrawMode(event.key, selectedGeometryKind, canEditGeometry);
+      if (!nextMode) return;
+      event.preventDefault();
+      setDrawMode(nextMode);
+    }
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [canEditGeometry, history.future, history.past, previewOpen, project, selectedGeometryKind, selectedLayer, showShortcutDialog]);
 
   async function importFiles(fileList: FileList | null) {
     if (!fileList?.length) return;
@@ -584,6 +628,22 @@ export function App() {
     updateProject({ ...project, textAnnotations: [...project.textAnnotations, annotation] });
   }
 
+  function setDrawModeWithGuard(nextMode: DrawMode) {
+    if (nextMode === "delete") {
+      if (!canEditGeometry) return;
+      setDrawMode("delete");
+      return;
+    }
+    if (nextMode === "select") {
+      if (!canEditGeometry) return;
+      setDrawMode("select");
+      return;
+    }
+    if (!selectedLayer || !canEditGeometry) return;
+    if (!isDrawModeAllowed(nextMode, selectedGeometryKind)) return;
+    setDrawMode(nextMode);
+  }
+
   async function importLogo(fileList: FileList | null) {
     const file = fileList?.[0];
     if (!file || !project) return;
@@ -788,29 +848,32 @@ export function App() {
           {project && selectedLayer ? (
             <>
               <div className="toolbar">
-                <ToolbarButton title={canEditGeometry ? "Select and edit" : "Multi-geometry layers are preview-only"} active={drawMode === "select"} disabled={!canEditGeometry} onClick={() => setDrawMode("select")}>
+                <ToolbarButton title={canEditGeometry ? "Select and edit" : "Multi-geometry layers are preview-only"} shortcut="1" active={drawMode === "select"} disabled={!canEditGeometry} onClick={() => setDrawModeWithGuard("select")}>
                   <MousePointer2 size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw point" active={drawMode === "point"} disabled={!canDrawPoint} onClick={() => setDrawMode("point")}>
+                <ToolbarButton title="Draw point" shortcut="2" active={drawMode === "point"} disabled={!canDrawPoint} onClick={() => setDrawModeWithGuard("point")}>
                   <Circle size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw line" active={drawMode === "linestring"} disabled={!canDrawLine} onClick={() => setDrawMode("linestring")}>
+                <ToolbarButton title="Draw line" shortcut="3" active={drawMode === "linestring"} disabled={!canDrawLine} onClick={() => setDrawModeWithGuard("linestring")}>
                   <PenLine size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw polygon" active={drawMode === "polygon"} disabled={!canDrawPolygon} onClick={() => setDrawMode("polygon")}>
+                <ToolbarButton title="Draw polygon" shortcut="4" active={drawMode === "polygon"} disabled={!canDrawPolygon} onClick={() => setDrawModeWithGuard("polygon")}>
                   <Square size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw rectangle" active={drawMode === "rectangle"} disabled={!canDrawPolygon} onClick={() => setDrawMode("rectangle")}>
+                <ToolbarButton title="Draw rectangle" shortcut="5" active={drawMode === "rectangle"} disabled={!canDrawPolygon} onClick={() => setDrawModeWithGuard("rectangle")}>
                   <Square size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Draw circle" active={drawMode === "circle"} disabled={!canDrawPolygon} onClick={() => setDrawMode("circle")}>
+                <ToolbarButton title="Draw circle" shortcut="6" active={drawMode === "circle"} disabled={!canDrawPolygon} onClick={() => setDrawModeWithGuard("circle")}>
                   <Circle size={17} />
                 </ToolbarButton>
-                <ToolbarButton title={canEditGeometry ? "Delete selected" : "Multi-geometry layers are preview-only"} active={drawMode === "delete"} disabled={!canEditGeometry} onClick={() => setDrawMode("delete")}>
+                <ToolbarButton title={canEditGeometry ? "Delete selected" : "Multi-geometry layers are preview-only"} active={drawMode === "delete"} disabled={!canEditGeometry} onClick={() => setDrawModeWithGuard("delete")}>
                   <Trash2 size={17} />
                 </ToolbarButton>
                 <ToolbarButton title="Add text annotation" onClick={addTextAnnotation}>
                   <Type size={17} />
+                </ToolbarButton>
+                <ToolbarButton title="Keyboard shortcuts" shortcut="?" onClick={() => setShowShortcutDialog(true)}>
+                  ?
                 </ToolbarButton>
               </div>
               <Group
@@ -1369,6 +1432,28 @@ export function App() {
           onTileError={handleTileError}
         />
       )}
+      {showShortcutDialog && (
+        <div className="dialog-overlay" role="presentation" onClick={() => setShowShortcutDialog(false)}>
+          <div className="dialog-content shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcut-dialog-title" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="btn dialog-close" aria-label="Close shortcuts" onClick={() => setShowShortcutDialog(false)}>
+              <XCircle size={16} />
+            </button>
+            <h2 id="shortcut-dialog-title">Editing Shortcuts</h2>
+            <p>Use number keys to swap geometry tools quickly. Undo and redo work with the standard keyboard shortcuts while focus stays outside input fields.</p>
+            <div className="shortcut-grid">
+              {shortcutRows(selectedGeometryKind, canEditGeometry).map((item) => (
+                <div className="shortcut-row" key={item.keycap}>
+                  <kbd>{item.keycap}</kbd>
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="dialog-actions">
+              <Button type="button" variant="outline" onClick={() => setShowShortcutDialog(false)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -1487,6 +1572,37 @@ function isDrawModeAllowed(drawMode: DrawMode, geometryKind: GeometryKind): bool
     return geometryKind === "polygon";
   }
   return true;
+}
+
+function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeometry: boolean): DrawMode | null {
+  if (!canEditGeometry) return null;
+  const modeByKey: Record<string, DrawMode> = {
+    "1": "select",
+    "2": "point",
+    "3": "linestring",
+    "4": "polygon",
+    "5": "rectangle",
+    "6": "circle"
+  };
+  const mode = modeByKey[key];
+  if (!mode) return null;
+  return isDrawModeAllowed(mode, geometryKind) ? mode : null;
+}
+
+function shortcutRows(geometryKind: GeometryKind, canEditGeometry: boolean): { keycap: string; label: string }[] {
+  const unavailable = canEditGeometry ? "Unavailable for selected layer" : "Multi-geometry layer is preview-only";
+  return [
+    { keycap: "1", label: canEditGeometry ? "Select and edit" : unavailable },
+    { keycap: "2", label: canEditGeometry && geometryKind === "point" ? "Draw point" : unavailable },
+    { keycap: "3", label: canEditGeometry && geometryKind === "line" ? "Draw line" : unavailable },
+    { keycap: "4", label: canEditGeometry && geometryKind === "polygon" ? "Draw polygon" : unavailable },
+    { keycap: "5", label: canEditGeometry && geometryKind === "polygon" ? "Draw rectangle" : unavailable },
+    { keycap: "6", label: canEditGeometry && geometryKind === "polygon" ? "Draw circle" : unavailable },
+    { keycap: "?", label: "Open this shortcuts dialog" },
+    { keycap: "Esc", label: "Close shortcuts dialog" },
+    { keycap: "Cmd/Ctrl+Z", label: "Undo project edit" },
+    { keycap: "Cmd/Ctrl+Shift+Z", label: "Redo project edit" }
+  ];
 }
 
 function hydrateProject(project: Qgis2webProject): Qgis2webProject {

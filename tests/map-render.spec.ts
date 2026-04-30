@@ -100,10 +100,22 @@ test("imports fixture and renders map", async ({ page }) => {
   const debugBufferExists = await page.evaluate(() => Array.isArray((window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents));
   expect(debugBufferExists).toBe(true);
 
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: /Editing Shortcuts/i })).toBeVisible();
+  await page.keyboard.press("3");
+  await expect(page.getByRole("dialog", { name: /Editing Shortcuts/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: /Editing Shortcuts/i })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /Sungai/i }).click();
+  await expect(page.locator(".draw-status")).toContainText(/preview-only/i);
+  await page.keyboard.press("3");
+  await expect(page.locator(".draw-status")).toContainText(/preview-only/i);
+  await expect(page.getByTitle(/Draw line \(3\)/i)).toBeDisabled();
+
   await page.evaluate(() => {
     (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
   });
-  await page.getByRole("button", { name: /Sungai/i }).click();
   await page.waitForTimeout(400);
   const autoFitEvents = await page.evaluate(() => {
     const events = (window as Window & { __q2wsDebugEvents?: Array<{ source?: string; event?: string }> }).__q2wsDebugEvents || [];

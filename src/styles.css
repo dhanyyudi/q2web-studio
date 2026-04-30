@@ -613,14 +613,18 @@ button:disabled {
 }
 
 .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 7px 10px;
   border-bottom: 1px solid var(--border-color);
   background: var(--panel-soft);
 }
 
 .tool-button {
-  width: 32px;
-  height: 32px;
+  position: relative;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -635,6 +639,31 @@ button:disabled {
 .tool-button:disabled {
   background: var(--panel-muted);
   color: var(--muted-text);
+}
+
+.tool-keycap {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: 1px solid var(--input-border);
+  color: var(--muted-text);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tool-button.active .tool-keycap {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
 }
 
 .project-settings-button {
@@ -1543,6 +1572,40 @@ td input {
 .field-dialog-grid {
   display: grid;
   gap: 10px;
+}
+
+.shortcut-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.shortcut-grid {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--input-border);
+  border-radius: 9px;
+  background: var(--panel-muted);
+  font-size: 13px;
+}
+
+.shortcut-row kbd {
+  justify-self: start;
+  min-width: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--input-border);
+  border-bottom-width: 2px;
+  border-radius: 7px;
+  background: var(--panel-bg);
+  color: var(--app-fg);
+  font: 700 12px/1.1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 :root[data-theme="dark"] .diagnostic-row,
