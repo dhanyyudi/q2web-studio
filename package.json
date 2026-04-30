@@ -8,7 +8,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "smoke:fixture": "tsx scripts/smoke-fixture.ts"
+    "smoke:fixture": "tsx scripts/smoke-fixture.ts",
+    "smoke:map": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -51,6 +52,7 @@
     "terra-draw"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/geojson": "^7946.0.16",
     "@types/leaflet": "^1.9.16",
     "@types/leaflet.markercluster": "^1.5.6",

@@ -11,6 +11,8 @@ import {
   EyeOff,
   FolderOpen,
   Layers3,
+  Monitor,
+  Moon,
   MousePointer2,
   Paintbrush,
   PenLine,
@@ -19,10 +21,12 @@ import {
   Save,
   Settings2,
   Square,
+  Sun,
   Trash2,
   Type,
   Undo2,
-  Wand2
+  Wand2,
+  XCircle
 } from "lucide-react";
 import bbox from "@turf/bbox";
 import type { Feature, Point } from "geojson";
@@ -36,36 +40,28 @@ import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from 
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { logoFileToDataUrl } from "./lib/logo";
 import { updateLayer } from "./lib/projectUpdates";
-import { loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
+import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
-import { defaultLegendSettings, defaultMapSettings, defaultPopupSettings } from "./lib/defaults";
+import { defaultBasemaps, defaultLegendSettings, defaultMapSettings, defaultPopupSettings, defaultRuntimeSettings } from "./lib/defaults";
 import type {
-  BasemapId,
   DrawMode,
   InitialZoomMode,
+  LayerControlMode,
   LayerManifest,
   LegendPosition,
   MapViewMode,
+  PopupTemplateMode,
   Qgis2webProject,
   TextAnnotation
 } from "./types/project";
 
-const BASEMAP_LABELS: Record<BasemapId, string> = {
-  osm: "OpenStreetMap",
-  "osm-hot": "OpenStreetMap HOT",
-  "carto-voyager": "Carto Voyager",
-  "esri-imagery": "Esri World Imagery",
-  "esri-topo": "Esri World Topographic",
-  "esri-streets": "Esri World Street",
-  "stadia-terrain": "Stamen Terrain",
-  none: "None"
-};
-
 type InspectorMode = "project" | "layer";
 type GeometryKind = "point" | "line" | "polygon" | "unknown";
+type AppThemeMode = "light" | "dark" | "system";
 
 const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
+const APP_THEME_STORAGE_KEY = "q2ws-app-theme";
 const HISTORY_LIMIT = 30;
 
 export function App() {
@@ -83,6 +79,7 @@ export function App() {
   const [attributeFilter, setAttributeFilter] = useState("");
   const [status, setStatus] = useState("Import a qgis2web export to start editing.");
   const [busy, setBusy] = useState(false);
+  const [appTheme, setAppTheme] = useState<AppThemeMode>(() => readStoredTheme());
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
@@ -101,9 +98,21 @@ export function App() {
     [project, selectedLayerId]
   );
   const selectedGeometryKind = geometryKindOf(selectedLayer?.geometryType || "");
-  const canDrawPoint = selectedGeometryKind === "point";
-  const canDrawLine = selectedGeometryKind === "line";
-  const canDrawPolygon = selectedGeometryKind === "polygon";
+  const selectedLayerHasMultiGeometry = Boolean(selectedLayer && layerHasMultiGeometry(selectedLayer));
+  const canEditGeometry = Boolean(selectedLayer && !selectedLayerHasMultiGeometry);
+  const canDrawPoint = canEditGeometry && selectedGeometryKind === "point";
+  const canDrawLine = canEditGeometry && selectedGeometryKind === "line";
+  const canDrawPolygon = canEditGeometry && selectedGeometryKind === "polygon";
+
+  useEffect(() => {
+    applyAppTheme(appTheme);
+    localStorage.setItem(APP_THEME_STORAGE_KEY, appTheme);
+    if (appTheme !== "system") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => applyAppTheme("system");
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, [appTheme]);
 
   useEffect(() => {
     inputRef.current?.setAttribute("webkitdirectory", "");
@@ -132,11 +141,16 @@ export function App() {
   }, [project, selectedLayerId]);
 
   useEffect(() => {
-    if (!selectedLayer || drawMode === "select" || drawMode === "delete") return;
+    if (!selectedLayer) return;
+    if (!canEditGeometry && drawMode !== "select") {
+      setDrawMode("select");
+      return;
+    }
+    if (drawMode === "select" || drawMode === "delete") return;
     if (!isDrawModeAllowed(drawMode, selectedGeometryKind)) {
       setDrawMode("select");
     }
-  }, [drawMode, selectedGeometryKind, selectedLayer]);
+  }, [canEditGeometry, drawMode, selectedGeometryKind, selectedLayer]);
 
   useEffect(() => {
     if (tableMode === "maximized") {
@@ -240,6 +254,24 @@ export function App() {
 
   function startZipImport() {
     zipInputRef.current?.click();
+  }
+
+  async function closeProject() {
+    setProject(null);
+    setSelectedLayerId("");
+    setInspectorMode("project");
+    setDrawMode("select");
+    setPreviewOpen(false);
+    setAttributeFilter("");
+    setHistory({ past: [], future: [] });
+    setStatus("Project closed. Import a qgis2web export to start editing.");
+    try {
+      await clearProjectFromOpfs();
+      toast.success("Project closed");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Project cache could not be cleared.";
+      toast.warning(message);
+    }
   }
 
   async function exportZip() {
@@ -365,6 +397,70 @@ export function App() {
     updateProject({ ...project, legendSettings: { ...project.legendSettings, [key]: value } });
   }
 
+  function toggleRuntimeWidget(widgetId: string, enabled: boolean) {
+    if (!project) return;
+    updateProject({
+      ...project,
+      runtime: {
+        ...project.runtime,
+        widgets: project.runtime.widgets.map((widget) => (widget.id === widgetId ? { ...widget, enabled } : widget))
+      }
+    });
+  }
+
+  function setDefaultBasemap(basemapId: string) {
+    if (!project) return;
+    updateProject({
+      ...project,
+      mapSettings: { ...project.mapSettings, basemap: basemapId },
+      basemaps: project.basemaps.map((basemap) => ({ ...basemap, default: basemap.id === basemapId }))
+    });
+  }
+
+  function addCustomBasemap() {
+    if (!project) return;
+    const id = `custom-${Date.now()}`;
+    updateProject({
+      ...project,
+      basemaps: [
+        ...project.basemaps,
+        {
+          id,
+          label: "New basemap",
+          url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          attribution: "OpenStreetMap",
+          maxZoom: 19,
+          default: false,
+          enabled: true,
+          source: "user"
+        }
+      ]
+    });
+  }
+
+  function removeBasemap(basemapId: string) {
+    if (!project || project.basemaps.length <= 1) return;
+    const remaining = project.basemaps.filter((basemap) => basemap.id !== basemapId);
+    const needsNewDefault = !remaining.some((basemap) => basemap.default);
+    if (needsNewDefault && remaining.length > 0) remaining[0].default = true;
+    updateProject({
+      ...project,
+      mapSettings: {
+        ...project.mapSettings,
+        basemap: project.mapSettings.basemap === basemapId ? (remaining[0]?.id || "none") : project.mapSettings.basemap
+      },
+      basemaps: remaining
+    });
+  }
+
+  function updateBasemapField(basemapId: string, field: string, value: string) {
+    if (!project) return;
+    updateProject({
+      ...project,
+      basemaps: project.basemaps.map((basemap) => basemap.id === basemapId ? { ...basemap, [field]: value } : basemap)
+    });
+  }
+
   function addManualLegend() {
     if (!project) return;
     updateProject({
@@ -464,6 +560,17 @@ export function App() {
           <Button type="button" variant="outline" disabled={!project || busy || history.future.length === 0} onClick={redoProject}>
             <Redo2 size={16} /> Redo
           </Button>
+          <div className="theme-toggle" aria-label="App theme">
+            <button type="button" className={appTheme === "light" ? "active" : ""} title="Light theme" onClick={() => setAppTheme("light")}>
+              <Sun size={15} />
+            </button>
+            <button type="button" className={appTheme === "dark" ? "active" : ""} title="Dark theme" onClick={() => setAppTheme("dark")}>
+              <Moon size={15} />
+            </button>
+            <button type="button" className={appTheme === "system" ? "active" : ""} title="Use system theme" onClick={() => setAppTheme("system")}>
+              <Monitor size={15} />
+            </button>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -476,6 +583,9 @@ export function App() {
             }
           >
             <Save size={16} /> Save Local
+          </Button>
+          <Button type="button" variant="outline" disabled={!project || busy} onClick={closeProject}>
+            <XCircle size={16} /> Close Project
           </Button>
           <Button type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
             <Eye size={16} /> Preview
@@ -528,8 +638,8 @@ export function App() {
               <SelectField
                 label="Basemap"
                 value={project.mapSettings.basemap}
-                onChange={(value) => setMapSetting("basemap", value as BasemapId)}
-                options={Object.entries(BASEMAP_LABELS).map(([value, label]) => ({ value, label }))}
+                onChange={(value) => setMapSetting("basemap", value)}
+                options={project.basemaps.map((basemap) => ({ value: basemap.id, label: basemap.label }))}
               />
               <SegmentedControl
                 label="Layer display"
@@ -583,7 +693,7 @@ export function App() {
           {project && selectedLayer ? (
             <>
               <div className="toolbar">
-                <ToolbarButton title="Select and edit" active={drawMode === "select"} onClick={() => setDrawMode("select")}>
+                <ToolbarButton title={canEditGeometry ? "Select and edit" : "Multi-geometry layers are preview-only"} active={drawMode === "select"} disabled={!canEditGeometry} onClick={() => setDrawMode("select")}>
                   <MousePointer2 size={17} />
                 </ToolbarButton>
                 <ToolbarButton title="Draw point" active={drawMode === "point"} disabled={!canDrawPoint} onClick={() => setDrawMode("point")}>
@@ -601,7 +711,7 @@ export function App() {
                 <ToolbarButton title="Draw circle" active={drawMode === "circle"} disabled={!canDrawPolygon} onClick={() => setDrawMode("circle")}>
                   <Circle size={17} />
                 </ToolbarButton>
-                <ToolbarButton title="Delete selected" active={drawMode === "delete"} onClick={() => setDrawMode("delete")}>
+                <ToolbarButton title={canEditGeometry ? "Delete selected" : "Multi-geometry layers are preview-only"} active={drawMode === "delete"} disabled={!canEditGeometry} onClick={() => setDrawMode("delete")}>
                   <Trash2 size={17} />
                 </ToolbarButton>
                 <ToolbarButton title="Add text annotation" onClick={addTextAnnotation}>
@@ -619,6 +729,7 @@ export function App() {
                     project={project}
                     selectedLayerId={selectedLayer.id}
                     drawMode={drawMode}
+                    geometryEditingDisabled={!canEditGeometry}
                     onProjectChange={updateProject}
                     onTileError={handleTileError}
                   />
@@ -652,9 +763,12 @@ export function App() {
             </>
           ) : (
             <div className="empty-state">
-              <FolderOpen size={42} />
-              <h2>Import qgis2web export</h2>
-              <p>Import a qgis2web export to start editing.</p>
+              <div className="drop-card">
+                <FolderOpen size={42} />
+                <h2>Import qgis2web export</h2>
+                <p>Drag and drop a qgis2web ZIP here. Folder drag and drop also works in browsers that support folder entries.</p>
+                <small>Recommended: ZIP export for the cleanest browser import. Use Import Folder if drag and drop is blocked by the browser.</small>
+              </div>
               <div className="empty-actions">
                 <Button type="button" disabled={busy} onClick={startZipImport}>
                   <FolderOpen size={16} /> Import ZIP
@@ -702,7 +816,7 @@ export function App() {
                     ]}
                   />
                   <div className="toggle-grid">
-                    {(["showHeader", "showFooter", "showWelcome", "showSidebar"] as const).map((key) => (
+                    {(["showHeader", "showFooter"] as const).map((key) => (
                       <label key={key}>
                         <input
                           type="checkbox"
@@ -713,6 +827,71 @@ export function App() {
                       </label>
                     ))}
                   </div>
+                  <SelectField
+                    label="Header placement"
+                    value={project.branding.headerPlacement}
+                    onChange={(headerPlacement) => updateProject({ ...project, branding: { ...project.branding, headerPlacement: headerPlacement as Qgis2webProject["branding"]["headerPlacement"] } })}
+                    options={[
+                      { value: "top-full", label: "Top full" },
+                      { value: "top-left-pill", label: "Top left pill" },
+                      { value: "top-right-pill", label: "Top right pill" },
+                      { value: "top-center-card", label: "Top center card" },
+                      { value: "hidden", label: "Hidden" }
+                    ]}
+                  />
+                  <SelectField
+                    label="Footer placement"
+                    value={project.branding.footerPlacement}
+                    onChange={(footerPlacement) => updateProject({ ...project, branding: { ...project.branding, footerPlacement: footerPlacement as Qgis2webProject["branding"]["footerPlacement"] } })}
+                    options={[
+                      { value: "bottom-full", label: "Bottom full" },
+                      { value: "bottom-left-pill", label: "Bottom left pill" },
+                      { value: "bottom-right-pill", label: "Bottom right pill" },
+                      { value: "hidden", label: "Hidden" }
+                    ]}
+                  />
+                  <PanelTitle title="Welcome" />
+                  <div className="toggle-grid">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={project.branding.welcome.enabled}
+                        onChange={(event) => updateProject({ ...project, branding: { ...project.branding, showWelcome: event.target.checked, welcome: { ...project.branding.welcome, enabled: event.target.checked } } })}
+                      />
+                      Enabled
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={project.branding.welcome.showOnce}
+                        onChange={(event) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, showOnce: event.target.checked } } })}
+                      />
+                      Show once
+                    </label>
+                  </div>
+                  <TextInput label="Welcome title" value={project.branding.welcome.title} onChange={(title) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, title } } })} />
+                  <TextInput label="Welcome subtitle" value={project.branding.welcome.subtitle} onChange={(subtitle) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, subtitle } } })} />
+                  <TextInput label="CTA label" value={project.branding.welcome.ctaLabel} onChange={(ctaLabel) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, ctaLabel } } })} />
+                  <SelectField
+                    label="Auto dismiss"
+                    value={project.branding.welcome.autoDismiss}
+                    onChange={(autoDismiss) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, autoDismiss: autoDismiss as Qgis2webProject["branding"]["welcome"]["autoDismiss"] } } })}
+                    options={[
+                      { value: "never", label: "Never" },
+                      { value: "3", label: "3 seconds" },
+                      { value: "5", label: "5 seconds" },
+                      { value: "10", label: "10 seconds" }
+                    ]}
+                  />
+                  <SegmentedControl
+                    label="Welcome placement"
+                    value={project.branding.welcome.placement}
+                    options={[
+                      { value: "center", label: "Center modal" },
+                      { value: "bottom", label: "Bottom sheet" }
+                    ]}
+                    onChange={(placement) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, placement: placement as Qgis2webProject["branding"]["welcome"]["placement"] } } })}
+                  />
                   <ColorInput label="Accent" value={project.theme.accent} onChange={(accent) => updateProject({ ...project, theme: { ...project.theme, accent } })} />
                   <ColorInput label="Surface" value={project.theme.surface} onChange={(surface) => updateProject({ ...project, theme: { ...project.theme, surface } })} />
                   <ColorInput label="Text" value={project.theme.text} onChange={(text) => updateProject({ ...project, theme: { ...project.theme, text } })} />
@@ -727,9 +906,38 @@ export function App() {
                   <SelectField
                     label="Basemap"
                     value={project.mapSettings.basemap}
-                    onChange={(value) => setMapSetting("basemap", value as BasemapId)}
-                    options={Object.entries(BASEMAP_LABELS).map(([value, label]) => ({ value, label }))}
+                    onChange={(value) => setMapSetting("basemap", value)}
+                    options={project.basemaps.map((basemap) => ({ value: basemap.id, label: basemap.label }))}
                   />
+                  {project.basemaps.length > 0 && (
+                    <div className="basemap-list">
+                      {project.basemaps.map((basemap) => (
+                        <div key={basemap.id} className="basemap-row">
+                          <input
+                            type="radio"
+                            name="default-basemap"
+                            checked={project.mapSettings.basemap === basemap.id || basemap.default}
+                            onChange={() => setDefaultBasemap(basemap.id)}
+                          />
+                          <div className="basemap-row-content">
+                            <input className="basemap-label-input" value={basemap.label} onChange={(event) => updateBasemapField(basemap.id, "label", event.target.value)} />
+                            {basemap.source === "user" && (
+                              <input className="basemap-url-input" value={basemap.url} placeholder="Tile URL https://..." onChange={(event) => updateBasemapField(basemap.id, "url", event.target.value)} />
+                            )}
+                          </div>
+                          <small>{basemap.source}</small>
+                          {project.basemaps.length > 1 && (
+                            <button type="button" className="icon-button" title="Remove basemap" onClick={() => removeBasemap(basemap.id)}>
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button type="button" className="btn compact full" onClick={addCustomBasemap}>
+                    <Plus size={14} /> Add custom basemap
+                  </button>
                   <SegmentedControl
                     label="Layer display"
                     value={project.mapSettings.viewMode}
@@ -738,6 +946,18 @@ export function App() {
                       { value: "selected", label: "Selected layer" }
                     ]}
                     onChange={(value) => setMapSetting("viewMode", value as MapViewMode)}
+                  />
+                  <SelectField
+                    label="Layer control"
+                    value={project.mapSettings.layerControlMode}
+                    onChange={(layerControlMode) => setMapSetting("layerControlMode", layerControlMode as LayerControlMode)}
+                    options={[
+                      { value: "original", label: "Original qgis2web controls" },
+                      { value: "compact", label: "Studio compact" },
+                      { value: "expanded", label: "Studio expanded" },
+                      { value: "tree", label: "Studio tree" },
+                      { value: "studio", label: "Studio legacy toggle" }
+                    ]}
                   />
                   <SelectField
                     label="Initial zoom"
@@ -756,6 +976,20 @@ export function App() {
                     step={1}
                     onChange={(initialZoom) => setMapSetting("initialZoom", initialZoom)}
                   />
+                  {project.runtime.widgets.length > 0 && (
+                    <>
+                      <PanelTitle title="Original Widgets" />
+                      <div className="widget-list">
+                        {project.runtime.widgets.map((widget) => (
+                          <label key={widget.id} className="widget-row">
+                            <input type="checkbox" checked={widget.enabled} onChange={(event) => toggleRuntimeWidget(widget.id, event.target.checked)} />
+                            <span>{widget.label}</span>
+                            <small>{widget.assetPaths.length ? `${widget.assetPaths.length} assets` : "detected"}</small>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
                   <PanelTitle title="Legend" />
                   <div className="toggle-grid">
                     <label>
@@ -768,14 +1002,16 @@ export function App() {
                     </label>
                   </div>
                   <SelectField
-                    label="Position"
-                    value={project.legendSettings.position}
-                    onChange={(position) => setLegendSetting("position", position as LegendPosition)}
+                    label="Legend placement"
+                    value={project.legendSettings.placement}
+                    onChange={(placement) => setLegendSetting("placement", placement as Qgis2webProject["legendSettings"]["placement"])}
                     options={[
-                      { value: "top-left", label: "Top left" },
-                      { value: "top-right", label: "Top right" },
-                      { value: "bottom-left", label: "Bottom left" },
-                      { value: "bottom-right", label: "Bottom right" }
+                      { value: "hidden", label: "Hidden" },
+                      { value: "inside-control", label: "Inside layer control" },
+                      { value: "floating-bottom-right", label: "Floating bottom right" },
+                      { value: "floating-bottom-left", label: "Floating bottom left" },
+                      { value: "floating-top-right", label: "Floating top right" },
+                      { value: "floating-top-left", label: "Floating top left" }
                     ]}
                   />
                   <div className="toggle-grid">
@@ -827,12 +1063,30 @@ export function App() {
                 <Tabs.Content value="layer" className="tabs-content">
                   <PanelTitle title="Layer Editor" />
                   <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
+                  {selectedLayerHasMultiGeometry && (
+                    <div className="editor-note">This layer contains multi-geometry features. Style, popup, legend, and attributes remain editable, but vertex editing is disabled to keep the data safe.</div>
+                  )}
                   <div className="toggle-grid">
                     <label><input type="checkbox" checked={selectedLayer.visible} onChange={(event) => patchSelectedLayer({ visible: event.target.checked })} />Visible</label>
                     <label><input type="checkbox" checked={selectedLayer.popupEnabled} onChange={(event) => patchSelectedLayer({ popupEnabled: event.target.checked })} />Popup</label>
                     <label><input type="checkbox" checked={selectedLayer.legendEnabled} onChange={(event) => patchSelectedLayer({ legendEnabled: event.target.checked })} />Legend</label>
                     <label><input type="checkbox" checked={selectedLayer.showInLayerControl} onChange={(event) => patchSelectedLayer({ showInLayerControl: event.target.checked })} />Layer toggle</label>
                   </div>
+                  {selectedLayer.label && (
+                    <>
+                      <PanelTitle title="Labels" />
+                      <div className="toggle-grid">
+                        <label><input type="checkbox" checked={selectedLayer.label.enabled} onChange={(event) => patchSelectedLayer({ label: { ...selectedLayer.label!, enabled: event.target.checked } })} />Show labels</label>
+                        <label><input type="checkbox" checked={selectedLayer.label.permanent} onChange={(event) => patchSelectedLayer({ label: { ...selectedLayer.label!, permanent: event.target.checked } })} />Permanent</label>
+                      </div>
+                      <SelectField
+                        label="Label field"
+                        value={selectedLayer.label.field}
+                        onChange={(field) => patchSelectedLayer({ label: { ...selectedLayer.label!, field } })}
+                        options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))}
+                      />
+                    </>
+                  )}
                 </Tabs.Content>
 
                 <Tabs.Content value="style" className="tabs-content">
@@ -874,6 +1128,50 @@ export function App() {
                 </Tabs.Content>
 
                 <Tabs.Content value="popup" className="tabs-content">
+                  {selectedLayer.popupTemplate && (
+                    <>
+                      <PanelTitle title="Popup Template" />
+                      <SelectField
+                        label="Template mode"
+                        value={selectedLayer.popupTemplate.mode}
+                        onChange={(mode) => patchSelectedLayer({ popupTemplate: { ...selectedLayer.popupTemplate!, mode: mode as PopupTemplateMode } })}
+                        options={[
+                          { value: "original", label: "Original HTML" },
+                          { value: "field-grid", label: "Field grid" },
+                          { value: "custom", label: "Custom HTML" }
+                        ]}
+                      />
+                    </>
+                  )}
+                  {selectedLayer.popupTemplate?.mode === "custom" && (
+                    <>
+                      <PanelTitle title="Custom Popup HTML" />
+                      <textarea
+                        className="popup-custom-textarea"
+                        rows={6}
+                        value={selectedLayer.popupTemplate?.html || ""}
+                        placeholder="<table><tr><th>Field</th><td>{{FIELDNAME}}</td></tr></table>"
+                        onChange={(event) => patchSelectedLayer({ popupTemplate: { ...selectedLayer.popupTemplate!, html: event.target.value } })}
+                      />
+                      <small className="popup-custom-hint">Use {"{{FIELDNAME}}"} for dynamic values. Allowed tags: table, tr, th, td, strong, br, span, div, p, b, i, em.</small>
+                    </>
+                  )}
+                  <PanelTitle title="Popup Style" />
+                  <div className="toggle-grid">
+                    <label>
+                      <input type="checkbox" checked={Boolean(selectedLayer.popupSettings)} onChange={(event) => patchSelectedLayer({ popupSettings: event.target.checked ? { ...project.popupSettings } : undefined })} />
+                      Override project style
+                    </label>
+                  </div>
+                  {selectedLayer.popupSettings && (
+                    <>
+                      <ColorInput label="Accent" value={selectedLayer.popupSettings.accentColor} onChange={(accentColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, accentColor } })} />
+                      <ColorInput label="Background" value={selectedLayer.popupSettings.backgroundColor} onChange={(backgroundColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, backgroundColor } })} />
+                      <ColorInput label="Text" value={selectedLayer.popupSettings.textColor} onChange={(textColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, textColor } })} />
+                      <ColorInput label="Label" value={selectedLayer.popupSettings.labelColor} onChange={(labelColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, labelColor } })} />
+                      <RangeInput label="Radius" value={selectedLayer.popupSettings.radius} min={0} max={22} step={1} onChange={(radius) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, radius } })} />
+                    </>
+                  )}
                   <PanelTitle title="Popup Fields" />
                   <div className="popup-fields">
                     {selectedLayer.popupFields.map((field) => (
@@ -970,6 +1268,27 @@ function RangeInput(props: { label: string; value: number; min: number; max: num
   );
 }
 
+function readStoredTheme(): AppThemeMode {
+  const stored = localStorage.getItem(APP_THEME_STORAGE_KEY);
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "light";
+}
+
+function applyAppTheme(theme: AppThemeMode): void {
+  const resolved = theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : theme === "system" ? "light" : theme;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.themePreference = theme;
+}
+
+function mergeBasemapDefaults(basemaps: Qgis2webProject["basemaps"] | undefined): Qgis2webProject["basemaps"] {
+  const current = basemaps?.length ? basemaps : [];
+  const existingIds = new Set(current.map((basemap) => basemap.id));
+  return [...current, ...defaultBasemaps.filter((basemap) => !existingIds.has(basemap.id))];
+}
+
+function layerHasMultiGeometry(layer: LayerManifest): boolean {
+  return layer.geometryType.includes("Multi") || layer.geojson.features.some((feature) => feature.geometry?.type.startsWith("Multi"));
+}
+
 function geometryKindOf(geometryType: string): GeometryKind {
   if (geometryType.includes("Point")) return "point";
   if (geometryType.includes("Line")) return "line";
@@ -987,11 +1306,39 @@ function isDrawModeAllowed(drawMode: DrawMode, geometryKind: GeometryKind): bool
 }
 
 function hydrateProject(project: Qgis2webProject): Qgis2webProject {
+  const branding = project.branding || {
+    title: "Peta WebGIS Interaktif",
+    subtitle: "",
+    footer: "",
+    showHeader: true,
+    showFooter: true,
+    showWelcome: false,
+    headerPlacement: "top-full" as const,
+    footerPlacement: "bottom-full" as const,
+    welcome: undefined,
+    logoPath: "",
+    logoPlacement: "left" as const
+  };
+  const theme = project.theme || {
+    accent: "#156f7a",
+    surface: "#ffffff",
+    text: "#172026",
+    muted: "#66737f",
+    radius: 8,
+    shadow: 18,
+    fontFamily: "Inter, Segoe UI, Arial, sans-serif",
+    headerHeight: 48
+  };
   return {
     ...project,
     mapSettings: {
       ...defaultMapSettings,
       ...(project.mapSettings || {})
+    },
+    basemaps: mergeBasemapDefaults(project.basemaps),
+    runtime: {
+      ...defaultRuntimeSettings,
+      ...(project.runtime || {})
     },
     legendSettings: {
       ...defaultLegendSettings,
@@ -1003,30 +1350,47 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
     },
     diagnostics: project.diagnostics || [],
     theme: {
-      ...project.theme,
-      headerHeight: project.theme.headerHeight ?? 48
+      ...theme,
+      headerHeight: theme.headerHeight ?? 48
     },
     branding: {
-      ...project.branding,
-      logoPath: project.branding.logoPath || "",
-      logoPlacement: project.branding.logoPlacement || "left"
+      ...branding,
+      headerPlacement: branding.headerPlacement || "top-full",
+      footerPlacement: branding.footerPlacement || "bottom-full",
+      welcome: {
+        enabled: branding.welcome?.enabled ?? branding.showWelcome ?? false,
+        title: branding.welcome?.title || branding.title || "Selamat datang",
+        subtitle: branding.welcome?.subtitle || branding.subtitle || "",
+        ctaLabel: branding.welcome?.ctaLabel || "Mulai jelajah",
+        autoDismiss: branding.welcome?.autoDismiss || "never",
+        showOnce: branding.welcome?.showOnce ?? false,
+        placement: branding.welcome?.placement || "center"
+      },
+      logoPath: branding.logoPath || "",
+      logoPlacement: branding.logoPlacement || "left"
     },
-    layers: project.layers.map((layer) => ({
+    layers: (project.layers || []).map((layer) => ({
       ...layer,
+      popupTemplate: layer.popupTemplate
+        ? {
+            ...layer.popupTemplate,
+            fields: layer.popupTemplate.fields || layer.popupFields || []
+          }
+        : undefined,
       style: {
         ...layer.style,
-        symbolType: layer.style.symbolType || (layer.geometryType.includes("Line") ? "line" : layer.geometryType.includes("Point") ? "point" : "polygon"),
-        sourceImagePath: layer.style.sourceImagePath || "",
-        categories: layer.style.categories.map((category) => ({
+        symbolType: layer.style?.symbolType || (layer.geometryType.includes("Line") ? "line" : layer.geometryType.includes("Point") ? "point" : "polygon"),
+        sourceImagePath: layer.style?.sourceImagePath || "",
+        categories: (layer.style?.categories || []).map((category) => ({
           ...category,
-          strokeWidth: category.strokeWidth ?? layer.style.strokeWidth,
+          strokeWidth: category.strokeWidth ?? layer.style?.strokeWidth ?? 2,
           dashArray: category.dashArray || "",
-          symbolType: category.symbolType || layer.style.symbolType || "polygon",
+          symbolType: category.symbolType || layer.style?.symbolType || "polygon",
           sourceImagePath: category.sourceImagePath || ""
         }))
       }
     })),
-    manualLegendItems: project.manualLegendItems.map((item) => ({
+    manualLegendItems: (project.manualLegendItems || []).map((item) => ({
       ...item,
       strokeWidth: item.strokeWidth ?? 2,
       dashArray: item.dashArray || "",

@@ -5,3 +5,7 @@ dist/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+.claude/
+image_audit/
+AGENTS.md
+docs/

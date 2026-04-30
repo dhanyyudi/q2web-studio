@@ -46,6 +46,7 @@ export const q2wsRuntime = String.raw`(function () {
           return styleFor(layerConfig, feature);
         });
       }
+      applyLayerPopupAndLabels(layer, layerConfig);
       if (window.map) {
         if (layerConfig.visible === false && window.map.hasLayer(layer)) {
           window.map.removeLayer(layer);
@@ -55,6 +56,66 @@ export const q2wsRuntime = String.raw`(function () {
         }
       }
     });
+  }
+
+  function applyLayerPopupAndLabels(layer, layerConfig) {
+    if (!layer || !layer.eachLayer) return;
+    layer.eachLayer(function (featureLayer) {
+      var feature = featureLayer.feature;
+      if (!feature) return;
+      if (featureLayer.unbindPopup && layerConfig.popupTemplate) {
+        featureLayer.unbindPopup();
+        if (layerConfig.popupEnabled !== false) {
+          featureLayer.bindPopup(renderPopup(layerConfig, feature), layerConfig.popupSettings ? { className: "popup-layer-" + layerConfig.id } : {});
+        }
+      }
+      if (featureLayer.unbindTooltip && layerConfig.label) {
+        featureLayer.unbindTooltip();
+        if (layerConfig.label.enabled && layerConfig.label.field) {
+          var labelValue = feature.properties && feature.properties[layerConfig.label.field];
+          if (labelValue != null && labelValue !== "") {
+            featureLayer.bindTooltip(escapeHtml(labelValue), {
+              permanent: Boolean(layerConfig.label.permanent),
+              offset: window.L.point(layerConfig.label.offset || [0, 0]),
+              className: "q2ws-label " + (layerConfig.label.className || "")
+            });
+          }
+        }
+      }
+    });
+  }
+
+  function renderPopup(layerConfig, feature) {
+    var template = layerConfig.popupTemplate;
+    if (template && (template.mode === "original" || template.mode === "custom")) {
+      return sanitizePopupHtml(String(template.html || "").replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, function (_match, key) {
+        return escapeHtml(feature.properties && feature.properties[key]);
+      }));
+    }
+    var rows = (layerConfig.popupFields || []).filter(function (field) { return field.visible; }).map(function (field) {
+      var value = escapeHtml(feature.properties && feature.properties[field.key]);
+      return field.header
+        ? '<tr><td colspan="2"><strong>' + escapeHtml(field.label) + '</strong><br>' + value + '</td></tr>'
+        : '<tr><th>' + escapeHtml(field.label) + '</th><td>' + value + '</td></tr>';
+    }).join("");
+    return '<table class="studio-popup">' + rows + '</table>';
+  }
+
+  function sanitizePopupHtml(html) {
+    var template = document.createElement("template");
+    template.innerHTML = html;
+    var allowedTags = ["TABLE", "TBODY", "THEAD", "TR", "TH", "TD", "STRONG", "BR", "SPAN", "DIV", "P", "B", "I", "EM"];
+    var allowedAttrs = ["class", "id", "scope", "colspan", "rowspan"];
+    template.content.querySelectorAll("*").forEach(function (element) {
+      if (allowedTags.indexOf(element.tagName) === -1) {
+        element.replaceWith(document.createTextNode(element.textContent || ""));
+        return;
+      }
+      Array.from(element.attributes).forEach(function (attr) {
+        if (allowedAttrs.indexOf(attr.name.toLowerCase()) === -1) element.removeAttribute(attr.name);
+      });
+    });
+    return template.innerHTML;
   }
 
   function layerBounds(config) {
@@ -85,6 +146,9 @@ export const q2wsRuntime = String.raw`(function () {
 
   function applyLayerToggle(config) {
     if (!window.map) return;
+    var settings = config.mapSettings || {};
+    var mode = settings.layerControlMode || "original";
+    if (mode === "original") return;
     var layers = (config.layers || []).filter(function (layerConfig) {
       return layerConfig.showInLayerControl !== false && window[layerConfig.layerVariable];
     });
@@ -93,8 +157,11 @@ export const q2wsRuntime = String.raw`(function () {
     if (originalControl) {
       originalControl.style.display = "none";
     }
-    var control = createEl("aside", { id: "q2ws-layer-control" });
-    control.innerHTML = "<h3>Layers</h3>";
+    var control = createEl("aside", { id: "q2ws-layer-control", class: "q2ws-layer-control-" + mode });
+    var header = createEl("button", { type: "button", class: "q2ws-layer-control-header", "aria-expanded": mode === "compact" ? "false" : "true" });
+    header.appendChild(createEl("strong", {}, "Layers"));
+    control.appendChild(header);
+    var content = createEl("div", { class: "q2ws-layer-control-content" });
     layers.forEach(function (layerConfig) {
       var row = createEl("label", {});
       var input = createEl("input", { type: "checkbox" });
@@ -110,78 +177,105 @@ export const q2wsRuntime = String.raw`(function () {
       };
       row.appendChild(input);
       row.appendChild(createEl("span", {}, layerConfig.displayName || layerConfig.id));
-      control.appendChild(row);
+      content.appendChild(row);
     });
+    if (mode === "tree") {
+      content.classList.add("q2ws-layer-control-tree");
+    }
+    var legendSection = buildLegendSection(config);
+    if (legendSection && (config.legendSettings || {}).placement === "inside-control") {
+      content.appendChild(legendSection);
+    }
+    if (mode === "compact") {
+      content.hidden = true;
+      header.onclick = function () {
+        content.hidden = !content.hidden;
+        header.setAttribute("aria-expanded", content.hidden ? "false" : "true");
+      };
+    }
+    control.appendChild(content);
     document.body.appendChild(control);
   }
 
   function applyBasemap(config) {
     if (!window.L || !window.map) return;
-    var basemap = config.mapSettings && config.mapSettings.basemap;
-    if (!basemap || basemap === "none") return;
-    var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-    var attribution = "OpenStreetMap";
-    if (basemap === "osm-hot") {
-      url = "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png";
-      attribution = "&copy; OpenStreetMap contributors, Tiles style by HOT";
-    }
-    if (basemap === "carto-voyager") {
-      url = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-      attribution = "&copy; OpenStreetMap contributors &copy; CARTO";
-    }
-    if (basemap === "esri-imagery") {
-      url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-      attribution = "Tiles &copy; Esri";
-    }
-    if (basemap === "esri-topo") {
-      url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
-      attribution = "Tiles &copy; Esri";
-    }
-    if (basemap === "esri-streets") {
-      url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
-      attribution = "Tiles &copy; Esri";
-    }
-    if (basemap === "stadia-terrain") {
-      url = "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png";
-      attribution = "&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors";
-    }
-    window.L.tileLayer(url, { attribution: attribution, crossOrigin: "anonymous" }).addTo(window.map);
+    var selected = config.mapSettings && config.mapSettings.basemap;
+    if (!selected || selected === "none") return;
+    var basemaps = config.basemaps || [];
+    var basemap = basemaps.find(function (item) { return item.id === selected; }) || basemaps.find(function (item) { return item.default; }) || basemaps[0];
+    if (!basemap || !basemap.url) return;
+    window.map.eachLayer(function (layer) {
+      if (layer && layer._url && layer._url === basemap.url) return;
+      if (layer && layer._url && !layer.feature) window.map.removeLayer(layer);
+    });
+    window.L.tileLayer(basemap.url, { attribution: basemap.attribution || "", maxZoom: basemap.maxZoom || 20 }).addTo(window.map);
+  }
+
+  function applyWidgetVisibility(config) {
+    var widgets = (config.runtime && config.runtime.widgets) || [];
+    widgets.forEach(function (widget) {
+      if (widget.enabled !== false) return;
+      var selectors = {
+        measure: ".leaflet-control-measure",
+        photon: ".leaflet-control-photon, .leaflet-photon",
+        layersTree: ".leaflet-control-layers",
+        scale: ".leaflet-control-scale",
+        hash: "",
+        labels: ".q2ws-label, .leaflet-tooltip",
+        pattern: "",
+        rotatedMarker: "",
+        fullscreen: ".leaflet-control-fullscreen",
+        highlight: ""
+      };
+      var selector = selectors[widget.id];
+      if (!selector) return;
+      document.querySelectorAll(selector).forEach(function (element) {
+        element.style.display = "none";
+      });
+    });
   }
 
   function applyBranding(config) {
     var branding = config.branding || {};
-    if (branding.showHeader) {
+    if (branding.showHeader && branding.headerPlacement !== "hidden") {
       var header = createEl("div", { id: "q2ws-header" });
-      header.className = "q2ws-logo-" + (branding.logoPlacement || "left");
+      header.className = "q2ws-header-" + (branding.headerPlacement || "top-full") + " q2ws-logo-" + (branding.logoPlacement || "left");
       var logo = branding.logoPath && branding.logoPlacement !== "hidden"
         ? '<img src="' + escapeHtml(branding.logoPath) + '" alt="">'
         : "";
       header.innerHTML = logo + "<div><strong>" + escapeHtml(branding.title || "WebGIS") + "</strong><span>" + escapeHtml(branding.subtitle || "") + "</span></div>";
       document.body.insertBefore(header, document.body.firstChild);
     }
-    if (branding.showFooter) {
-      var footer = createEl("div", { id: "q2ws-footer" }, branding.footer || "");
+    if (branding.showFooter && branding.footerPlacement !== "hidden") {
+      var footer = createEl("div", { id: "q2ws-footer", class: "q2ws-footer-" + (branding.footerPlacement || "bottom-full") }, branding.footer || "");
       document.body.appendChild(footer);
     }
-    if (branding.showWelcome) {
-      var welcome = createEl("div", { id: "q2ws-welcome" });
-      welcome.innerHTML = '<div><h2>' + escapeHtml(branding.title || "WebGIS") + '</h2><p>' + escapeHtml(branding.subtitle || "") + '</p><button type="button">Mulai Jelajah</button></div>';
-      welcome.querySelector("button").onclick = function () {
+    var welcomeConfig = branding.welcome || {};
+    if ((branding.showWelcome || welcomeConfig.enabled) && welcomeConfig.enabled !== false) {
+      var storageKey = "q2ws-welcome-seen-" + (branding.title || "map");
+      if (welcomeConfig.showOnce && localStorage.getItem(storageKey)) return;
+      var welcome = createEl("div", { id: "q2ws-welcome", class: "q2ws-welcome-" + (welcomeConfig.placement || "center") });
+      welcome.innerHTML = '<div><h2>' + escapeHtml(welcomeConfig.title || branding.title || "WebGIS") + '</h2><p>' + escapeHtml(welcomeConfig.subtitle || branding.subtitle || "") + '</p><button type="button">' + escapeHtml(welcomeConfig.ctaLabel || "Mulai jelajah") + '</button></div>';
+      var dismiss = function () {
+        if (welcomeConfig.showOnce) localStorage.setItem(storageKey, "1");
         welcome.remove();
       };
+      welcome.querySelector("button").onclick = dismiss;
       document.body.appendChild(welcome);
+      if (welcomeConfig.autoDismiss && welcomeConfig.autoDismiss !== "never") {
+        setTimeout(dismiss, Number(welcomeConfig.autoDismiss) * 1000);
+      }
     }
   }
 
-  function applyLegend(config) {
+  function buildLegendSection(config) {
     var settings = config.legendSettings || {};
-    if (settings.enabled === false) return;
+    if (settings.enabled === false || settings.placement === "hidden") return null;
     var groups = config.legendGroups && config.legendGroups.length
       ? config.legendGroups
       : [{ id: "all", label: "Layers", items: config.legend || [] }];
-    if (!groups.length) return;
-    var legend = createEl("aside", { id: "q2ws-legend" });
-    legend.className = "q2ws-legend-" + (settings.position || "bottom-right");
+    if (!groups.length) return null;
+    var legend = createEl("aside", { class: "q2ws-legend-section" });
     var button = createEl("button", { type: "button", class: "q2ws-legend-toggle", "aria-expanded": settings.collapsed ? "false" : "true" });
     button.appendChild(createEl("span", {}, settings.collapsed ? "+" : "-"));
     button.appendChild(createEl("strong", {}, "Legenda"));
@@ -222,6 +316,16 @@ export const q2wsRuntime = String.raw`(function () {
       button.setAttribute("aria-expanded", collapsed ? "false" : "true");
       button.firstChild.textContent = collapsed ? "+" : "-";
     };
+    return legend;
+  }
+
+  function applyLegend(config) {
+    var settings = config.legendSettings || {};
+    if (!settings.placement || settings.placement === "inside-control" || settings.placement === "hidden") return;
+    var legend = buildLegendSection(config);
+    if (!legend) return;
+    legend.id = "q2ws-legend";
+    legend.classList.add("q2ws-legend-" + settings.placement.replace("floating-", ""));
     document.body.appendChild(legend);
   }
 
@@ -253,13 +357,23 @@ export const q2wsRuntime = String.raw`(function () {
     var css = [
       ".leaflet-popup-content-wrapper{border:" + border + ";border-radius:" + radius + "px;background:" + background + ";color:" + text + ";box-shadow:0 " + Math.max(6, shadow / 2) + "px " + Math.max(14, shadow) + "px rgba(0,0,0,.22);}",
       ".leaflet-popup-tip{background:" + background + ";box-shadow:0 8px 18px rgba(0,0,0,.16);}",
-      ".studio-popup{border-collapse:collapse;min-width:210px;max-width:340px;font:12px Inter,Segoe UI,Arial,sans-serif;}",
-      ".studio-popup th,.studio-popup td{border:1px solid rgba(82,103,113,.18);padding:" + padding + ";vertical-align:top;}",
-      ".studio-popup th{width:42%;background:" + rgbaFromHex(accent, style === "compact" ? 0 : 0.09) + ";color:" + label + ";font-weight:750;text-align:left;}",
+      ".leaflet-popup-content{max-width:min(360px,72vw);margin:12px 14px;overflow-wrap:anywhere;line-height:1.42;}",
+      ".studio-popup{width:100%;min-width:220px;max-width:340px;table-layout:fixed;border-collapse:separate;border-spacing:0;font:12px Inter,Segoe UI,Arial,sans-serif;}",
+      ".studio-popup th,.studio-popup td{border:1px solid rgba(82,103,113,.14);padding:" + padding + ";vertical-align:top;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.36;}",
+      ".studio-popup th{width:38%;background:" + rgbaFromHex(accent, style === "compact" ? 0 : 0.09) + ";color:" + label + ";font-weight:750;text-align:left;}",
       ".studio-popup strong{color:" + accent + ";}"
     ].join("");
     var styleEl = createEl("style", { id: "q2ws-popup-style" }, css);
     document.head.appendChild(styleEl);
+    (config.layers || []).forEach(function (layerConfig) {
+      if (!layerConfig.popupSettings) return;
+      var override = layerConfig.popupSettings;
+      var layerCss = ".popup-layer-" + layerConfig.id + " .leaflet-popup-content-wrapper{border-color:" + (override.accentColor || accent) + ";border-radius:" + (override.radius || radius) + "px;background:" + (override.backgroundColor || background) + ";color:" + (override.textColor || text) + ";}" +
+        ".popup-layer-" + layerConfig.id + " .leaflet-popup-tip{background:" + (override.backgroundColor || background) + ";}" +
+        ".popup-layer-" + layerConfig.id + " .studio-popup th{color:" + (override.labelColor || label) + ";}" +
+        ".popup-layer-" + layerConfig.id + " .studio-popup strong{color:" + (override.accentColor || accent) + ";}";
+      document.head.appendChild(createEl("style", {}, layerCss));
+    });
   }
 
   function rgbaFromHex(hex, opacity) {
@@ -302,6 +416,7 @@ export const q2wsRuntime = String.raw`(function () {
         applyLayerConfig(config);
         applyInitialView(config);
         applyLayerToggle(config);
+        applyWidgetVisibility(config);
         applyPopupStyle(config);
         applyLegend(config);
         applyTextAnnotations(config);
@@ -349,6 +464,30 @@ html, body {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
+#q2ws-header.q2ws-header-top-left-pill,
+#q2ws-header.q2ws-header-top-right-pill,
+#q2ws-header.q2ws-header-top-center-card {
+  right: auto;
+  left: auto;
+  min-width: 280px;
+  max-width: min(520px, calc(100vw - 28px));
+  margin: 12px;
+  border-radius: calc(var(--q2ws-radius) + 8px);
+}
+
+#q2ws-header.q2ws-header-top-left-pill {
+  left: 0;
+}
+
+#q2ws-header.q2ws-header-top-right-pill {
+  right: 0;
+}
+
+#q2ws-header.q2ws-header-top-center-card {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 #q2ws-header.q2ws-logo-center {
   justify-content: center;
   text-align: center;
@@ -378,6 +517,15 @@ html, body {
   opacity: 0.86;
 }
 
+.q2ws-label {
+  padding: 2px 5px;
+  border: 0;
+  background: transparent;
+  color: var(--q2ws-text);
+  font-weight: 700;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+}
+
 #q2ws-footer {
   position: fixed;
   left: 0;
@@ -389,6 +537,24 @@ html, body {
   text-align: center;
   color: rgba(255,255,255,0.86);
   background: color-mix(in srgb, var(--q2ws-accent) 78%, #111 22%);
+}
+
+#q2ws-footer.q2ws-footer-bottom-left-pill,
+#q2ws-footer.q2ws-footer-bottom-right-pill {
+  right: auto;
+  left: auto;
+  bottom: 14px;
+  max-width: min(520px, calc(100vw - 28px));
+  margin: 0 14px;
+  border-radius: 999px;
+}
+
+#q2ws-footer.q2ws-footer-bottom-left-pill {
+  left: 0;
+}
+
+#q2ws-footer.q2ws-footer-bottom-right-pill {
+  right: 0;
 }
 
 #q2ws-legend {
@@ -440,9 +606,33 @@ html, body {
   color: var(--q2ws-text);
 }
 
-#q2ws-layer-control h3 {
-  margin: 0 0 9px;
-  font-size: 13px;
+#q2ws-layer-control.q2ws-layer-control-compact {
+  width: auto;
+  min-width: 150px;
+}
+
+.q2ws-layer-control-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--q2ws-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.q2ws-layer-control-content {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.q2ws-layer-control-tree label {
+  padding-left: 10px;
+  border-left: 2px solid rgba(21, 111, 122, 0.18);
 }
 
 #q2ws-layer-control label {
@@ -545,6 +735,12 @@ html, body {
   display: grid;
   place-items: center;
   background: rgba(5, 12, 18, 0.58);
+}
+
+#q2ws-welcome.q2ws-welcome-bottom {
+  align-items: end;
+  place-items: end center;
+  padding: 20px;
 }
 
 #q2ws-welcome > div {

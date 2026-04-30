@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { parseQgis2webProject } from "../src/lib/qgis2webParser";
 import type { VirtualFile } from "../src/types/project";
 
-const fixtureRoot = join(process.cwd(), "..", "qgis2web_2026_04_22-06_30_44_400659");
+const fixtureRoot = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659");
 
 async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -77,4 +77,29 @@ if (boundary?.style.symbolType !== "line" || boundary.style.strokeColor.toLowerC
   throw new Error("Expected Batas Desa to preserve white line boundary style.");
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Legend labels and line styles verified.`);
+if (!project.runtime.widgets.some((widget) => widget.id === "measure" && widget.enabled)) {
+  throw new Error("Expected original measure widget to be detected and enabled.");
+}
+
+if (!project.runtime.widgets.some((widget) => widget.id === "photon" && widget.enabled)) {
+  throw new Error("Expected original Photon search widget to be detected and enabled.");
+}
+
+if (!project.basemaps.some((basemap) => basemap.label.includes("Voyager")) || !project.basemaps.some((basemap) => basemap.label.includes("Imagery"))) {
+  throw new Error(`Expected imported Carto Voyager and Esri imagery basemaps. Got: ${project.basemaps.map((basemap) => basemap.label).join(", ")}`);
+}
+
+if (project.basemaps.some((basemap) => basemap.label.toLowerCase().startsWith("layer "))) {
+  throw new Error(`Expected imported basemap labels to strip layer_ prefix. Got: ${project.basemaps.map((basemap) => basemap.label).join(", ")}`);
+}
+
+if (boundary?.label?.field !== "NAMOBJ") {
+  throw new Error(`Expected Batas Desa label field NAMOBJ. Got: ${boundary?.label?.field || "none"}`);
+}
+
+const zntPopupLabels = znt?.popupTemplate?.fields.map((field) => field.label).join(" | ") || "";
+if (!zntPopupLabels.includes("Kabupaten/Kota") || !zntPopupLabels.includes("Kisaran Nilai Tanah") || !zntPopupLabels.includes("Tahun Data")) {
+  throw new Error(`Expected ZNT popup labels from original HTML. Got: ${zntPopupLabels}`);
+}
+
+console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legend labels, and line styles verified.`);

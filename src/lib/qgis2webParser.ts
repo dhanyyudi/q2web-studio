@@ -1,14 +1,16 @@
 import type { Feature, FeatureCollection } from "geojson";
 import {
+  defaultBasemaps,
   defaultBranding,
   defaultLayerStyle,
   defaultLegendSettings,
   defaultMapSettings,
   defaultPopupSettings,
+  defaultRuntimeSettings,
   defaultTheme
 } from "./defaults";
 import { opacityFromRgba, rgbaToHex } from "./colors";
-import type { LayerManifest, LegendSymbolType, PopupField, Qgis2webProject, VirtualFile } from "../types/project";
+import type { BasemapConfig, LayerLabelConfig, LayerManifest, LegendSymbolType, PopupField, PopupTemplate, Qgis2webProject, RuntimeWidget, RuntimeWidgetId, VirtualFile } from "../types/project";
 import { isFeatureCollection } from "../types/project";
 
 type ParsedDataFile = {
@@ -43,6 +45,10 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
   const indexHtml = indexFile.text;
   const detectedEngine = indexHtml.includes("L.map(") || indexHtml.includes("leaflet") ? "leaflet" : "unknown";
   const overlays = parseOverlays(indexHtml);
+  const basemaps = parseBasemaps(indexHtml);
+  const widgets = parseWidgets(indexHtml, files);
+  const labels = parseLayerLabels(indexHtml);
+  const popupTemplates = parsePopupTemplates(indexHtml);
   const layerVars = parseLayerVariables(indexHtml);
   const layerByDataVar = new Map(layerVars.map((entry) => [entry.dataVariable, entry]));
 
@@ -56,7 +62,8 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
     const displayName =
       overlay?.label ||
       prettifyLayerName(collectionName || dataFile.variable.replace(/^json_/, ""));
-    const popupFields = buildPopupFields(dataFile.geojson);
+    const importedPopupTemplate = popupTemplates.get(layerVariable);
+    const popupFields = importedPopupTemplate?.fields.length ? importedPopupTemplate.fields : buildPopupFields(dataFile.geojson);
     const style = {
       ...defaultLayerStyle(geometryType, index),
       ...parseStyleForLayer(indexHtml, layerVariable, geometryType, overlay?.legendRows || [])
@@ -70,10 +77,12 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       layerVariable,
       geometryType,
       visible: indexHtml.includes(`map.addLayer(${layerVariable})`),
-      showInLayerControl: overlays.has(layerVariable),
+      showInLayerControl: overlays.size === 0 ? true : overlays.has(layerVariable),
       popupEnabled: indexHtml.includes(`onEachFeature: pop_${layerVariable.replace(/^layer_/, "")}`),
-      legendEnabled: true,
+      legendEnabled: false,
       popupFields,
+      popupTemplate: importedPopupTemplate,
+      label: labels.get(layerVariable),
       style,
       geojson: normalizeFeatureIds(dataFile.geojson)
     };
@@ -94,13 +103,149 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       subtitle: "Diedit dengan qgis2web Studio"
     },
     theme: defaultTheme,
-    mapSettings: defaultMapSettings,
+    mapSettings: {
+      ...defaultMapSettings,
+      basemap: basemaps.find((basemap) => basemap.default)?.id || defaultMapSettings.basemap,
+      initialBounds: parseInitialBounds(indexHtml)
+    },
+    basemaps: basemaps.length ? basemaps : defaultBasemaps,
+    runtime: {
+      ...defaultRuntimeSettings,
+      widgets
+    },
     legendSettings: defaultLegendSettings,
     popupSettings: defaultPopupSettings,
     manualLegendItems: [],
     textAnnotations: [],
     diagnostics: detectedEngine === "leaflet" ? [] : ["Parser menemukan export non-Leaflet. MVP hanya mendukung Leaflet."]
   };
+}
+
+function parseWidgets(indexHtml: string, files: VirtualFile[]): RuntimeWidget[] {
+  const widgetDefinitions: { id: RuntimeWidgetId; label: string; patterns: RegExp[] }[] = [
+    { id: "measure", label: "Measure tool", patterns: [/leaflet-measure/i, /L\.Control\.Measure/i] },
+    { id: "photon", label: "Address search", patterns: [/leaflet\.photon/i, /control\.photon/i, /L\.Control\.Photon/i] },
+    { id: "fullscreen", label: "Fullscreen", patterns: [/Control\.Fullscreen/i, /leaflet-fullscreen/i] },
+    { id: "scale", label: "Scale bar", patterns: [/L\.control\.scale/i] },
+    { id: "hash", label: "URL hash", patterns: [/leaflet-hash/i, /new\s+L\.Hash/i] },
+    { id: "rotatedMarker", label: "Rotated marker", patterns: [/leaflet\.rotatedMarker/i] },
+    { id: "pattern", label: "Pattern fill", patterns: [/leaflet\.pattern/i] },
+    { id: "labels", label: "Permanent labels", patterns: [/labelgun/i, /labels\.js/i, /bindTooltip/i] },
+    { id: "layersTree", label: "Layer tree control", patterns: [/L\.Control\.Layers\.Tree/i, /Layers\.Tree/i] },
+    { id: "highlight", label: "Highlight on hover", patterns: [/highlightFeature/i, /resetHighlight/i] }
+  ];
+  const text = `${indexHtml}\n${files.map((file) => file.path).join("\n")}`;
+  return widgetDefinitions
+    .map((definition) => {
+      const detected = definition.patterns.some((pattern) => pattern.test(text));
+      return {
+        id: definition.id,
+        label: definition.label,
+        enabled: detected,
+        detected,
+        assetPaths: files
+          .filter((file) => detected && definition.patterns.some((pattern) => pattern.test(file.path)))
+          .map((file) => file.path)
+      } satisfies RuntimeWidget;
+    })
+    .filter((widget) => widget.detected);
+}
+
+function parseBasemaps(indexHtml: string): BasemapConfig[] {
+  const labelByVariable = new Map<string, string>();
+  const baseMapsBody = indexHtml.match(/var\s+baseMaps\s*=\s*\{([\s\S]*?)\};/)?.[1] || "";
+  for (const match of baseMapsBody.matchAll(/["']([^"']+)["']\s*:\s*([A-Za-z0-9_]+)/g)) {
+    labelByVariable.set(match[2], htmlToText(match[1]));
+  }
+
+  const basemaps: BasemapConfig[] = [];
+  const tileLayerMatches = indexHtml.matchAll(/var\s+([A-Za-z0-9_]+)\s*=\s*L\.tileLayer\(\s*(['"])(.*?)\2\s*,\s*\{([\s\S]*?)\}\s*\);/g);
+  for (const match of tileLayerMatches) {
+    const variable = match[1];
+    const url = unescapeJsString(match[3]);
+    const options = match[4];
+    if (!url.includes("/{z}/") && !url.includes("{z}")) continue;
+    const normalizedVariable = variable.replace(/^layer_/, "").replace(/^basemap_/, "");
+    basemaps.push({
+      id: normalizedVariable || `basemap-${basemaps.length + 1}`,
+      label: labelByVariable.get(variable) || prettifyLayerName(normalizedVariable || variable),
+      url,
+      attribution: readOptionString(options, "attribution") || "",
+      maxZoom: Number.parseInt(readOptionRaw(options, "maxZoom"), 10) || 20,
+      default: false,
+      enabled: true,
+      source: "imported"
+    });
+  }
+
+  const addedLayerMatch = indexHtml.match(/map\.addLayer\(([^)]+)\)/);
+  if (addedLayerMatch) {
+    const defaultId = addedLayerMatch[1].trim().replace(/^layer_/, "").replace(/^basemap_/, "");
+    basemaps.forEach((basemap) => {
+      basemap.default = basemap.id === defaultId || addedLayerMatch[1].trim() === basemap.id;
+    });
+  }
+  if (basemaps.length > 0 && !basemaps.some((basemap) => basemap.default)) {
+    basemaps[0].default = true;
+  }
+  return basemaps;
+}
+
+function parseLayerLabels(indexHtml: string): Map<string, LayerLabelConfig> {
+  const labels = new Map<string, LayerLabelConfig>();
+  const matches = indexHtml.matchAll(/(layer_[A-Za-z0-9_]+)\.bindTooltip\(([\s\S]*?)\{([\s\S]*?)\}\s*\)/g);
+  for (const match of matches) {
+    const expression = match[2];
+    const field = expression.match(/properties\[['"]([^'"]+)['"]\]/)?.[1];
+    if (!field) continue;
+    const options = match[3];
+    labels.set(match[1], {
+      enabled: true,
+      field,
+      permanent: /permanent\s*:\s*true/.test(options),
+      offset: parseOffset(options),
+      className: readOptionString(options, "className"),
+      fontSize: 12,
+      textColor: "#172026",
+      haloColor: "#ffffff"
+    });
+  }
+  const eachLayerMatches = indexHtml.matchAll(/(layer_[A-Za-z0-9_]+)\.eachLayer\(function\(layer\)\s*\{([\s\S]*?)\n\s*\}\);/g);
+  for (const match of eachLayerMatches) {
+    if (labels.has(match[1]) || !match[2].includes("bindTooltip")) continue;
+    const field = match[2].match(/properties\[['"]([^'"]+)['"]\]/)?.[1];
+    if (!field) continue;
+    const tooltipCall = match[2].match(/bindTooltip\([\s\S]*?,\s*\{([\s\S]*?)\}\s*\)/)?.[1] || "";
+    labels.set(match[1], {
+      enabled: true,
+      field,
+      permanent: /permanent\s*:\s*true/.test(tooltipCall),
+      offset: parseOffset(tooltipCall),
+      className: readOptionString(tooltipCall, "className"),
+      fontSize: 12,
+      textColor: "#172026",
+      haloColor: "#ffffff"
+    });
+  }
+  return labels;
+}
+
+function parsePopupTemplates(indexHtml: string): Map<string, PopupTemplate> {
+  const templates = new Map<string, PopupTemplate>();
+  const popupNames = Array.from(indexHtml.matchAll(/function\s+pop_([A-Za-z0-9_]+)\s*\(/g)).map((match) => match[1]);
+  for (const suffix of popupNames) {
+    const body = readFunctionBody(indexHtml, `pop_${suffix}`);
+    const layerVariable = `layer_${suffix}`;
+    const fields = parsePopupFieldsFromBody(body);
+    if (fields.length === 0) continue;
+    templates.set(layerVariable, {
+      mode: "original",
+      source: "imported",
+      html: popupHtmlFromFields(fields),
+      fields
+    });
+  }
+  return templates;
 }
 
 function parseDataFiles(files: VirtualFile[]): ParsedDataFile[] {
@@ -245,6 +390,46 @@ function parseLegendRows(rawLabel: string): ParsedLegendRow[] {
   return [];
 }
 
+function parsePopupFieldsFromBody(body: string): PopupField[] {
+  const fields: PopupField[] = [];
+  const rowMatches = body.matchAll(/<tr[\s\S]*?<\/(?:tr)>/g);
+  for (const row of rowMatches) {
+    const rowText = row[0];
+    const fieldMatch = rowText.match(/feature\.properties\[['"]([^'"]+)['"]\]/);
+    if (!fieldMatch) continue;
+    const strongLabel = rowText.match(/<strong>([\s\S]*?)<\/strong>/i)?.[1];
+    const thLabel = rowText.match(/<th[^>]*>([\s\S]*?)<\/th>/i)?.[1];
+    const label = htmlToText(strongLabel || thLabel || prettifyFieldName(fieldMatch[1]));
+    fields.push({
+      key: fieldMatch[1],
+      label,
+      visible: true,
+      header: Boolean(strongLabel || /colspan=["']2["']/i.test(rowText))
+    });
+  }
+  return dedupePopupFields(fields);
+}
+
+function popupHtmlFromFields(fields: PopupField[]): string {
+  const rows = fields
+    .map((field) =>
+      field.header
+        ? `<tr><td colspan="2"><strong>${escapeHtmlText(field.label)}</strong><br>{{${field.key}}}</td></tr>`
+        : `<tr><th scope="row">${escapeHtmlText(field.label)}</th><td class="visible-with-data" id="${escapeHtmlText(field.key)}">{{${field.key}}}</td></tr>`
+    )
+    .join("");
+  return `<table>${rows}</table>`;
+}
+
+function dedupePopupFields(fields: PopupField[]): PopupField[] {
+  const seen = new Set<string>();
+  return fields.filter((field) => {
+    if (seen.has(field.key)) return false;
+    seen.add(field.key);
+    return true;
+  });
+}
+
 function buildPopupFields(geojson: FeatureCollection): PopupField[] {
   const keys = new Set<string>();
   for (const feature of geojson.features.slice(0, 25)) {
@@ -277,6 +462,24 @@ function cleanHtmlLabel(label: string): string {
   const layerOnly = label.split(/<br\s*\/?>/i)[0] || label;
   const withoutImages = layerOnly.replace(/<img[^>]*>/gi, "");
   return htmlToText(withoutImages);
+}
+
+function readOptionString(options: string, key: string): string {
+  return unescapeJsString(readOptionRaw(options, key).replace(/^['"]|['"]$/g, ""));
+}
+
+function readOptionRaw(options: string, key: string): string {
+  const match = options.match(new RegExp(`${key}\\s*:\\s*('(?:\\\\'|[^'])*'|\"(?:\\\\\"|[^\"])*\"|[^,\\n}]+)`, "i"));
+  return (match?.[1] || "").trim();
+}
+
+function parseOffset(options: string): [number, number] {
+  const match = options.match(/offset\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/);
+  return [Number.parseFloat(match?.[1] || "0") || 0, Number.parseFloat(match?.[2] || "0") || 0];
+}
+
+function escapeHtmlText(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] || char);
 }
 
 function htmlToText(value: string): string {
@@ -327,6 +530,17 @@ function prettifyFieldName(name: string): string {
 
 function variableToLayerVariable(variable: string): string {
   return `layer_${variable.replace(/^json_/, "")}`;
+}
+
+function parseInitialBounds(indexHtml: string): [[number, number], [number, number]] | undefined {
+  const match = indexHtml.match(/\.fitBounds\(\s*\[\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]\s*,\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]\s*\]\s*\)/);
+  if (!match) return undefined;
+  const values = match.slice(1).map((value) => Number.parseFloat(value));
+  if (values.some((value) => !Number.isFinite(value))) return undefined;
+  return [
+    [values[0], values[1]],
+    [values[2], values[3]]
+  ];
 }
 
 function parseTitle(indexHtml: string): string {

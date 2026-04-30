@@ -39,6 +39,26 @@ export type LayerCategoryStyle = {
   visible: boolean;
 };
 
+export type PopupTemplateMode = "original" | "field-grid" | "custom";
+
+export type PopupTemplate = {
+  mode: PopupTemplateMode;
+  source: "imported" | "studio" | "custom";
+  html: string;
+  fields: PopupField[];
+};
+
+export type LayerLabelConfig = {
+  enabled: boolean;
+  field: string;
+  permanent: boolean;
+  offset: [number, number];
+  className: string;
+  fontSize: number;
+  textColor: string;
+  haloColor: string;
+};
+
 export type LayerManifest = {
   id: string;
   displayName: string;
@@ -51,6 +71,9 @@ export type LayerManifest = {
   popupEnabled: boolean;
   legendEnabled: boolean;
   popupFields: PopupField[];
+  popupTemplate?: PopupTemplate;
+  popupSettings?: PopupSettings;
+  label?: LayerLabelConfig;
   style: LayerStyle;
   geojson: FeatureCollection;
 };
@@ -73,6 +96,19 @@ export type ThemeSettings = {
   headerHeight: number;
 };
 
+export type HeaderPlacement = "top-full" | "top-left-pill" | "top-right-pill" | "top-center-card" | "hidden";
+export type FooterPlacement = "bottom-full" | "bottom-left-pill" | "bottom-right-pill" | "hidden";
+
+export type WelcomeSettings = {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  autoDismiss: "never" | "3" | "5" | "10";
+  showOnce: boolean;
+  placement: "center" | "bottom";
+};
+
 export type BrandingSettings = {
   title: string;
   subtitle: string;
@@ -80,7 +116,9 @@ export type BrandingSettings = {
   showHeader: boolean;
   showFooter: boolean;
   showWelcome: boolean;
-  showSidebar: boolean;
+  headerPlacement: HeaderPlacement;
+  footerPlacement: FooterPlacement;
+  welcome: WelcomeSettings;
   logoPath: string;
   logoPlacement: "left" | "center" | "right" | "hidden";
 };
@@ -100,6 +138,32 @@ export type LegendItem = {
   visible: boolean;
 };
 
+export type RuntimeWidgetId = "measure" | "photon" | "fullscreen" | "scale" | "hash" | "rotatedMarker" | "pattern" | "labels" | "layersTree" | "highlight";
+
+export type RuntimeWidget = {
+  id: RuntimeWidgetId;
+  label: string;
+  enabled: boolean;
+  detected: boolean;
+  assetPaths: string[];
+  options?: Record<string, unknown>;
+};
+
+export type BasemapConfig = {
+  id: string;
+  label: string;
+  url: string;
+  attribution: string;
+  maxZoom: number;
+  default: boolean;
+  enabled: boolean;
+  source: "imported" | "studio" | "user";
+};
+
+export type RuntimeSettings = {
+  widgets: RuntimeWidget[];
+};
+
 export type BasemapId =
   | "osm"
   | "osm-hot"
@@ -113,11 +177,16 @@ export type BasemapId =
 export type MapViewMode = "all" | "selected";
 export type InitialZoomMode = "fit" | "fixed";
 
+export type LayerControlMode = "original" | "compact" | "expanded" | "tree" | "studio";
+export type LegendPlacement = "inside-control" | "floating-bottom-right" | "floating-bottom-left" | "floating-top-right" | "floating-top-left" | "hidden";
+
 export type MapSettings = {
-  basemap: BasemapId;
+  basemap: string;
   viewMode: MapViewMode;
   initialZoomMode: InitialZoomMode;
   initialZoom: number;
+  initialBounds?: [[number, number], [number, number]];
+  layerControlMode: LayerControlMode;
 };
 
 export type LegendPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -125,6 +194,7 @@ export type LegendPosition = "top-left" | "top-right" | "bottom-left" | "bottom-
 export type LegendSettings = {
   enabled: boolean;
   position: LegendPosition;
+  placement: LegendPlacement;
   collapsed: boolean;
   groupByLayer: boolean;
 };
@@ -159,6 +229,8 @@ export type Qgis2webProject = {
   branding: BrandingSettings;
   theme: ThemeSettings;
   mapSettings: MapSettings;
+  basemaps: BasemapConfig[];
+  runtime: RuntimeSettings;
   legendSettings: LegendSettings;
   popupSettings: PopupSettings;
   manualLegendItems: LegendItem[];

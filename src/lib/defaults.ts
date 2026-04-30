@@ -1,10 +1,12 @@
 import type {
+  BasemapConfig,
   BrandingSettings,
   LayerStyle,
   LegendSettings,
   MapSettings,
   PopupSettings,
   Qgis2webProject,
+  RuntimeSettings,
   ThemeSettings
 } from "../types/project";
 
@@ -26,7 +28,17 @@ export const defaultBranding: BrandingSettings = {
   showHeader: true,
   showFooter: true,
   showWelcome: false,
-  showSidebar: true,
+  headerPlacement: "top-full",
+  footerPlacement: "bottom-full",
+  welcome: {
+    enabled: false,
+    title: "Selamat datang",
+    subtitle: "Jelajahi peta interaktif ini.",
+    ctaLabel: "Mulai jelajah",
+    autoDismiss: "never",
+    showOnce: false,
+    placement: "center"
+  },
   logoPath: "",
   logoPlacement: "left"
 };
@@ -35,12 +47,51 @@ export const defaultMapSettings: MapSettings = {
   basemap: "carto-voyager",
   viewMode: "all",
   initialZoomMode: "fit",
-  initialZoom: 13
+  initialZoom: 13,
+  layerControlMode: "original"
+};
+
+export const defaultBasemaps: BasemapConfig[] = [
+  {
+    id: "carto-voyager",
+    label: "Carto Voyager",
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+    maxZoom: 20,
+    default: true,
+    enabled: true,
+    source: "studio"
+  },
+  {
+    id: "esri-imagery",
+    label: "Esri World Imagery",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
+    maxZoom: 20,
+    default: false,
+    enabled: true,
+    source: "studio"
+  },
+  {
+    id: "osm",
+    label: "OpenStreetMap",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "OpenStreetMap",
+    maxZoom: 19,
+    default: false,
+    enabled: true,
+    source: "studio"
+  }
+];
+
+export const defaultRuntimeSettings: RuntimeSettings = {
+  widgets: []
 };
 
 export const defaultLegendSettings: LegendSettings = {
-  enabled: true,
+  enabled: false,
   position: "bottom-right",
+  placement: "hidden",
   collapsed: false,
   groupByLayer: true
 };

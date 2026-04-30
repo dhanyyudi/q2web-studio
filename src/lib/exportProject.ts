@@ -4,7 +4,7 @@ import { q2wsCss, q2wsRuntime } from "../runtime/runtime";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
 
 const CSP_META =
-  '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; img-src \'self\' data: https:; style-src \'self\' \'unsafe-inline\'; script-src \'self\' \'unsafe-inline\'; connect-src \'self\' https:;">';
+  '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' blob:; img-src \'self\' data: blob: https:; style-src \'self\' blob: \'unsafe-inline\'; script-src \'self\' blob: \'unsafe-inline\' \'unsafe-eval\'; connect-src \'self\' blob: https:;">';
 
 export async function exportProjectZip(project: Qgis2webProject): Promise<Blob> {
   const zip = new JSZip();
@@ -31,6 +31,8 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     branding: project.branding,
     theme: project.theme,
     mapSettings: project.mapSettings,
+    basemaps: project.basemaps,
+    runtime: project.runtime,
     legendSettings: project.legendSettings,
     popupSettings: project.popupSettings,
     layers: project.layers.map((layer) => ({
@@ -42,6 +44,9 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
       popupEnabled: layer.popupEnabled,
       legendEnabled: layer.legendEnabled,
       popupFields: layer.popupFields,
+      popupTemplate: layer.popupTemplate,
+      popupSettings: layer.popupSettings,
+      label: layer.label,
       style: layer.style
     })),
     legend: allLegendItems(project.layers, project.manualLegendItems),
@@ -62,11 +67,20 @@ function rewriteProjectFiles(project: Qgis2webProject): Record<string, VirtualFi
     };
   }
 
+  const disabledAssetPaths = new Set(
+    (project.runtime?.widgets || [])
+      .filter((widget) => !widget.enabled)
+      .flatMap((widget) => widget.assetPaths)
+  );
+  for (const path of disabledAssetPaths) {
+    delete files[path];
+  }
+
   const indexFile = files[project.indexHtmlPath];
   if (indexFile?.text) {
     files[project.indexHtmlPath] = {
       ...indexFile,
-      text: patchIndexHtml(indexFile.text)
+      text: patchIndexHtml(indexFile.text, project)
     };
   }
 
@@ -88,9 +102,11 @@ function serializeDataLayer(layer: LayerManifest): string {
   return `var ${layer.dataVariable} = ${JSON.stringify(clean)};`;
 }
 
-function patchIndexHtml(indexHtml: string): string {
+function patchIndexHtml(indexHtml: string, project: Qgis2webProject): string {
   let html = indexHtml;
-  if (!html.includes("Content-Security-Policy")) {
+  if (html.includes("Content-Security-Policy")) {
+    html = html.replace(/<meta[^>]+Content-Security-Policy[^>]*>\s*/i, `        ${CSP_META}\n`);
+  } else {
     html = html.replace("</head>", `        ${CSP_META}\n    </head>`);
   }
   if (!html.includes("q2ws-custom.css")) {
@@ -99,7 +115,20 @@ function patchIndexHtml(indexHtml: string): string {
   if (!html.includes("q2ws-runtime.js")) {
     html = html.replace("</body>", '        <script src="q2ws-runtime.js"></script>\n    </body>');
   }
+  const disabledWidgets = (project.runtime?.widgets || []).filter((widget) => !widget.enabled);
+  for (const widget of disabledWidgets) {
+    for (const assetPath of widget.assetPaths) {
+      const filename = assetPath.split("/").pop() || "";
+      if (!filename) continue;
+      html = html.replace(new RegExp(`<script[^>]+${escapeRegExpExport(filename)}[^>]*></script>\\s*`, "gi"), "");
+      html = html.replace(new RegExp(`<link[^>]+${escapeRegExpExport(filename)}[^>]*>\\s*`, "gi"), "");
+    }
+  }
   return html;
+}
+
+function escapeRegExpExport(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

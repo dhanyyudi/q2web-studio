@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MutableRefObject, RefObject } from "react";
 import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -21,13 +22,14 @@ import { allLegendItems, legendGroupsForLayers } from "../lib/style";
 import type { LegendGroup } from "../lib/style";
 import { styleForFeature } from "../lib/style";
 import { shouldSimplifyLayer, simplifyLayersForPreview } from "../lib/simplifyClient";
-import type { BasemapId, DrawMode, LayerManifest, LegendItem, Qgis2webProject, TextAnnotation } from "../types/project";
+import type { BasemapConfig, DrawMode, LayerManifest, LegendItem, Qgis2webProject, TextAnnotation } from "../types/project";
 import { updateLayerGeojson } from "../lib/projectUpdates";
 
 type MapCanvasProps = {
   project: Qgis2webProject;
   selectedLayerId: string;
   drawMode: DrawMode;
+  geometryEditingDisabled?: boolean;
   preview?: boolean;
   showLayerControl?: boolean;
   layerVisibility?: Record<string, boolean>;
@@ -36,97 +38,51 @@ type MapCanvasProps = {
   onProjectChange: (project: Qgis2webProject) => void;
 };
 
-export function MapCanvas({
-  project,
-  selectedLayerId,
-  drawMode,
-  preview = false,
-  showLayerControl = false,
-  layerVisibility,
-  onLayerVisibilityChange,
-  onTileError,
-  onProjectChange
-}: MapCanvasProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const basemapRef = useRef<L.TileLayer | null>(null);
-  const drawRef = useRef<TerraDraw | null>(null);
-  const tileErrorShownRef = useRef(false);
-  const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
-  const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
-  const [mapZoom, setMapZoom] = useState(12);
-  const [simplifiedLayers, setSimplifiedLayers] = useState<Record<string, FeatureCollection>>({});
-  const selectedLayer = useMemo(
-    () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
-    [project.layers, selectedLayerId]
-  );
-  const visibleLayers = useMemo(
-    () =>
-      visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode).filter(
-        (layer) => layerVisibility?.[layer.id] ?? layer.visible
-      ),
-    [layerVisibility, project.layers, project.mapSettings.viewMode, selectedLayerId]
-  );
-  const legendGroups = useMemo(
-    () =>
-      project.legendSettings.groupByLayer
-        ? legendGroupsForLayers(visibleLayers, project.manualLegendItems)
-        : [{ id: "all", label: "Layers", items: allLegendItems(visibleLayers, project.manualLegendItems) }],
-    [project.legendSettings.groupByLayer, project.manualLegendItems, visibleLayers]
-  );
-  const renderLayers = useMemo(
-    () =>
-      visibleLayers.map((layer) => {
-        const simplified = simplifiedLayers[layer.id];
-        return simplified ? { ...layer, geojson: simplified } : layer;
-      }),
-    [simplifiedLayers, visibleLayers]
-  );
+type LeafletMapState = {
+  containerRef: RefObject<HTMLDivElement>;
+  mapRef: MutableRefObject<L.Map | null>;
+  mapZoom: number;
+};
 
-  useEffect(() => {
-    setLegendOpen(!project.legendSettings.collapsed);
-  }, [project.legendSettings.collapsed]);
+function useLeafletMap(onBeforeInit?: () => void): LeafletMapState {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const [mapZoom, setMapZoom] = useState(12);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    onBeforeInit?.();
     const map = L.map(containerRef.current, {
       zoomControl: false,
-      preferCanvas: true
+      preferCanvas: true,
+      center: [-2.5, 117.5],
+      zoom: 4
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
     const updateZoom = () => setMapZoom(map.getZoom());
     map.on("zoomend", updateZoom);
     mapRef.current = map;
+    (window as Window & { __q2ws_map?: L.Map }).__q2ws_map = map;
+    requestAnimationFrame(() => map.invalidateSize());
     return () => {
       map.off("zoomend", updateZoom);
-      drawRef.current?.stop();
-      drawRef.current = null;
       map.remove();
       mapRef.current = null;
+      const debugWindow = window as Window & { __q2ws_map?: L.Map };
+      if (debugWindow.__q2ws_map === map) delete debugWindow.__q2ws_map;
     };
   }, []);
 
-  useEffect(() => {
-    const candidates = visibleLayers.filter((layer) => shouldSimplifyLayer(layer, mapZoom));
-    if (candidates.length === 0) {
-      setSimplifiedLayers({});
-      return;
-    }
-    let cancelled = false;
-    simplifyLayersForPreview(candidates, mapZoom)
-      .then((next) => {
-        if (!cancelled) setSimplifiedLayers(next);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.warn("Preview simplification failed", error);
-          setSimplifiedLayers({});
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mapZoom, visibleLayers]);
+  return { containerRef, mapRef, mapZoom };
+}
+
+function useBasemap(mapRef: MutableRefObject<L.Map | null>, basemaps: BasemapConfig[], activeBasemapId: string, onTileError?: (message: string) => void) {
+  const basemapRef = useRef<L.TileLayer | null>(null);
+  const tileErrorShownRef = useRef(false);
+  const basemapsKey = useMemo(
+    () => basemaps.map((b) => `${b.id}:${b.url}:${b.attribution}:${b.maxZoom}`).join("|"),
+    [basemaps]
+  );
 
   useEffect(() => {
     const map = mapRef.current;
@@ -134,18 +90,50 @@ export function MapCanvas({
     basemapRef.current?.remove();
     basemapRef.current = null;
     tileErrorShownRef.current = false;
-    const basemap = createBasemap(project.mapSettings.basemap);
-    if (basemap) {
-      basemap.on("tileerror", () => {
-        if (tileErrorShownRef.current) return;
-        tileErrorShownRef.current = true;
-        onTileError?.("Basemap failed to load. Check your connection or pick a different basemap.");
-      });
-      basemap.addTo(map);
-      basemapRef.current = basemap;
-    }
-  }, [onTileError, project.mapSettings.basemap]);
+    const basemap = createBasemap(basemaps, activeBasemapId);
+    if (!basemap) return;
+    basemap.on("tileerror", () => {
+      if (tileErrorShownRef.current) return;
+      tileErrorShownRef.current = true;
+      onTileError?.("Basemap failed to load. Check your connection or pick a different basemap.");
+    });
+    basemap.addTo(map);
+    basemapRef.current = basemap;
+  }, [activeBasemapId, basemaps, basemapsKey, mapRef, onTileError]);
+}
 
+function useSimplifiedLayers(visibleLayers: LayerManifest[], mapZoom: number): Record<string, FeatureCollection> {
+  const simplifyRequestRef = useRef(0);
+  const [simplifiedLayers, setSimplifiedLayers] = useState<Record<string, FeatureCollection>>({});
+
+  useEffect(() => {
+    const requestId = simplifyRequestRef.current + 1;
+    simplifyRequestRef.current = requestId;
+    const candidates = visibleLayers.filter((layer) => shouldSimplifyLayer(layer, mapZoom));
+    if (candidates.length === 0) {
+      setSimplifiedLayers((current) => (Object.keys(current).length ? {} : current));
+      return;
+    }
+    let cancelled = false;
+    simplifyLayersForPreview(candidates, mapZoom)
+      .then((next) => {
+        if (!cancelled && simplifyRequestRef.current === requestId) setSimplifiedLayers(next);
+      })
+      .catch((error) => {
+        if (!cancelled && simplifyRequestRef.current === requestId) {
+          console.warn("Preview simplification failed", error);
+          setSimplifiedLayers((current) => (Object.keys(current).length ? {} : current));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapZoom, visibleLayers]);
+
+  return simplifiedLayers;
+}
+
+function useGeoJsonLayers(mapRef: MutableRefObject<L.Map | null>, renderLayers: LayerManifest[], textAnnotations: TextAnnotation[]) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -165,8 +153,18 @@ export function MapCanvas({
           });
         },
         onEachFeature: (feature, leafletLayer) => {
+          if (layer.label?.enabled && layer.label.field) {
+            const labelValue = feature.properties?.[layer.label.field];
+            if (labelValue != null && labelValue !== "") {
+              leafletLayer.bindTooltip(escapeHtml(labelValue), {
+                permanent: layer.label.permanent,
+                offset: L.point(layer.label.offset[0], layer.label.offset[1]),
+                className: `studio-label ${layer.label.className || ""}`.trim()
+              });
+            }
+          }
           if (!layer.popupEnabled) return;
-          leafletLayer.bindPopup(buildPopup(layer, feature as Feature));
+          leafletLayer.bindPopup(buildPopup(layer, feature as Feature), { className: layer.popupSettings ? `popup-layer-${layer.id}` : "" });
         }
       });
       if (clusterPoints) {
@@ -182,7 +180,7 @@ export function MapCanvas({
       geoLayer.addTo(layerGroup);
     });
 
-    project.textAnnotations.forEach((annotation) => {
+    textAnnotations.forEach((annotation) => {
       if (annotation.geometry.type !== "Point") return;
       const [lng, lat] = annotation.geometry.coordinates;
       const props = annotation.properties || {};
@@ -194,24 +192,71 @@ export function MapCanvas({
       }).addTo(layerGroup);
     });
 
-    const bounds = projectBounds(renderLayers);
-    if (bounds && project.mapSettings.initialZoomMode === "fixed") {
-      map.setView(bounds.getCenter(), project.mapSettings.initialZoom);
-    } else if (bounds) {
-      map.fitBounds(bounds, { padding: [28, 28] });
-    }
-
     return () => {
       layerGroup.remove();
     };
-  }, [project.mapSettings.initialZoom, project.mapSettings.initialZoomMode, project.textAnnotations, renderLayers]);
+  }, [mapRef, renderLayers, textAnnotations]);
+}
+
+function useAutoFit(mapRef: MutableRefObject<L.Map | null>, renderLayers: LayerManifest[], autoFitKey: string, initialZoomMode: Qgis2webProject["mapSettings"]["initialZoomMode"], initialZoom: number, initialBounds: Qgis2webProject["mapSettings"]["initialBounds"], lastAutoFitKeyRef: MutableRefObject<string>, programmaticMoveRef: MutableRefObject<boolean>) {
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const shouldAutoFit = lastAutoFitKeyRef.current !== autoFitKey;
+    map.invalidateSize();
+    if (!shouldAutoFit) return;
+    lastAutoFitKeyRef.current = autoFitKey;
+    const bounds = (initialBounds ? L.latLngBounds(initialBounds) : null) || projectBounds(renderLayers);
+    if (!bounds) return;
+    programmaticMoveRef.current = true;
+    requestAnimationFrame(() => {
+      if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
+      map.invalidateSize();
+      if (initialZoomMode === "fixed") {
+        map.setView(bounds.getCenter(), initialZoom);
+      } else {
+        map.fitBounds(bounds, { padding: [28, 28] });
+      }
+      window.setTimeout(() => {
+        programmaticMoveRef.current = false;
+      }, 0);
+    });
+  }, [autoFitKey, initialBounds, initialZoom, initialZoomMode, lastAutoFitKeyRef, mapRef, programmaticMoveRef, renderLayers]);
+}
+
+function useTerraDrawEditor({
+  mapRef,
+  project,
+  selectedLayer,
+  drawMode,
+  geometryEditingDisabled,
+  preview,
+  onProjectChange,
+  onDrawStatusChange
+}: {
+  mapRef: MutableRefObject<L.Map | null>;
+  project: Qgis2webProject;
+  selectedLayer?: LayerManifest;
+  drawMode: DrawMode;
+  geometryEditingDisabled: boolean;
+  preview: boolean;
+  onProjectChange: (project: Qgis2webProject) => void;
+  onDrawStatusChange: (status: string) => void;
+}) {
+  const drawRef = useRef<TerraDraw | null>(null);
 
   useEffect(() => {
     const map = mapRef.current;
     if (preview) {
       drawRef.current?.stop();
       drawRef.current = null;
-      setDrawStatus("Preview mode");
+      onDrawStatusChange("Preview mode");
+      return;
+    }
+    if (geometryEditingDisabled) {
+      drawRef.current?.stop();
+      drawRef.current = null;
+      onDrawStatusChange("Multi-geometry layer is preview-only. Style, popup, legend, and attributes remain editable.");
       return;
     }
     if (!map || !selectedLayer) return;
@@ -267,7 +312,7 @@ export function MapCanvas({
     if (editableFeatures.length > 0) {
       draw.addFeatures(editableFeatures);
     }
-    setDrawStatus(
+    onDrawStatusChange(
       unsupportedCount > 0
         ? `${editableFeatures.length} simple features editable. ${unsupportedCount} multi features remain preview-only.`
         : `${editableFeatures.length} features loaded into geometry editor.`
@@ -295,34 +340,97 @@ export function MapCanvas({
       draw.stop();
       drawRef.current = null;
     };
-  }, [drawMode, preview, selectedLayerId]);
+  }, [drawMode, geometryEditingDisabled, onDrawStatusChange, onProjectChange, preview, project, selectedLayer, mapRef]);
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || geometryEditingDisabled) return;
     if (!drawRef.current) return;
     drawRef.current.setMode(drawMode === "delete" ? "select" : drawMode);
-    setDrawStatus(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}`);
-  }, [drawMode, preview]);
+    onDrawStatusChange(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}`);
+  }, [drawMode, geometryEditingDisabled, onDrawStatusChange, preview]);
+}
+
+export function MapCanvas({
+  project,
+  selectedLayerId,
+  drawMode,
+  geometryEditingDisabled = false,
+  preview = false,
+  showLayerControl = false,
+  layerVisibility,
+  onLayerVisibilityChange,
+  onTileError,
+  onProjectChange
+}: MapCanvasProps) {
+  const { containerRef, mapRef, mapZoom } = useLeafletMap(() => {
+    lastAutoFitKeyRef.current = "";
+    programmaticMoveRef.current = false;
+  });
+  const lastAutoFitKeyRef = useRef("");
+  const programmaticMoveRef = useRef(false);
+  const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
+  const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
+  const selectedLayer = useMemo(
+    () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
+    [project.layers, selectedLayerId]
+  );
+  const visibleLayers = useMemo(
+    () =>
+      visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode).filter(
+        (layer) => layerVisibility?.[layer.id] ?? layer.visible
+      ),
+    [layerVisibility, project.layers, project.mapSettings.viewMode, selectedLayerId]
+  );
+  const legendGroups = useMemo(
+    () =>
+      project.legendSettings.groupByLayer
+        ? legendGroupsForLayers(visibleLayers, project.manualLegendItems)
+        : [{ id: "all", label: "Layers", items: allLegendItems(visibleLayers, project.manualLegendItems) }],
+    [project.legendSettings.groupByLayer, project.manualLegendItems, visibleLayers]
+  );
+  const simplifiedLayers = useSimplifiedLayers(visibleLayers, mapZoom);
+  const renderLayers = useMemo(
+    () =>
+      visibleLayers.map((layer) => {
+        const simplified = simplifiedLayers[layer.id];
+        return simplified ? { ...layer, geojson: simplified } : layer;
+      }),
+    [simplifiedLayers, visibleLayers]
+  );
+  const autoFitKey = useMemo(
+    () => [project.mapSettings.viewMode, selectedLayerId, visibleLayers.map((layer) => `${layer.id}:${layer.visible}`).join("|"), project.mapSettings.initialZoomMode, project.mapSettings.initialZoom].join("::"),
+    [project.mapSettings.initialZoom, project.mapSettings.initialZoomMode, project.mapSettings.viewMode, selectedLayerId, visibleLayers]
+  );
+  useEffect(() => {
+    setLegendOpen(!project.legendSettings.collapsed);
+  }, [project.legendSettings.collapsed]);
+
+  useBasemap(mapRef, project.basemaps, project.mapSettings.basemap, onTileError);
+  useGeoJsonLayers(mapRef, renderLayers, project.textAnnotations);
+  useAutoFit(
+    mapRef,
+    renderLayers,
+    autoFitKey,
+    project.mapSettings.initialZoomMode,
+    project.mapSettings.initialZoom,
+    project.mapSettings.initialBounds,
+    lastAutoFitKeyRef,
+    programmaticMoveRef
+  );
+  useTerraDrawEditor({
+    mapRef,
+    project,
+    selectedLayer,
+    drawMode,
+    geometryEditingDisabled,
+    preview,
+    onProjectChange,
+    onDrawStatusChange: setDrawStatus
+  });
 
   return (
     <section className="map-shell">
-      {project.branding.showHeader && (
-        <div
-          className={`map-header-preview logo-${project.branding.logoPlacement}`}
-          style={{
-            background: project.theme.accent,
-            minHeight: project.theme.headerHeight,
-            borderRadius: project.theme.radius,
-            boxShadow: `0 ${Math.max(8, project.theme.shadow)}px ${Math.max(16, project.theme.shadow * 1.8)}px rgba(0, 0, 0, 0.22)`
-          }}
-        >
-          {project.branding.logoPath && project.branding.logoPlacement !== "hidden" && <img src={project.branding.logoPath} alt="" />}
-          <div>
-            <strong>{project.branding.title}</strong>
-            <span>{project.branding.subtitle}</span>
-          </div>
-        </div>
-      )}
+      <MapHeader project={project} />
       <div ref={containerRef} className="map-canvas" />
       <style>{popupCss(project)}</style>
       {showLayerControl && (
@@ -332,7 +440,7 @@ export function MapCanvas({
           onLayerVisibilityChange={onLayerVisibilityChange}
         />
       )}
-      {project.legendSettings.enabled && legendGroups.some((group) => group.items.length > 0) && (
+      {project.legendSettings.enabled && project.legendSettings.placement !== "hidden" && project.legendSettings.placement !== "inside-control" && legendGroups.some((group) => group.items.length > 0) && (
         <LegendPanel
           groups={legendGroups}
           open={legendOpen}
@@ -341,9 +449,35 @@ export function MapCanvas({
         />
       )}
       {!preview && <div className="draw-status">{drawStatus}</div>}
-      {project.branding.showFooter && <div className="map-footer-preview">{project.branding.footer}</div>}
+      <MapFooter project={project} />
     </section>
   );
+}
+
+function MapHeader({ project }: { project: Qgis2webProject }) {
+  if (!project.branding.showHeader || project.branding.headerPlacement === "hidden") return null;
+  return (
+    <div
+      className={`map-header-preview header-${project.branding.headerPlacement} logo-${project.branding.logoPlacement}`}
+      style={{
+        background: project.theme.accent,
+        minHeight: project.theme.headerHeight,
+        borderRadius: project.theme.radius,
+        boxShadow: `0 ${Math.max(8, project.theme.shadow)}px ${Math.max(16, project.theme.shadow * 1.8)}px rgba(0, 0, 0, 0.22)`
+      }}
+    >
+      {project.branding.logoPath && project.branding.logoPlacement !== "hidden" && <img src={project.branding.logoPath} alt="" />}
+      <div>
+        <strong>{project.branding.title}</strong>
+        <span>{project.branding.subtitle}</span>
+      </div>
+    </div>
+  );
+}
+
+function MapFooter({ project }: { project: Qgis2webProject }) {
+  if (!project.branding.showFooter || project.branding.footerPlacement === "hidden") return null;
+  return <div className={`map-footer-preview footer-${project.branding.footerPlacement}`}>{project.branding.footer}</div>;
 }
 
 function LayerControl({
@@ -412,47 +546,13 @@ function LegendPanel({
   );
 }
 
-function createBasemap(basemap: BasemapId): L.TileLayer | null {
-  if (basemap === "none") return null;
-  if (basemap === "osm-hot") {
-    return L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors, Tiles style by HOT",
-      crossOrigin: "anonymous"
-    });
-  }
-  if (basemap === "esri-imagery") {
-    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-      attribution: "Tiles &copy; Esri",
-      crossOrigin: "anonymous"
-    });
-  }
-  if (basemap === "esri-topo") {
-    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
-      attribution: "Tiles &copy; Esri",
-      crossOrigin: "anonymous"
-    });
-  }
-  if (basemap === "esri-streets") {
-    return L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
-      attribution: "Tiles &copy; Esri",
-      crossOrigin: "anonymous"
-    });
-  }
-  if (basemap === "stadia-terrain") {
-    return L.tileLayer("https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors",
-      crossOrigin: "anonymous"
-    });
-  }
-  if (basemap === "carto-voyager") {
-    return L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-      crossOrigin: "anonymous"
-    });
-  }
-  return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "OpenStreetMap",
-    crossOrigin: "anonymous"
+function createBasemap(basemaps: BasemapConfig[], activeBasemapId: string): L.TileLayer | null {
+  if (activeBasemapId === "none") return null;
+  const basemap = basemaps.find((item) => item.id === activeBasemapId) || basemaps.find((item) => item.default) || basemaps[0];
+  if (!basemap?.url) return null;
+  return L.tileLayer(basemap.url, {
+    attribution: basemap.attribution,
+    maxZoom: basemap.maxZoom
   });
 }
 
@@ -500,6 +600,9 @@ function LegendRow({ item }: { item: LegendItem }) {
 }
 
 function buildPopup(layer: LayerManifest, feature: Feature): string {
+  if (layer.popupTemplate?.mode === "original" || layer.popupTemplate?.mode === "custom") {
+    return renderPopupTemplate(layer.popupTemplate.html, feature);
+  }
   const rows = layer.popupFields
     .filter((field) => field.visible)
     .map((field) => {
@@ -512,11 +615,34 @@ function buildPopup(layer: LayerManifest, feature: Feature): string {
   return `<table class="studio-popup">${rows}</table>`;
 }
 
+function renderPopupTemplate(template: string, feature: Feature): string {
+  return sanitizePopupHtml(
+    template.replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, (_match, key: string) => escapeHtml(feature.properties?.[key] ?? ""))
+  );
+}
+
+function sanitizePopupHtml(html: string): string {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const allowedTags = new Set(["TABLE", "TBODY", "THEAD", "TR", "TH", "TD", "STRONG", "BR", "SPAN", "DIV", "P", "B", "I", "EM"]);
+  const allowedAttrs = new Set(["class", "id", "scope", "colspan", "rowspan"]);
+  template.content.querySelectorAll("*").forEach((element) => {
+    if (!allowedTags.has(element.tagName)) {
+      element.replaceWith(document.createTextNode(element.textContent || ""));
+      return;
+    }
+    Array.from(element.attributes).forEach((attr) => {
+      if (!allowedAttrs.has(attr.name.toLowerCase())) element.removeAttribute(attr.name);
+    });
+  });
+  return template.innerHTML;
+}
+
 function popupCss(project: Qgis2webProject): string {
   const popup = project.popupSettings;
   const border = popup.style === "minimal" ? "0" : `1px solid ${popup.accentColor}`;
   const headerBg = popup.style === "compact" ? "transparent" : colorMix(popup.accentColor, "#ffffff", 0.09);
-  return `
+  const base = `
     .leaflet-popup-content-wrapper {
       border: ${border};
       border-radius: ${popup.radius}px;
@@ -528,20 +654,33 @@ function popupCss(project: Qgis2webProject): string {
       background: ${popup.backgroundColor};
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
     }
+    .leaflet-popup-content {
+      max-width: min(360px, 72vw);
+      margin: 12px 14px;
+      overflow-wrap: anywhere;
+      line-height: 1.42;
+    }
     .studio-popup {
-      border-collapse: collapse;
-      min-width: 210px;
+      width: 100%;
+      min-width: 220px;
       max-width: 340px;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 0;
       font: 12px Inter, Segoe UI, Arial, sans-serif;
     }
     .studio-popup th,
     .studio-popup td {
-      border: 1px solid rgba(82, 103, 113, 0.18);
+      border: 1px solid rgba(82, 103, 113, 0.14);
       padding: ${popup.style === "compact" ? "5px 7px" : "7px 9px"};
       vertical-align: top;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.36;
     }
     .studio-popup th {
-      width: 42%;
+      width: 38%;
       background: ${headerBg};
       color: ${popup.labelColor};
       font-weight: 750;
@@ -551,6 +690,17 @@ function popupCss(project: Qgis2webProject): string {
       color: ${popup.accentColor};
     }
   `;
+  const layerOverrides = project.layers
+    .filter((layer) => layer.popupSettings)
+    .map((layer) => {
+      const override = layer.popupSettings!;
+      return `.popup-layer-${layer.id} .leaflet-popup-content-wrapper { border-color: ${override.accentColor}; border-radius: ${override.radius}px; background: ${override.backgroundColor}; color: ${override.textColor}; }
+.popup-layer-${layer.id} .leaflet-popup-tip { background: ${override.backgroundColor}; }
+.popup-layer-${layer.id} .studio-popup th { color: ${override.labelColor}; }
+.popup-layer-${layer.id} .studio-popup strong { color: ${override.accentColor}; }`;
+    })
+    .join("\n");
+  return base + layerOverrides;
 }
 
 function colorMix(color: string, fallback: string, opacity: number): string {
