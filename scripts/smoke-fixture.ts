@@ -77,12 +77,22 @@ if (boundary?.style.symbolType !== "line" || boundary.style.strokeColor.toLowerC
   throw new Error("Expected Batas Desa to preserve white line boundary style.");
 }
 
-if (!project.runtime.widgets.some((widget) => widget.id === "measure" && widget.enabled)) {
+const measureWidget = project.runtime.widgets.find((widget) => widget.id === "measure");
+if (!measureWidget?.enabled) {
   throw new Error("Expected original measure widget to be detected and enabled.");
 }
 
-if (!project.runtime.widgets.some((widget) => widget.id === "photon" && widget.enabled)) {
+if (!measureWidget.assetPaths.includes("qgis2web_2026_04_22-06_30_44_400659/css/leaflet-measure.css") || !measureWidget.assetPaths.includes("qgis2web_2026_04_22-06_30_44_400659/js/leaflet-measure.js")) {
+  throw new Error(`Expected measure widget assets to be preserved. Got: ${measureWidget.assetPaths.join(", ")}`);
+}
+
+const photonWidget = project.runtime.widgets.find((widget) => widget.id === "photon");
+if (!photonWidget?.enabled) {
   throw new Error("Expected original Photon search widget to be detected and enabled.");
+}
+
+if (!photonWidget.assetPaths.includes("qgis2web_2026_04_22-06_30_44_400659/css/leaflet.photon.css") || !photonWidget.assetPaths.includes("qgis2web_2026_04_22-06_30_44_400659/js/leaflet.photon.js")) {
+  throw new Error(`Expected Photon widget assets to be preserved. Got: ${photonWidget.assetPaths.join(", ")}`);
 }
 
 if (!project.basemaps.some((basemap) => basemap.label.includes("Voyager")) || !project.basemaps.some((basemap) => basemap.label.includes("Imagery"))) {
@@ -124,4 +134,11 @@ if (zntPopupHtml.includes("/g,") || zntPopupHtml.includes("popupopen")) {
   throw new Error(`Expected ZNT popup template to exclude qgis2web JS fragments. Got: ${zntPopupHtml}`);
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legend labels, and line styles verified.`);
+const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+for (const expectedRuntimeCode of ["function applyDisabledWidgets", "removeControlCandidate(window.measureControl)", "removeControlCandidate(window.photonControl)", "disableLabels(config)", "removeHighlightHandlers(config)"]) {
+  if (!runtimeSource.includes(expectedRuntimeCode)) {
+    throw new Error(`Expected runtime disable hardening code to include: ${expectedRuntimeCode}`);
+  }
+}
+
+console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legend labels, line styles, and runtime widget disable hardening verified.`);
