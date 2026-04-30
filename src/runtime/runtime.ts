@@ -574,7 +574,7 @@ export const q2wsRuntime = String.raw`(function () {
     (config.layers || []).forEach(function (layerConfig) {
       if (!layerConfig.popupSettings) return;
       var override = layerConfig.popupSettings;
-      var layerCss = ".popup-layer-" + layerConfig.id + " .leaflet-popup-content-wrapper{border-color:" + (override.accentColor || accent) + ";border-radius:" + (override.radius || radius) + "px;background:" + (override.backgroundColor || background) + ";color:" + (override.textColor || text) + ";}" +
+      var layerCss = ".popup-layer-" + layerConfig.id + " .leaflet-popup-content-wrapper{border-color:" + (override.accentColor || accent) + ";border-radius:" + (override.radius || radius) + "px;background:" + (override.backgroundColor || background) + ";color:" + (override.textColor || text) + ";box-shadow:0 " + Math.max(6, Number((override.shadow == null ? shadow : override.shadow)) / 2) + "px " + Math.max(14, Number(override.shadow == null ? shadow : override.shadow)) + "px rgba(0,0,0,.22);}" +
         ".popup-layer-" + layerConfig.id + " .leaflet-popup-tip{background:" + (override.backgroundColor || background) + ";}" +
         ".popup-layer-" + layerConfig.id + " .studio-popup th{color:" + (override.labelColor || label) + ";}" +
         ".popup-layer-" + layerConfig.id + " .studio-popup strong{color:" + (override.accentColor || accent) + ";}";
