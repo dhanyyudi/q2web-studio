@@ -135,7 +135,7 @@ if (zntPopupHtml.includes("/g,") || zntPopupHtml.includes("popupopen")) {
 }
 
 const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
-for (const expectedRuntimeCode of ["function applyDisabledWidgets", "removeControlCandidate(window.measureControl)", "removeControlCandidate(window.photonControl)", "disableLabels(config)", "removeHighlightHandlers(config)"]) {
+for (const expectedRuntimeCode of ["function applyDisabledWidgets", "removeControlCandidate(window.measureControl)", "removeControlCandidate(window.photonControl)", "disableLabels(config)", "clearHighlightState(config)"]) {
   if (!runtimeSource.includes(expectedRuntimeCode)) {
     throw new Error(`Expected runtime disable hardening code to include: ${expectedRuntimeCode}`);
   }

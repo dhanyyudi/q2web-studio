@@ -130,7 +130,7 @@ function removeDisabledAssetTags(indexHtml: string, indexHtmlPath: string, disab
   const indexRoot = indexHtmlPath.includes("/") ? indexHtmlPath.slice(0, indexHtmlPath.lastIndexOf("/") + 1) : "";
   return indexHtml.replace(/\s*<(script|link)\b[^>]+(?:src|href)=["']([^"']+)["'][^>]*(?:><\/script>|>)\s*/gi, (tag, _tagName, rawPath) => {
     if (/^(?:https?:)?\/\//i.test(rawPath) || rawPath.startsWith("data:") || rawPath.startsWith("#")) return tag;
-    const normalized = normalizeAssetPath(`${indexRoot}${rawPath}`);
+    const normalized = normalizeAssetPath(`${indexRoot}${stripUrlSuffix(rawPath)}`);
     return disabledAssetPaths.has(normalized) ? "\n" : tag;
   });
 }
@@ -143,6 +143,10 @@ function normalizeAssetPath(path: string): string {
     else parts.push(part);
   }
   return parts.join("/");
+}
+
+function stripUrlSuffix(path: string): string {
+  return path.split("#", 1)[0].split("?", 1)[0];
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

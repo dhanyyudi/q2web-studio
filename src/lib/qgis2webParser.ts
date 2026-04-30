@@ -162,7 +162,7 @@ function referencedAssets(indexHtml: string, files: VirtualFile[]): string[] {
   for (const match of matches) {
     const raw = match[1];
     if (/^(?:https?:)?\/\//i.test(raw) || raw.startsWith("data:") || raw.startsWith("#")) continue;
-    const normalized = normalizeAssetPath(`${root}${raw}`);
+    const normalized = normalizeAssetPath(`${root}${stripUrlSuffix(raw)}`);
     if (availablePaths.has(normalized) && !paths.includes(normalized)) paths.push(normalized);
   }
   return paths;
@@ -176,6 +176,10 @@ function normalizeAssetPath(path: string): string {
     else parts.push(part);
   }
   return parts.join("/");
+}
+
+function stripUrlSuffix(path: string): string {
+  return path.split("#", 1)[0].split("?", 1)[0];
 }
 
 function parseBasemaps(indexHtml: string): BasemapConfig[] {

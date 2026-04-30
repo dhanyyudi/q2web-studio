@@ -274,7 +274,7 @@ export const q2wsRuntime = String.raw`(function () {
         return;
       }
       if (widget.id === "highlight") {
-        removeHighlightHandlers(config);
+        clearHighlightState(config);
         return;
       }
       if (widget.id === "pattern" || widget.id === "rotatedMarker") {
@@ -326,15 +326,15 @@ export const q2wsRuntime = String.raw`(function () {
     });
   }
 
-  function removeHighlightHandlers(config) {
+  function clearHighlightState(config) {
     if (!window.L) return;
     (config.layers || []).forEach(function (layerConfig) {
       var layer = window[layerConfig.layerVariable];
       if (!layer || !layer.eachLayer) return;
       layer.eachLayer(function (featureLayer) {
-        if (!featureLayer.off) return;
-        featureLayer.off("mouseover");
-        featureLayer.off("mouseout");
+        if (featureLayer.setStyle && featureLayer.feature) {
+          featureLayer.setStyle(styleFor(layerConfig, featureLayer.feature));
+        }
       });
     });
   }
