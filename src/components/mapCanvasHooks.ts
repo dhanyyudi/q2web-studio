@@ -26,6 +26,7 @@ export type LeafletMapState = {
   mapRef: MutableRefObject<L.Map | null>;
   mapZoom: number;
   mapInstanceVersion: number;
+  debugEnabled: boolean;
 };
 
 export function useLeafletMap(): LeafletMapState {
@@ -52,7 +53,9 @@ export function useLeafletMap(): LeafletMapState {
     mapRef.current = map;
     const debugEnabled = new URLSearchParams(window.location.search).has("debug");
     if (debugEnabled) {
-      (window as Window & { __q2ws_map?: L.Map }).__q2ws_map = map;
+      (window as Window & { __q2ws_map?: L.Map; __q2wsDebugEvents?: unknown[] }).__q2ws_map = map;
+      (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
+      attachMapDebugEvents(map);
     }
     requestAnimationFrame(() => map.invalidateSize());
     return () => {
@@ -64,7 +67,27 @@ export function useLeafletMap(): LeafletMapState {
     };
   }, []);
 
-  return { containerRef, mapRef, mapZoom, mapInstanceVersion };
+  const debugEnabled = new URLSearchParams(window.location.search).has("debug");
+  return { containerRef, mapRef, mapZoom, mapInstanceVersion, debugEnabled };
+}
+
+function attachMapDebugEvents(map: L.Map) {
+  ["zoomstart", "zoomend", "movestart", "moveend", "dragstart", "dragend"].forEach((eventName) => {
+    map.on(eventName, () => {
+      debugLog("map", eventName, {
+        center: map.getCenter(),
+        zoom: map.getZoom()
+      });
+    });
+  });
+}
+
+function debugLog(source: string, event: string, detail: Record<string, unknown> = {}) {
+  const debugWindow = window as Window & { __q2wsDebugEvents?: unknown[] };
+  if (!debugWindow.__q2wsDebugEvents) return;
+  const entry = { at: Date.now(), source, event, ...detail };
+  debugWindow.__q2wsDebugEvents.push(entry);
+  console.debug("[q2ws-debug]", entry);
 }
 
 export function useBasemap(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, basemaps: BasemapConfig[], activeBasemapId: string, onTileError?: (message: string) => void) {
@@ -212,7 +235,10 @@ export function useAutoFit(
     const map = mapRef.current;
     if (!map) return;
     const markUserMove = () => {
-      if (!programmaticMoveRef.current) userMovedMapRef.current = true;
+      if (!programmaticMoveRef.current) {
+        userMovedMapRef.current = true;
+        debugLog("autofit", "user-move-detected", { mapInstanceVersion });
+      }
     };
     map.on("movestart", markUserMove);
     map.on("zoomstart", markUserMove);
@@ -228,17 +254,30 @@ export function useAutoFit(
     const instanceAutoFitKey = `${mapInstanceVersion}::${autoFitKey}`;
     const shouldAutoFit = lastAutoFitKeyRef.current !== instanceAutoFitKey;
     map.invalidateSize();
-    if (!shouldAutoFit || (userMovedMapRef.current && lastAutoFitKeyRef.current)) return;
+    if (!shouldAutoFit) {
+      debugLog("autofit", "skip-same-key", { autoFitKey: instanceAutoFitKey });
+      return;
+    }
+    if (userMovedMapRef.current && lastAutoFitKeyRef.current) {
+      debugLog("autofit", "skip-after-user-move", { autoFitKey: instanceAutoFitKey, previousKey: lastAutoFitKeyRef.current });
+      return;
+    }
     lastAutoFitKeyRef.current = instanceAutoFitKey;
     const bounds = (initialBounds ? L.latLngBounds(initialBounds) : null) || projectBounds(renderLayers);
-    if (!bounds) return;
+    if (!bounds) {
+      debugLog("autofit", "skip-no-bounds", { autoFitKey: instanceAutoFitKey });
+      return;
+    }
     programmaticMoveRef.current = true;
+    debugLog("autofit", "apply", { autoFitKey: instanceAutoFitKey, mode: initialZoomMode, layerCount: renderLayers.length });
     requestAnimationFrame(() => {
       if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
       map.invalidateSize();
       if (initialZoomMode === "fixed") {
+        debugLog("autofit", "set-view", { zoom: initialZoom, center: bounds.getCenter() });
         map.setView(bounds.getCenter(), initialZoom);
       } else {
+        debugLog("autofit", "fit-bounds", { bounds: bounds.toBBoxString() });
         map.fitBounds(bounds, { padding: [28, 28] });
       }
       window.setTimeout(() => {
@@ -332,7 +371,9 @@ export function useTerraDrawEditor({
     });
 
     draw.start();
+    debugLog("terradraw", "start", { layerId: selectedLayer.id, drawMode, mapInstanceVersion });
     draw.setMode(drawMode === "delete" ? "select" : drawMode);
+    debugLog("terradraw", "set-mode", { drawMode: drawMode === "delete" ? "select" : drawMode });
     const editableFeatures = toTerraDrawFeatures(selectedLayer);
     const unsupportedCount = selectedLayer.geojson.features.length - editableFeatures.length;
     if (editableFeatures.length > 0) {
@@ -346,6 +387,7 @@ export function useTerraDrawEditor({
 
     const syncLayer = () => {
       const snapshot = draw.getSnapshot();
+      debugLog("terradraw", "sync-layer", { featureCount: snapshot.length, layerId: selectedLayer.id });
       const existingUnsupported = selectedLayer.geojson.features.filter(
         (feature) => !["Point", "LineString", "Polygon"].includes(feature.geometry?.type || "")
       );
@@ -358,8 +400,14 @@ export function useTerraDrawEditor({
       );
     };
 
-    draw.on("finish", syncLayer);
-    draw.on("change", syncLayer);
+    draw.on("finish", () => {
+      debugLog("terradraw", "finish", { layerId: selectedLayer.id });
+      syncLayer();
+    });
+    draw.on("change", () => {
+      debugLog("terradraw", "change", { layerId: selectedLayer.id });
+      syncLayer();
+    });
     drawRef.current = draw;
 
     return () => {

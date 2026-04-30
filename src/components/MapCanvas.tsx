@@ -66,7 +66,7 @@ export function MapCanvas({
     () =>
       [
         project.mapSettings.viewMode,
-        selectedLayerId,
+        project.mapSettings.viewMode === "selected" ? selectedLayerId : "all",
         visibleLayers.map((layer) => `${layer.id}:${layer.visible}`).join("|"),
         project.mapSettings.initialZoomMode,
         project.mapSettings.initialZoom

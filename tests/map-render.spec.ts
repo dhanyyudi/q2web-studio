@@ -96,6 +96,20 @@ test("imports fixture and renders map", async ({ page }) => {
   await page.goto("/?debug=1");
   await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
   await assertRenderedMap(page, requests, consoleErrors);
+
+  const debugBufferExists = await page.evaluate(() => Array.isArray((window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents));
+  expect(debugBufferExists).toBe(true);
+
+  await page.evaluate(() => {
+    (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
+  });
+  await page.getByRole("button", { name: /Sungai/i }).click();
+  await page.waitForTimeout(400);
+  const autoFitEvents = await page.evaluate(() => {
+    const events = (window as Window & { __q2wsDebugEvents?: Array<{ source?: string; event?: string }> }).__q2wsDebugEvents || [];
+    return events.filter((entry) => entry.source === "autofit").map((entry) => entry.event);
+  });
+  expect(autoFitEvents).not.toContain("apply");
 });
 
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
