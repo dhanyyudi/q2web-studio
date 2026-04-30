@@ -22,6 +22,7 @@ import {
   Settings2,
   Square,
   Sun,
+  Heart,
   Trash2,
   Type,
   Undo2,
@@ -586,6 +587,11 @@ export function App() {
           </Button>
           <Button type="button" variant="outline" disabled={!project || busy} onClick={closeProject}>
             <XCircle size={16} /> Close Project
+          </Button>
+          <Button asChild type="button" variant="outline">
+            <a href="https://tiptap.gg/dhanypedia" target="_blank" rel="noreferrer">
+              <Heart size={16} /> Support
+            </a>
           </Button>
           <Button type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
             <Eye size={16} /> Preview

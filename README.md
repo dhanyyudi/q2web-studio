@@ -1,29 +1,46 @@
 # qgis2web Studio
 
-qgis2web Studio is a browser-first, local-first editor for qgis2web Leaflet exports. It lets non-programmer GIS users drag in an exported qgis2web folder, adjust the web map visually, edit attributes and simple geometry, then export a modified static web map without sending data to a server.
+[![Support](https://img.shields.io/badge/Support-tiptap.gg-ff6b6b?style=for-the-badge)](https://tiptap.gg/dhanypedia)
 
-## What It Does
+![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=111&style=flat-square)
+![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=fff&style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=fff&style=flat-square)
+![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet&logoColor=fff&style=flat-square)
+![Terra Draw](https://img.shields.io/badge/Terra_Draw-1.28-0f766e?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
-- Imports qgis2web Leaflet folders from the browser.
-- Detects `index.html`, `data/*.js`, layer metadata, popup fields, and basic style information.
-- Previews the map with Leaflet.
-- Edits map branding such as title, subtitle, footer, theme color, and visibility of UI panels.
-- Edits layer labels, layer visibility, popup availability, legend availability, and layer control visibility.
-- Edits spatial styles including fill color, stroke color, opacity, stroke width, point radius, dash arrays, and category colors.
-- Generates an HTML legend from the editable style manifest, so legend colors stay aligned with map colors.
-- Edits GeoJSON attribute values in a table.
-- Adds, renames, and deletes attribute fields.
-- Adds and edits simple geometry through Terra Draw for `Point`, `LineString`, and `Polygon`.
-- Adds text annotations as GeoJSON point features.
-- Exports a static ZIP with low-code runtime files.
+Browser first, local first editor for qgis2web Leaflet exports.
 
-## Current Scope
+## Status
 
-The first version focuses on qgis2web Leaflet exports. OpenLayers exports are not supported yet.
+Active development. Leaflet exports are supported. OpenLayers exports are not supported yet.
 
-Geometry editing currently targets simple `Point`, `LineString`, and `Polygon` features. `MultiPoint`, `MultiLineString`, and `MultiPolygon` features can still be rendered, styled, and edited in the attribute table, but direct vertex editing for multi geometries is planned for a later version.
+## Main Features
 
-## How The Export Works
+- Import qgis2web Leaflet folders and ZIP files.
+- Detect `index.html`, `data/*.js`, layer metadata, popup fields, styles, labels, basemaps, and selected original widgets.
+- Preview imported maps with Leaflet.
+- Edit branding, title, subtitle, footer, welcome modal, theme, header placement, footer placement, and logo placement.
+- Edit basemap settings and layer visibility.
+- Edit layer styles, including fill, stroke, opacity, width, dash arrays, point radius, category colors, and legend symbols.
+- Edit popup templates, popup fields, and popup styling.
+- Edit labels for supported layers.
+- Edit GeoJSON attributes in a table.
+- Add, rename, and delete attribute fields.
+- Add and edit simple geometry with Terra Draw for `Point`, `LineString`, and `Polygon` layers.
+- Render multi geometry layers in preview mode.
+- Add text annotations as GeoJSON point features.
+- Export a static ZIP with runtime files.
+
+## Current Limitations
+
+- Only qgis2web Leaflet exports are supported.
+- Direct vertex editing is limited to simple `Point`, `LineString`, and `Polygon` geometries.
+- `MultiPoint`, `MultiLineString`, and `MultiPolygon` layers can be rendered, styled, and edited in the attribute table, but direct geometry editing is still planned.
+- The exported runtime still depends on the original qgis2web `index.html` and layer globals.
+- The editor is still being refactored according to the audit notes in `docs/AUDIT-2026-04-29-v3.md`.
+
+## How Export Works
 
 qgis2web Studio keeps the original qgis2web folder structure and adds a small runtime layer:
 
@@ -33,13 +50,13 @@ q2ws-runtime.js
 q2ws-custom.css
 ```
 
-The app rewrites edited `data/*.js` files so the output stays compatible with the qgis2web pattern:
+Edited `data/*.js` files are written back in the qgis2web compatible pattern:
 
 ```js
 var json_LayerName_1 = { ...GeoJSON... };
 ```
 
-The exported folder remains a static web map. It can be opened locally with a static server or deployed to GitHub Pages, Netlify, Vercel, or another static hosting service.
+The exported folder remains a static web map. You can serve it with a local static server or deploy it to static hosting.
 
 ## Development
 
@@ -61,16 +78,22 @@ Build for production:
 npm run build
 ```
 
-Run the fixture smoke test:
+Run parser smoke tests:
 
 ```bash
 npm run smoke:fixture
 ```
 
-The smoke test expects the training fixture folder to exist beside this project:
+Run the Playwright map render smoke test:
+
+```bash
+npm run smoke:map
+```
+
+The fixture used by smoke tests is stored in:
 
 ```text
-../qgis2web_2026_04_22-06_30_44_400659
+docs/example_export/qgis2web_2026_04_22-06_30_44_400659
 ```
 
 ## Browser Notes
@@ -86,23 +109,18 @@ Cross-Origin-Embedder-Policy: require-corp
 
 That allows browsers to expose `SharedArrayBuffer` when supported. SharedArrayBuffer is an optimization, not a requirement.
 
-## Repository Topics
+## Project Notes
 
-Recommended GitHub topics:
+Important implementation notes and phase plans are documented in:
 
 ```text
-qgis
-qgis2web
-leaflet
-webgis
-geojson
-gis
-low-code
-spatial-data
-terra-draw
-browser-editor
+AGENTS.md
+docs/AUDIT-2026-04-29-v3.md
+docs/QA-CHECKLIST-PER-PHASE.md
 ```
 
 ## License
 
-No license has been selected yet.
+This project is licensed under the MIT License.
+
+See `LICENSE` for details.
