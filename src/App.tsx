@@ -674,7 +674,7 @@ export function App() {
               <Heart size={16} /> Support
             </a>
           </Button>
-          <Button type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
+          <Button data-testid="open-preview" type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
             <Eye size={16} /> Preview
           </Button>
           <Button type="button" variant="outline" disabled={!project || busy} onClick={exportZip}>
@@ -1134,6 +1134,7 @@ export function App() {
                   <div className="toggle-grid">
                     <label>
                       <input
+                        data-testid="legend-enabled"
                         type="checkbox"
                         checked={project.legendSettings.enabled}
                         onChange={(event) => setLegendSetting("enabled", event.target.checked)}
@@ -1141,19 +1142,21 @@ export function App() {
                       Show legend
                     </label>
                   </div>
-                  <SelectField
-                    label="Legend placement"
-                    value={project.legendSettings.placement}
-                    onChange={(placement) => setLegendSetting("placement", placement as Qgis2webProject["legendSettings"]["placement"])}
-                    options={[
-                      { value: "hidden", label: "Hidden" },
-                      { value: "inside-control", label: "Inside layer control" },
-                      { value: "floating-bottom-right", label: "Floating bottom right" },
-                      { value: "floating-bottom-left", label: "Floating bottom left" },
-                      { value: "floating-top-right", label: "Floating top right" },
-                      { value: "floating-top-left", label: "Floating top left" }
-                    ]}
-                  />
+                  <label className="field" data-testid="legend-placement-field">
+                    <span>Legend placement</span>
+                    <select
+                      data-testid="legend-placement"
+                      value={project.legendSettings.placement}
+                      onChange={(event) => setLegendSetting("placement", event.target.value as Qgis2webProject["legendSettings"]["placement"])}
+                    >
+                      <option value="hidden">Hidden</option>
+                      <option value="inside-control">Inside layer control</option>
+                      <option value="floating-bottom-right">Floating bottom right</option>
+                      <option value="floating-bottom-left">Floating bottom left</option>
+                      <option value="floating-top-right">Floating top right</option>
+                      <option value="floating-top-left">Floating top left</option>
+                    </select>
+                  </label>
                   <div className="toggle-grid">
                     <label>
                       <input
