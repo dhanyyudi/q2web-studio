@@ -125,6 +125,13 @@ export type BrandingSettings = {
   logoPlacement: "left" | "center" | "right" | "hidden";
 };
 
+export type SidebarSettings = {
+  enabled: boolean;
+  side: "left" | "right";
+  width: number;
+  content: string;
+};
+
 export type LegendSymbolType = "polygon" | "line" | "point" | "image";
 
 export type LegendItem = {
@@ -235,6 +242,7 @@ export type Qgis2webProject = {
   runtime: RuntimeSettings;
   legendSettings: LegendSettings;
   popupSettings: PopupSettings;
+  sidebar: SidebarSettings;
   manualLegendItems: LegendItem[];
   textAnnotations: TextAnnotation[];
   diagnostics: string[];

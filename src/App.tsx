@@ -46,7 +46,7 @@ import { updateLayer } from "./lib/projectUpdates";
 import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
-import { defaultBasemaps, defaultLegendSettings, defaultMapSettings, defaultPopupSettings, defaultRuntimeSettings } from "./lib/defaults";
+import { defaultBasemaps, defaultLegendSettings, defaultMapSettings, defaultPopupSettings, defaultRuntimeSettings, defaultSidebarSettings } from "./lib/defaults";
 import type {
   BasemapConfig,
   DrawMode,
@@ -987,6 +987,28 @@ export function App() {
                     ]}
                     onChange={(placement) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, placement: placement as Qgis2webProject["branding"]["welcome"]["placement"] } } })}
                   />
+                  <PanelTitle title="Sidebar" />
+                  <div className="toggle-grid">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={project.sidebar.enabled}
+                        onChange={(event) => updateProject({ ...project, sidebar: { ...project.sidebar, enabled: event.target.checked } })}
+                      />
+                      Enabled
+                    </label>
+                  </div>
+                  <SegmentedControl
+                    label="Sidebar side"
+                    value={project.sidebar.side}
+                    options={[
+                      { value: "left", label: "Left" },
+                      { value: "right", label: "Right" }
+                    ]}
+                    onChange={(side) => updateProject({ ...project, sidebar: { ...project.sidebar, side: side as Qgis2webProject["sidebar"]["side"] } })}
+                  />
+                  <RangeInput label="Sidebar width" value={project.sidebar.width} min={260} max={520} step={10} onChange={(width) => updateProject({ ...project, sidebar: { ...project.sidebar, width } })} />
+                  <TextAreaInput label="Sidebar markdown" value={project.sidebar.content} onChange={(content) => updateProject({ ...project, sidebar: { ...project.sidebar, content } })} />
                   <ColorInput label="Accent" value={project.theme.accent} onChange={(accent) => updateProject({ ...project, theme: { ...project.theme, accent } })} />
                   <ColorInput label="Surface" value={project.theme.surface} onChange={(surface) => updateProject({ ...project, theme: { ...project.theme, surface } })} />
                   <ColorInput label="Text" value={project.theme.text} onChange={(text) => updateProject({ ...project, theme: { ...project.theme, text } })} />
@@ -1368,6 +1390,15 @@ function SelectField({ label, value, options, onChange }: { label: string; value
   );
 }
 
+function TextAreaInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <textarea className="popup-custom-textarea" value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
 function SegmentedControl(props: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
   return (
     <div className="field">
@@ -1495,11 +1526,16 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       ...defaultLegendSettings,
       ...(project.legendSettings || {})
     },
-    popupSettings: {
-      ...defaultPopupSettings,
-      ...(project.popupSettings || {})
-    },
-    diagnostics: project.diagnostics || [],
+     popupSettings: {
+       ...defaultPopupSettings,
+       ...(project.popupSettings || {})
+     },
+     sidebar: {
+       ...defaultSidebarSettings,
+       ...(project.sidebar || {})
+     },
+     diagnostics: project.diagnostics || [],
+
     theme: {
       ...theme,
       headerHeight: theme.headerHeight ?? 48

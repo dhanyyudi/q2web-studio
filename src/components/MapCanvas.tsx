@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
 import type { DrawMode, LayerManifest, Qgis2webProject } from "../types/project";
-import { LayerControl, LegendPanel, MapFooter, MapHeader } from "./mapCanvasPanels";
+import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
 import { useAutoFit, useBasemap, useGeoJsonLayers, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
 
@@ -104,11 +104,13 @@ export function MapCanvas({
   const headerPlacementClass = project.branding.showHeader && project.branding.headerPlacement !== "hidden"
     ? `map-shell-header-${project.branding.headerPlacement}`
     : "map-shell-header-hidden";
+  const sidebarClass = project.sidebar.enabled ? `map-shell-sidebar-${project.sidebar.side}` : "map-shell-sidebar-hidden";
 
   return (
-    <section className={`map-shell ${headerPlacementClass}`}>
+    <section className={`map-shell ${headerPlacementClass} ${sidebarClass}`}>
       <MapHeader project={project} />
       <div ref={containerRef} className="map-canvas" />
+      <SidebarPanel project={project} />
       <style>{popupCss(project)}</style>
       <style>{labelCss(project.layers)}</style>
       {showLayerControl && (

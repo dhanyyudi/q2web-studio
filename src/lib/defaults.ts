@@ -7,6 +7,7 @@ import type {
   PopupSettings,
   Qgis2webProject,
   RuntimeSettings,
+  SidebarSettings,
   ThemeSettings
 } from "../types/project";
 
@@ -104,6 +105,13 @@ export const defaultPopupSettings: PopupSettings = {
   labelColor: "#4b5b66",
   radius: 10,
   shadow: 22
+};
+
+export const defaultSidebarSettings: SidebarSettings = {
+  enabled: false,
+  side: "right",
+  width: 360,
+  content: "# Tentang peta\n\nTambahkan ringkasan, sumber data, atau instruksi singkat di sini."
 };
 
 export const emptyProject: Qgis2webProject | null = null;

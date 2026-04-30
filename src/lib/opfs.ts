@@ -5,6 +5,7 @@ import {
   defaultMapSettings,
   defaultPopupSettings,
   defaultRuntimeSettings,
+  defaultSidebarSettings,
   defaultTheme
 } from "./defaults";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
@@ -122,6 +123,10 @@ function deserializeProject(value: unknown): Qgis2webProject {
     popupSettings: {
       ...defaultPopupSettings,
       ...(project.popupSettings || {})
+    },
+    sidebar: {
+      ...defaultSidebarSettings,
+      ...(project.sidebar || {})
     },
     layers: (project.layers || []).map((layer) => hydrateLayer(layer)),
     manualLegendItems: project.manualLegendItems || [],
