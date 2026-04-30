@@ -354,26 +354,75 @@ function parseOverlays(indexHtml: string): Map<string, ParsedOverlay> {
 }
 
 function parseOverlayTreeEntries(indexHtml: string): ParsedOverlay[] {
+  const treeMatch = indexHtml.match(/var\s+overlaysTree\s*=\s*(\[[\s\S]*?\])\s*\n\s*var\s+lay\s*=/);
+  if (!treeMatch?.[1]) return [];
+  return parseOverlayTreeNodeList(treeMatch[1], "Layers");
+}
+
+function parseOverlayTreeNodeList(source: string, parentGroup: string): ParsedOverlay[] {
   const entries: ParsedOverlay[] = [];
-  const treeBody = indexHtml.match(/var\s+overlaysTree\s*=\s*\[([\s\S]*?)\]\s*\n\s*var\s+lay\s*=/)?.[1] || "";
-  if (!treeBody) return entries;
-  let currentGroup = "Layers";
-  const matches = treeBody.matchAll(/\{label:\s*(['"])(.*?)\1\s*,\s*(?:children:\s*\[|layer:\s*(layer_[A-Za-z0-9_]+))/gs);
-  for (const match of matches) {
-    const rawLabel = unescapeJsString(match[2]);
-    const layerVariable = match[3];
-    if (!layerVariable) {
-      currentGroup = cleanHtmlLabel(rawLabel) || "Layers";
-      continue;
+  let index = source.indexOf("[");
+  if (index === -1) return entries;
+  index += 1;
+  while (index < source.length) {
+    const nextObject = source.indexOf("{", index);
+    const nextClose = source.indexOf("]", index);
+    if (nextObject === -1 || (nextClose !== -1 && nextClose < nextObject)) break;
+    const objectEnd = findMatchingDelimiter(source, nextObject, "{", "}");
+    if (objectEnd === -1) break;
+    const nodeSource = source.slice(nextObject, objectEnd + 1);
+    const rawLabel = readTreeNodeLabel(nodeSource);
+    const label = cleanHtmlLabel(rawLabel);
+    const layerVariable = nodeSource.match(/layer:\s*(layer_[A-Za-z0-9_]+)/)?.[1];
+    const childrenStart = nodeSource.indexOf("children:");
+    if (childrenStart !== -1) {
+      const childArrayStart = nodeSource.indexOf("[", childrenStart);
+      if (childArrayStart !== -1) {
+        const childArrayEnd = findMatchingDelimiter(nodeSource, childArrayStart, "[", "]");
+        if (childArrayEnd !== -1) {
+          const groupLabel = label || parentGroup;
+          entries.push(...parseOverlayTreeNodeList(nodeSource.slice(childArrayStart, childArrayEnd + 1), groupLabel));
+        }
+      }
+    } else if (layerVariable) {
+      entries.push({
+        layerVariable,
+        label,
+        legendRows: parseLegendRows(rawLabel),
+        treeGroup: parentGroup
+      });
     }
-    entries.push({
-      layerVariable,
-      label: cleanHtmlLabel(rawLabel),
-      legendRows: parseLegendRows(rawLabel),
-      treeGroup: currentGroup
-    });
+    index = objectEnd + 1;
   }
   return entries;
+}
+
+function readTreeNodeLabel(source: string): string {
+  const labelMatch = source.match(/label:\s*(['"])([\s\S]*?)\1/);
+  return labelMatch ? unescapeJsString(labelMatch[2]) : "";
+}
+
+function findMatchingDelimiter(source: string, start: number, openChar: string, closeChar: string): number {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+    const previous = source[index - 1];
+    if (quote) {
+      if (char === quote && previous !== "\\") quote = null;
+      continue;
+    }
+    if ((char === '"' || char === "'") && previous !== "\\") {
+      quote = char;
+      continue;
+    }
+    if (char === openChar) depth += 1;
+    if (char === closeChar) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
 }
 
 function parseLayerControlVariables(indexHtml: string): Set<string> {
