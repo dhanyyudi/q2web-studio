@@ -132,7 +132,7 @@ welcomeProject.branding = {
     ...welcomeProject.branding.welcome,
     enabled: true,
     title: "Selamat datang di Cirebon",
-    subtitle: "Halo **semua**\n\n<script>alert(1)</script>\n\n1. Jelajahi layer",
+    subtitle: "#### Halo **semua**\n\n> Ringkasan aman\n\n<script>alert(1)</script>\n\n1. Jelajahi layer",
     ctaLabel: "Mulai jelajah"
   }
 };
@@ -142,7 +142,7 @@ if (!welcomeConfig.branding?.welcome?.enabled || !String(welcomeConfig.branding?
   throw new Error("Expected q2ws-config.json to preserve welcome markdown source before runtime sanitization.");
 }
 const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
-for (const expectedRuntimeCode of ['openList("ol")', '^\\d+\\.\\s+(.+)$', 'renderMarkdown(welcomeConfig.subtitle', 'q2ws-welcome-content']) {
+for (const expectedRuntimeCode of ['openList("ol")', '^\\d+\\.\\s+(.+)$', '^(#{1,6})\\s+(.+)$', 'var blockquote = trimmed.match', 'renderMarkdown(welcomeConfig.subtitle', 'q2ws-welcome-content']) {
   if (!runtimeSource.includes(expectedRuntimeCode)) {
     throw new Error(`Expected runtime welcome/sidebar markdown support to include: ${expectedRuntimeCode}`);
   }

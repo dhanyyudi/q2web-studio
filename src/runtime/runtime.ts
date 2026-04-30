@@ -382,11 +382,18 @@ export const q2wsRuntime = String.raw`(function () {
         closeList();
         return;
       }
-      var heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+      var heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
       if (heading) {
         flushParagraph();
         closeList();
         html.push("<h" + heading[1].length + ">" + inlineMarkdown(heading[2]) + "</h" + heading[1].length + ">");
+        return;
+      }
+      var blockquote = trimmed.match(/^>\s+(.+)$/);
+      if (blockquote) {
+        flushParagraph();
+        closeList();
+        html.push("<blockquote>" + inlineMarkdown(blockquote[1]) + "</blockquote>");
         return;
       }
       var unorderedListItem = trimmed.match(/^(?:[-*])\s+(.+)$/);
@@ -769,13 +776,20 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
 
 #q2ws-sidebar p,
 #q2ws-sidebar ul,
-#q2ws-sidebar ol {
+#q2ws-sidebar ol,
+#q2ws-sidebar blockquote {
   margin: 0 0 12px;
 }
 
 #q2ws-sidebar ul,
 #q2ws-sidebar ol {
   padding-left: 20px;
+}
+
+#q2ws-sidebar blockquote {
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--q2ws-accent) 42%, white 58%);
+  color: color-mix(in srgb, var(--q2ws-text) 82%, white 18%);
 }
 
 #q2ws-sidebar a {
@@ -1031,13 +1045,19 @@ body.q2ws-has-header-top-right-pill #q2ws-layer-control {
   line-height: 1.55;
 }
 
-.q2ws-welcome-content :is(p, ul, ol) {
+.q2ws-welcome-content :is(p, ul, ol, blockquote) {
   margin: 0 0 12px;
 }
 
 .q2ws-welcome-content ul,
 .q2ws-welcome-content ol {
   padding-left: 20px;
+}
+
+.q2ws-welcome-content blockquote {
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--q2ws-accent) 42%, white 58%);
+  color: color-mix(in srgb, var(--q2ws-text) 82%, white 18%);
 }
 
 .q2ws-welcome-content a {
