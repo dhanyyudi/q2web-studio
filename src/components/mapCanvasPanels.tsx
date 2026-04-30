@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Layers3 } from "lucide-react";
 import type { LegendGroup } from "../lib/style";
-import { renderSidebarMarkdown } from "../lib/sidebarMarkdown";
+import { renderMarkdownContent } from "../lib/sidebarMarkdown";
 import type { LayerManifest, LegendItem, Qgis2webProject } from "../types/project";
 
 export function MapHeader({ project }: { project: Qgis2webProject }) {
@@ -29,11 +30,29 @@ export function MapFooter({ project }: { project: Qgis2webProject }) {
   return <div className={`map-footer-preview footer-${project.branding.footerPlacement}`}>{project.branding.footer}</div>;
 }
 
+export function WelcomeOverlay({ project }: { project: Qgis2webProject }) {
+  const welcome = project.branding.welcome;
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    setDismissed(false);
+  }, [welcome.enabled, welcome.title, welcome.subtitle, welcome.placement]);
+  if (!welcome.enabled || dismissed) return null;
+  return (
+    <div className={`map-welcome-preview welcome-${welcome.placement}`}>
+      <div>
+        <h2>{welcome.title || project.branding.title}</h2>
+        <div className="map-welcome-content" dangerouslySetInnerHTML={{ __html: renderMarkdownContent(welcome.subtitle || project.branding.subtitle) }} />
+        <button type="button" onClick={() => setDismissed(true)}>{welcome.ctaLabel || "Mulai jelajah"}</button>
+      </div>
+    </div>
+  );
+}
+
 export function SidebarPanel({ project }: { project: Qgis2webProject }) {
   if (!project.sidebar.enabled) return null;
   return (
     <aside className={`map-sidebar-preview side-${project.sidebar.side}`} style={{ width: project.sidebar.width }}>
-      <div className="map-sidebar-content" dangerouslySetInnerHTML={{ __html: renderSidebarMarkdown(project.sidebar.content) }} />
+      <div className="map-sidebar-content" dangerouslySetInnerHTML={{ __html: renderMarkdownContent(project.sidebar.content) }} />
     </aside>
   );
 }

@@ -965,7 +965,7 @@ export function App() {
                     </label>
                   </div>
                   <TextInput label="Welcome title" value={project.branding.welcome.title} onChange={(title) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, title } } })} />
-                  <TextInput label="Welcome subtitle" value={project.branding.welcome.subtitle} onChange={(subtitle) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, subtitle } } })} />
+                  <TextAreaInput label="Welcome subtitle markdown" value={project.branding.welcome.subtitle} onChange={(subtitle) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, subtitle } } })} />
                   <TextInput label="CTA label" value={project.branding.welcome.ctaLabel} onChange={(ctaLabel) => updateProject({ ...project, branding: { ...project.branding, welcome: { ...project.branding.welcome, ctaLabel } } })} />
                   <SelectField
                     label="Auto dismiss"

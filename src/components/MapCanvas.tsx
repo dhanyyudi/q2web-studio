@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
 import type { DrawMode, LayerManifest, Qgis2webProject } from "../types/project";
-import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel } from "./mapCanvasPanels";
+import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
 import { useAutoFit, useBasemap, useGeoJsonLayers, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
 
@@ -111,6 +111,7 @@ export function MapCanvas({
       <MapHeader project={project} />
       <div ref={containerRef} className="map-canvas" />
       <SidebarPanel project={project} />
+      <WelcomeOverlay project={project} />
       <style>{popupCss(project)}</style>
       <style>{labelCss(project.layers)}</style>
       {showLayerControl && (
