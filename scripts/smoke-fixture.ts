@@ -107,6 +107,10 @@ if (project.basemaps.some((basemap) => basemap.label.toLowerCase().startsWith("l
   throw new Error(`Expected imported basemap labels to strip layer_ prefix. Got: ${project.basemaps.map((basemap) => basemap.label).join(", ")}`);
 }
 
+if (project.layers.some((layer) => layer.showInLayerControl === false)) {
+  throw new Error(`Expected imported fixture layers to stay available in layer control. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.showInLayerControl}`).join(", ")}`);
+}
+
 if (boundary?.label?.field !== "NAMOBJ") {
   throw new Error(`Expected Batas Desa label field NAMOBJ. Got: ${boundary?.label?.field || "none"}`);
 }
