@@ -120,7 +120,6 @@ if (enabledConfig.legendSettings?.enabled || enabledConfig.legendSettings?.place
   throw new Error(`Expected exported config to keep legend hidden by default. Got: enabled=${enabledConfig.legendSettings?.enabled}, placement=${enabledConfig.legendSettings?.placement}`);
 }
 
-
 const sidebarProject = cloneProject(project);
 sidebarProject.sidebar = {
   enabled: true,
@@ -156,6 +155,31 @@ const popupOverrideLayer = popupOverrideConfig.layers?.find((layer: { displayNam
 if (!popupOverrideLayer?.popupSettings || popupOverrideLayer.popupSettings.accentColor !== "#1976d2" || popupOverrideLayer.popupSettings.shadow !== 34) {
   throw new Error("Expected q2ws-config.json to preserve per-layer popup style overrides.");
 }
+const floatingLegendProject = cloneProject(project);
+floatingLegendProject.legendSettings = {
+  ...floatingLegendProject.legendSettings,
+  enabled: true,
+  placement: "floating-top-left",
+  collapsed: false
+};
+const floatingLegendZip = await exportZip(floatingLegendProject);
+const floatingLegendConfig = JSON.parse(await zipText(floatingLegendZip, `${root}q2ws-config.json`));
+if (!floatingLegendConfig.legendSettings?.enabled || floatingLegendConfig.legendSettings?.placement !== "floating-top-left") {
+  throw new Error(`Expected q2ws-config.json to preserve floating top-left legend placement. Got: ${JSON.stringify(floatingLegendConfig.legendSettings)}`);
+}
+const runtimeSourceForLegend = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+for (const expectedLegendCode of ["q2ws-legend-top-left", "q2ws-legend-top-right", "q2ws-legend-bottom-left", "q2ws-legend-bottom-right", "settings.placement.replace(\"floating-\", \"\")"]) {
+  if (!runtimeSourceForLegend.includes(expectedLegendCode)) {
+    throw new Error(`Expected runtime floating legend support to include: ${expectedLegendCode}`);
+  }
+}
+const editorCssForLegend = await readFile(join(process.cwd(), "src", "styles.css"), "utf8");
+for (const expectedEditorCss of [".legend-bottom-right", ".legend-bottom-left", ".legend-top-right", ".legend-top-left", ".map-shell-header-top-full .legend-preview.legend-top-right", ".map-shell-header-top-right-pill .legend-preview.legend-top-right"]) {
+  if (!editorCssForLegend.includes(expectedEditorCss)) {
+    throw new Error(`Expected editor floating legend CSS to include: ${expectedEditorCss}`);
+  }
+}
+
 const welcomeProject = cloneProject(project);
 welcomeProject.branding = {
   ...welcomeProject.branding,
