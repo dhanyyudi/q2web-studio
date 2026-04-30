@@ -1,0 +1,377 @@
+import { useEffect, useRef, useState } from "react";
+import type { MutableRefObject, RefObject } from "react";
+import L from "leaflet";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import type { Feature, FeatureCollection } from "geojson";
+import {
+  TerraDraw,
+  TerraDrawCircleMode,
+  TerraDrawLineStringMode,
+  TerraDrawPointMode,
+  TerraDrawPolygonMode,
+  TerraDrawRectangleMode,
+  TerraDrawSelectMode
+} from "terra-draw";
+import { TerraDrawLeafletAdapter } from "terra-draw-leaflet-adapter";
+import { styleForFeature } from "../lib/style";
+import { shouldSimplifyLayer, simplifyLayersForPreview } from "../lib/simplifyClient";
+import type { BasemapConfig, DrawMode, LayerManifest, Qgis2webProject, TextAnnotation } from "../types/project";
+import { updateLayerGeojson } from "../lib/projectUpdates";
+import { buildLabel, buildPopup, createBasemap, escapeHtml, fromTerraDrawFeature, pointClusterIcon, projectBounds, shouldClusterLayer, toTerraDrawFeatures } from "./mapCanvasHelpers";
+
+export type LeafletMapState = {
+  containerRef: RefObject<HTMLDivElement>;
+  mapRef: MutableRefObject<L.Map | null>;
+  mapZoom: number;
+  mapInstanceVersion: number;
+};
+
+export function useLeafletMap(): LeafletMapState {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const mapInstanceVersionRef = useRef(0);
+  const [mapZoom, setMapZoom] = useState(12);
+  const [mapInstanceVersion, setMapInstanceVersion] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+    mapInstanceVersionRef.current += 1;
+    const nextMapInstanceVersion = mapInstanceVersionRef.current;
+    setMapInstanceVersion(nextMapInstanceVersion);
+    const map = L.map(containerRef.current, {
+      zoomControl: false,
+      preferCanvas: true,
+      center: [-2.5, 117.5],
+      zoom: 4
+    });
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+    const updateZoom = () => setMapZoom(map.getZoom());
+    map.on("zoomend", updateZoom);
+    mapRef.current = map;
+    const debugEnabled = new URLSearchParams(window.location.search).has("debug");
+    if (debugEnabled) {
+      (window as Window & { __q2ws_map?: L.Map }).__q2ws_map = map;
+    }
+    requestAnimationFrame(() => map.invalidateSize());
+    return () => {
+      map.off("zoomend", updateZoom);
+      map.remove();
+      mapRef.current = null;
+      const debugWindow = window as Window & { __q2ws_map?: L.Map };
+      if (debugWindow.__q2ws_map === map) delete debugWindow.__q2ws_map;
+    };
+  }, []);
+
+  return { containerRef, mapRef, mapZoom, mapInstanceVersion };
+}
+
+export function useBasemap(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, basemaps: BasemapConfig[], activeBasemapId: string, onTileError?: (message: string) => void) {
+  const basemapRef = useRef<L.TileLayer | null>(null);
+  const tileErrorShownRef = useRef(false);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    basemapRef.current?.remove();
+    basemapRef.current = null;
+    tileErrorShownRef.current = false;
+    const basemap = createBasemap(basemaps, activeBasemapId);
+    if (!basemap) return;
+    basemap.on("tileerror", () => {
+      if (tileErrorShownRef.current) return;
+      tileErrorShownRef.current = true;
+      onTileError?.("Basemap failed to load. Check your connection or pick a different basemap.");
+    });
+    basemap.addTo(map);
+    basemapRef.current = basemap;
+    return () => {
+      basemapRef.current?.remove();
+      basemapRef.current = null;
+    };
+  }, [activeBasemapId, basemaps, mapInstanceVersion, mapRef, onTileError]);
+}
+
+export function useSimplifiedLayers(visibleLayers: LayerManifest[], mapZoom: number): Record<string, FeatureCollection> {
+  const simplifyRequestRef = useRef(0);
+  const [simplifiedLayers, setSimplifiedLayers] = useState<Record<string, FeatureCollection>>({});
+
+  useEffect(() => {
+    const requestId = simplifyRequestRef.current + 1;
+    simplifyRequestRef.current = requestId;
+    const candidates = visibleLayers.filter((layer) => shouldSimplifyLayer(layer, mapZoom));
+    if (candidates.length === 0) {
+      setSimplifiedLayers((current) => (Object.keys(current).length ? {} : current));
+      return;
+    }
+    let cancelled = false;
+    simplifyLayersForPreview(candidates, mapZoom)
+      .then((next) => {
+        if (!cancelled && simplifyRequestRef.current === requestId) setSimplifiedLayers(next);
+      })
+      .catch((error) => {
+        if (!cancelled && simplifyRequestRef.current === requestId) {
+          console.warn("Preview simplification failed", error);
+          setSimplifiedLayers((current) => (Object.keys(current).length ? {} : current));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapZoom, visibleLayers]);
+
+  return simplifiedLayers;
+}
+
+export function useGeoJsonLayers(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, renderLayers: LayerManifest[], textAnnotations: TextAnnotation[]) {
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const layerGroup = L.layerGroup().addTo(map);
+
+    renderLayers.forEach((layer) => {
+      const clusterPoints = shouldClusterLayer(layer);
+      const geoLayer = L.geoJSON(layer.geojson, {
+        style: (feature) => styleForFeature(layer, feature as Feature),
+        pointToLayer: (feature, latlng) => {
+          if (clusterPoints) {
+            return L.marker(latlng, { icon: pointClusterIcon(layer, feature as Feature) });
+          }
+          return L.circleMarker(latlng, {
+            ...styleForFeature(layer, feature as Feature),
+            radius: layer.style.pointRadius
+          });
+        },
+        onEachFeature: (feature, leafletLayer) => {
+          if (layer.label?.enabled && layer.label.field) {
+            const labelValue = feature.properties?.[layer.label.field];
+            if (labelValue != null && labelValue !== "") {
+              leafletLayer.bindTooltip(buildLabel(layer, feature as Feature), {
+                permanent: layer.label.permanent,
+                offset: L.point((layer.label.offset || [0, 0])[0], (layer.label.offset || [0, 0])[1]),
+                className: `studio-label ${layer.label.className || ""}`.trim()
+              });
+            }
+          }
+          if (!layer.popupEnabled) return;
+          leafletLayer.bindPopup(buildPopup(layer, feature as Feature), { className: layer.popupSettings ? `popup-layer-${layer.id}` : "" });
+        }
+      });
+      if (clusterPoints) {
+        const clusterGroup = L.markerClusterGroup({
+          chunkedLoading: true,
+          showCoverageOnHover: false,
+          maxClusterRadius: 72
+        });
+        clusterGroup.addLayer(geoLayer);
+        clusterGroup.addTo(layerGroup);
+        return;
+      }
+      geoLayer.addTo(layerGroup);
+    });
+
+    textAnnotations.forEach((annotation) => {
+      if (annotation.geometry.type !== "Point") return;
+      const [lng, lat] = annotation.geometry.coordinates;
+      const props = annotation.properties || {};
+      L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: "text-annotation",
+          html: `<span style="color:${props.color};font-size:${props.fontSize}px">${escapeHtml(props.text)}</span>`
+        })
+      }).addTo(layerGroup);
+    });
+
+    return () => {
+      layerGroup.remove();
+    };
+  }, [mapInstanceVersion, mapRef, renderLayers, textAnnotations]);
+}
+
+export function useAutoFit(
+  mapRef: MutableRefObject<L.Map | null>,
+  renderLayers: LayerManifest[],
+  autoFitKey: string,
+  initialZoomMode: Qgis2webProject["mapSettings"]["initialZoomMode"],
+  initialZoom: number,
+  initialBounds: Qgis2webProject["mapSettings"]["initialBounds"],
+  mapInstanceVersion: number
+) {
+  const lastAutoFitKeyRef = useRef("");
+  const programmaticMoveRef = useRef(false);
+  const userMovedMapRef = useRef(false);
+
+  useEffect(() => {
+    lastAutoFitKeyRef.current = "";
+    programmaticMoveRef.current = false;
+    userMovedMapRef.current = false;
+  }, [mapInstanceVersion]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const markUserMove = () => {
+      if (!programmaticMoveRef.current) userMovedMapRef.current = true;
+    };
+    map.on("movestart", markUserMove);
+    map.on("zoomstart", markUserMove);
+    return () => {
+      map.off("movestart", markUserMove);
+      map.off("zoomstart", markUserMove);
+    };
+  }, [mapInstanceVersion, mapRef]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const instanceAutoFitKey = `${mapInstanceVersion}::${autoFitKey}`;
+    const shouldAutoFit = lastAutoFitKeyRef.current !== instanceAutoFitKey;
+    map.invalidateSize();
+    if (!shouldAutoFit || (userMovedMapRef.current && lastAutoFitKeyRef.current)) return;
+    lastAutoFitKeyRef.current = instanceAutoFitKey;
+    const bounds = (initialBounds ? L.latLngBounds(initialBounds) : null) || projectBounds(renderLayers);
+    if (!bounds) return;
+    programmaticMoveRef.current = true;
+    requestAnimationFrame(() => {
+      if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
+      map.invalidateSize();
+      if (initialZoomMode === "fixed") {
+        map.setView(bounds.getCenter(), initialZoom);
+      } else {
+        map.fitBounds(bounds, { padding: [28, 28] });
+      }
+      window.setTimeout(() => {
+        programmaticMoveRef.current = false;
+      }, 0);
+    });
+  }, [autoFitKey, initialBounds, initialZoom, initialZoomMode, lastAutoFitKeyRef, mapInstanceVersion, mapRef, programmaticMoveRef, renderLayers]);
+}
+
+export function useTerraDrawEditor({
+  mapRef,
+  mapInstanceVersion,
+  project,
+  selectedLayer,
+  drawMode,
+  geometryEditingDisabled,
+  preview,
+  onProjectChange,
+  onDrawStatusChange
+}: {
+  mapRef: MutableRefObject<L.Map | null>;
+  mapInstanceVersion: number;
+  project: Qgis2webProject;
+  selectedLayer?: LayerManifest;
+  drawMode: DrawMode;
+  geometryEditingDisabled: boolean;
+  preview: boolean;
+  onProjectChange: (project: Qgis2webProject) => void;
+  onDrawStatusChange: (status: string) => void;
+}) {
+  const drawRef = useRef<TerraDraw | null>(null);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (preview) {
+      drawRef.current?.stop();
+      drawRef.current = null;
+      onDrawStatusChange("Preview mode");
+      return;
+    }
+    if (geometryEditingDisabled) {
+      drawRef.current?.stop();
+      drawRef.current = null;
+      onDrawStatusChange("Multi-geometry layer is preview-only. Style, popup, legend, and attributes remain editable.");
+      return;
+    }
+    if (!map || !selectedLayer) return;
+    drawRef.current?.stop();
+    drawRef.current = null;
+
+    const draw = new TerraDraw({
+      adapter: new TerraDrawLeafletAdapter({ lib: L, map }),
+      modes: [
+        new TerraDrawSelectMode({
+          flags: {
+            polygon: {
+              feature: {
+                draggable: true,
+                rotateable: true,
+                scaleable: true,
+                coordinates: {
+                  draggable: true,
+                  midpoints: true,
+                  deletable: true
+                }
+              }
+            },
+            linestring: {
+              feature: {
+                draggable: true,
+                coordinates: {
+                  draggable: true,
+                  midpoints: true,
+                  deletable: true
+                }
+              }
+            },
+            point: {
+              feature: {
+                draggable: true
+              }
+            }
+          }
+        }),
+        new TerraDrawPointMode(),
+        new TerraDrawLineStringMode(),
+        new TerraDrawPolygonMode({ showCoordinatePoints: true }),
+        new TerraDrawRectangleMode(),
+        new TerraDrawCircleMode()
+      ]
+    });
+
+    draw.start();
+    draw.setMode(drawMode === "delete" ? "select" : drawMode);
+    const editableFeatures = toTerraDrawFeatures(selectedLayer);
+    const unsupportedCount = selectedLayer.geojson.features.length - editableFeatures.length;
+    if (editableFeatures.length > 0) {
+      draw.addFeatures(editableFeatures);
+    }
+    onDrawStatusChange(
+      unsupportedCount > 0
+        ? `${editableFeatures.length} simple features editable. ${unsupportedCount} multi features remain preview-only.`
+        : `${editableFeatures.length} features loaded into geometry editor.`
+    );
+
+    const syncLayer = () => {
+      const snapshot = draw.getSnapshot();
+      const existingUnsupported = selectedLayer.geojson.features.filter(
+        (feature) => !["Point", "LineString", "Polygon"].includes(feature.geometry?.type || "")
+      );
+      const features = snapshot.map(fromTerraDrawFeature);
+      onProjectChange(
+        updateLayerGeojson(project, selectedLayer.id, {
+          ...selectedLayer.geojson,
+          features: [...existingUnsupported, ...features]
+        })
+      );
+    };
+
+    draw.on("finish", syncLayer);
+    draw.on("change", syncLayer);
+    drawRef.current = draw;
+
+    return () => {
+      draw.stop();
+      drawRef.current = null;
+    };
+  }, [drawMode, geometryEditingDisabled, mapInstanceVersion, mapRef, onDrawStatusChange, onProjectChange, preview, project, selectedLayer]);
+
+  useEffect(() => {
+    if (preview || geometryEditingDisabled) return;
+    if (!drawRef.current) return;
+    drawRef.current.setMode(drawMode === "delete" ? "select" : drawMode);
+    onDrawStatusChange(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}`);
+  }, [drawMode, geometryEditingDisabled, onDrawStatusChange, preview]);
+}

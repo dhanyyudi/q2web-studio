@@ -434,10 +434,99 @@ button:disabled {
   font-size: 12px;
 }
 
+.basemap-card-grid,
+.sidebar-basemap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sidebar-basemap-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preset-grid {
+  margin-top: 8px;
+}
+
+.basemap-provider-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.basemap-provider-tabs button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  background: var(--panel-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.basemap-provider-tabs button.active {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, var(--panel-bg));
+}
+
+.basemap-card {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  background: var(--panel-muted);
+  text-align: left;
+}
+
+.basemap-card.active {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, var(--panel-bg));
+}
+
+.basemap-card.compact {
+  padding: 6px;
+}
+
+.basemap-card.compact .basemap-card-preview {
+  aspect-ratio: 16 / 9;
+}
+
+.basemap-card.disabled {
+  opacity: 0.62;
+}
+
+.basemap-card-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  background-color: #d8dee4;
+  background-size: cover;
+  background-position: center;
+}
+
+.basemap-card strong {
+  font-size: 12px;
+}
+
+.basemap-card small {
+  color: var(--muted-text);
+}
+
 .basemap-row-content {
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.basemap-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .basemap-label-input {
@@ -813,12 +902,19 @@ button:disabled {
 
 .studio-label,
 .q2ws-label {
-  padding: 2px 5px;
+  padding: 0;
   border: 0;
-  background: transparent;
-  color: var(--app-fg);
-  font-weight: 700;
-  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+  background: none;
+  box-shadow: none;
+}
+
+.studio-label::before,
+.q2ws-label::before,
+.studio-label.leaflet-tooltip-left::before,
+.studio-label.leaflet-tooltip-right::before,
+.q2ws-label.leaflet-tooltip-left::before,
+.q2ws-label.leaflet-tooltip-right::before {
+  border: 0;
 }
 
 .text-annotation span {

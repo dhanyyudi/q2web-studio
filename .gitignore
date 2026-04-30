@@ -9,3 +9,4 @@ vite.config.d.ts
 image_audit/
 AGENTS.md
 docs/
+.opencode/

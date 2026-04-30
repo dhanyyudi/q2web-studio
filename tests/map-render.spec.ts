@@ -14,7 +14,7 @@ test("imports fixture and renders map", async ({ page }) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
 
-  await page.goto("/");
+  await page.goto("/?debug=1");
 
   await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
 
