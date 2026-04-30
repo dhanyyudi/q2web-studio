@@ -1,4 +1,7 @@
 export const q2wsRuntime = String.raw`(function () {
+  // Runtime overlays configuration onto the original qgis2web export.
+  // It intentionally depends on globals created by the preserved index.html,
+  // especially window.map and window.layer_* variables.
   function ready(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn);
