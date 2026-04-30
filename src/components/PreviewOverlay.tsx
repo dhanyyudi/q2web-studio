@@ -25,6 +25,7 @@ export function PreviewOverlay({
   onTileError
 }: PreviewOverlayProps) {
   const runtimePreviewRef = useRef<RuntimePreviewBundle | null>(null);
+  const openTabUrlRef = useRef<string | null>(null);
   const [mode, setMode] = useState<PreviewMode>("runtime");
   const [runtimePreview, setRuntimePreview] = useState<RuntimePreviewBundle | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
@@ -72,15 +73,28 @@ export function PreviewOverlay({
     return () => {
       runtimePreviewRef.current?.urls.forEach((url) => URL.revokeObjectURL(url));
       runtimePreviewRef.current = null;
+      if (openTabUrlRef.current) URL.revokeObjectURL(openTabUrlRef.current);
+      openTabUrlRef.current = null;
     };
   }, []);
 
   function openRuntimePreview() {
     if (!runtimePreview) return;
+    if (openTabUrlRef.current) URL.revokeObjectURL(openTabUrlRef.current);
     const blob = new Blob([runtimePreview.srcdoc], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+    openTabUrlRef.current = url;
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      URL.revokeObjectURL(url);
+      openTabUrlRef.current = null;
+      toast.error("Runtime preview tab was blocked by the browser.");
+      return;
+    }
+    window.setTimeout(() => {
+      if (openTabUrlRef.current === url) openTabUrlRef.current = null;
+      URL.revokeObjectURL(url);
+    }, 15000);
   }
 
   return (
@@ -96,7 +110,7 @@ export function PreviewOverlay({
             <button type="button" className={mode === "editor" ? "active" : ""} onClick={() => setMode("editor")}>Editor</button>
           </div>
           {mode === "runtime" && (
-            <button type="button" className="btn" disabled={!runtimePreview} onClick={openRuntimePreview}>
+            <button type="button" className="btn" disabled={!runtimePreview || runtimeBusy} onClick={openRuntimePreview}>
               <ExternalLink size={16} /> Open Tab
             </button>
           )}
