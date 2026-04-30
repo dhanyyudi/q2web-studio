@@ -197,7 +197,7 @@ export const q2wsRuntime = String.raw`(function () {
     var treeHosts = null;
     if (mode === "tree") {
       content.classList.add("q2ws-layer-control-tree");
-      treeHosts = {};
+      treeHosts = Object.create(null);
       layers.forEach(function (layerConfig) {
         var groupName = layerConfig.layerTreeGroup || "Layers";
         if (treeHosts[groupName]) return;
