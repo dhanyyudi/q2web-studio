@@ -42,6 +42,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
       layerVariable: layer.layerVariable,
       visible: layer.visible,
       showInLayerControl: layer.showInLayerControl,
+      layerTreeGroup: layer.layerTreeGroup,
       popupEnabled: layer.popupEnabled,
       legendEnabled: layer.legendEnabled,
       popupFields: layer.popupFields,

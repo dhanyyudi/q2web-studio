@@ -1560,6 +1560,7 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
     },
     layers: (migrated.layers || []).map((layer) => ({
       ...layer,
+      layerTreeGroup: layer.layerTreeGroup || "Layers",
       popupTemplate: layer.popupTemplate
         ? {
             ...layer.popupTemplate,
