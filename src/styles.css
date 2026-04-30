@@ -669,6 +669,16 @@ button:disabled {
   background: var(--panel-strong);
 }
 
+.map-shell-header-top-full .leaflet-top {
+  top: 82px;
+}
+
+.map-shell-header-top-left-pill .leaflet-top.leaflet-left,
+.map-shell-header-top-center-card .leaflet-top.leaflet-left,
+.map-shell-header-top-right-pill .leaflet-top.leaflet-right {
+  top: 92px;
+}
+
 .map-header-preview {
   position: absolute;
   top: 12px;
@@ -822,6 +832,18 @@ button:disabled {
   border-radius: 8px;
   background: var(--map-overlay-bg);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+}
+
+.map-shell-header-top-full .layer-toggle-preview,
+.map-shell-header-top-full .legend-preview.legend-top-left,
+.map-shell-header-top-full .legend-preview.legend-top-right {
+  top: 96px;
+}
+
+.map-shell-header-top-left-pill .layer-toggle-preview,
+.map-shell-header-top-center-card .legend-preview.legend-top-left,
+.map-shell-header-top-right-pill .legend-preview.legend-top-right {
+  top: 92px;
 }
 
 .layer-toggle-preview h3 {
