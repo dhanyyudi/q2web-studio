@@ -42,7 +42,7 @@ import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { logoFileToDataUrl } from "./lib/logo";
-import { updateLayer } from "./lib/projectUpdates";
+import { migrateProject, updateLayer } from "./lib/projectUpdates";
 import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
@@ -1094,11 +1094,9 @@ export function App() {
                     value={project.mapSettings.layerControlMode}
                     onChange={(layerControlMode) => setMapSetting("layerControlMode", layerControlMode as LayerControlMode)}
                     options={[
-                      { value: "original", label: "Original qgis2web controls" },
-                      { value: "compact", label: "Studio compact" },
-                      { value: "expanded", label: "Studio expanded" },
-                      { value: "tree", label: "Studio tree" },
-                      { value: "studio", label: "Studio legacy toggle" }
+                      { value: "compact", label: "Compact" },
+                      { value: "expanded", label: "Expanded" },
+                      { value: "tree", label: "Tree" }
                     ]}
                   />
                   <SelectField
@@ -1488,7 +1486,8 @@ function isDrawModeAllowed(drawMode: DrawMode, geometryKind: GeometryKind): bool
 }
 
 function hydrateProject(project: Qgis2webProject): Qgis2webProject {
-  const branding = project.branding || {
+  const migrated = migrateProject(project);
+  const branding = migrated.branding || {
     title: "Peta WebGIS Interaktif",
     subtitle: "",
     footer: "",
@@ -1501,7 +1500,7 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
     logoPath: "",
     logoPlacement: "left" as const
   };
-  const theme = project.theme || {
+  const theme = migrated.theme || {
     accent: "#156f7a",
     surface: "#ffffff",
     text: "#172026",
@@ -1512,30 +1511,29 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
     headerHeight: 48
   };
   return {
-    ...project,
+    ...migrated,
     mapSettings: {
       ...defaultMapSettings,
-      ...(project.mapSettings || {})
+      ...(migrated.mapSettings || {})
     },
-    basemaps: normalizeBasemaps(project.basemaps),
+    basemaps: normalizeBasemaps(migrated.basemaps),
     runtime: {
       ...defaultRuntimeSettings,
-      ...(project.runtime || {})
+      ...(migrated.runtime || {})
     },
     legendSettings: {
       ...defaultLegendSettings,
-      ...(project.legendSettings || {})
+      ...(migrated.legendSettings || {})
     },
-     popupSettings: {
-       ...defaultPopupSettings,
-       ...(project.popupSettings || {})
-     },
-     sidebar: {
-       ...defaultSidebarSettings,
-       ...(project.sidebar || {})
-     },
-     diagnostics: project.diagnostics || [],
-
+    popupSettings: {
+      ...defaultPopupSettings,
+      ...(migrated.popupSettings || {})
+    },
+    sidebar: {
+      ...defaultSidebarSettings,
+      ...(migrated.sidebar || {})
+    },
+    diagnostics: migrated.diagnostics || [],
     theme: {
       ...theme,
       headerHeight: theme.headerHeight ?? 48
@@ -1556,7 +1554,7 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       logoPath: branding.logoPath || "",
       logoPlacement: branding.logoPlacement || "left"
     },
-    layers: (project.layers || []).map((layer) => ({
+    layers: (migrated.layers || []).map((layer) => ({
       ...layer,
       popupTemplate: layer.popupTemplate
         ? {
@@ -1577,7 +1575,7 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
         }))
       }
     })),
-    manualLegendItems: (project.manualLegendItems || []).map((item) => ({
+    manualLegendItems: (migrated.manualLegendItems || []).map((item) => ({
       ...item,
       strokeWidth: item.strokeWidth ?? 2,
       dashArray: item.dashArray || "",

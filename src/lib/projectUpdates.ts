@@ -1,5 +1,33 @@
 import type { FeatureCollection } from "geojson";
-import type { LayerManifest, Qgis2webProject } from "../types/project";
+import type { LayerControlMode, LayerManifest, Qgis2webProject } from "../types/project";
+
+const phaseCLayerControlModes: LayerControlMode[] = ["compact", "expanded", "tree"];
+
+export function migrateProject(project: Qgis2webProject): Qgis2webProject {
+  const legacyLayerControlMode = project.mapSettings?.layerControlMode;
+  const layerControlMode = normalizeLayerControlMode(legacyLayerControlMode);
+  const legacyLegendEnabled = (project as Qgis2webProject & { legendShow?: boolean }).legendShow === true;
+  const legendWasEnabled = project.legendSettings?.enabled ?? legacyLegendEnabled;
+  const legendPlacement = project.legendSettings?.placement || (legacyLegendEnabled ? "inside-control" : undefined);
+
+  return {
+    ...project,
+    mapSettings: {
+      ...project.mapSettings,
+      layerControlMode
+    },
+    legendSettings: {
+      ...project.legendSettings,
+      enabled: legendWasEnabled,
+      placement: legendPlacement || (legendWasEnabled ? "inside-control" : "hidden")
+    }
+  };
+}
+
+function normalizeLayerControlMode(mode: LayerControlMode | undefined): LayerControlMode {
+  if (mode && phaseCLayerControlModes.includes(mode)) return mode;
+  return "expanded";
+}
 
 export function updateLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {
   return {

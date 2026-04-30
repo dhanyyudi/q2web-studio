@@ -60,16 +60,27 @@ export function SidebarPanel({ project }: { project: Qgis2webProject }) {
 export function LayerControl({
   layers,
   layerVisibility,
-  onLayerVisibilityChange
+  mode,
+  legendGroups,
+  showLegendInside,
+  legendOpen,
+  onLayerVisibilityChange,
+  onLegendOpenChange
 }: {
   layers: LayerManifest[];
   layerVisibility?: Record<string, boolean>;
+  mode: Qgis2webProject["mapSettings"]["layerControlMode"];
+  legendGroups: LegendGroup[];
+  showLegendInside: boolean;
+  legendOpen: boolean;
   onLayerVisibilityChange?: (layerId: string, visible: boolean) => void;
+  onLegendOpenChange: (open: boolean) => void;
 }) {
   const toggleableLayers = layers.filter((layer) => layer.showInLayerControl);
   if (toggleableLayers.length === 0) return null;
+  const effectiveMode = mode === "compact" || mode === "tree" ? mode : "expanded";
   return (
-    <aside className="layer-toggle-preview">
+    <aside className={`layer-toggle-preview layer-toggle-${effectiveMode}`}>
       <h3>
         <Layers3 size={15} /> Layers
       </h3>
@@ -86,6 +97,11 @@ export function LayerControl({
           </label>
         );
       })}
+      {showLegendInside && legendGroups.some((group) => group.items.length > 0) && (
+        <div className="legend-inside-control">
+          <LegendPanel groups={legendGroups} open={legendOpen} position="bottom-right" onOpenChange={onLegendOpenChange} embedded />
+        </div>
+      )}
     </aside>
   );
 }
@@ -94,15 +110,17 @@ export function LegendPanel({
   groups,
   open,
   position,
-  onOpenChange
+  onOpenChange,
+  embedded = false
 }: {
   groups: LegendGroup[];
   open: boolean;
   position: Qgis2webProject["legendSettings"]["position"];
   onOpenChange: (open: boolean) => void;
+  embedded?: boolean;
 }) {
   return (
-    <aside className={`legend-preview legend-${position} ${open ? "" : "collapsed"}`}>
+    <aside className={`legend-preview ${embedded ? "legend-embedded" : `legend-${position}`} ${open ? "" : "collapsed"}`}>
       <button type="button" className="legend-toggle" onClick={() => onOpenChange(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
         <span>Legenda</span>

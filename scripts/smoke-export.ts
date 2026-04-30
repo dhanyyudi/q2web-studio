@@ -112,6 +112,15 @@ if (!enabledConfig.layers?.some((layer: { displayName: string; popupTemplate?: {
   throw new Error("Expected q2ws-config.json to preserve imported popup template HTML.");
 }
 
+if (enabledConfig.mapSettings?.layerControlMode !== "expanded") {
+  throw new Error(`Expected exported config to default to expanded Studio layer control. Got: ${enabledConfig.mapSettings?.layerControlMode}`);
+}
+
+if (enabledConfig.legendSettings?.enabled || enabledConfig.legendSettings?.placement !== "hidden") {
+  throw new Error(`Expected exported config to keep legend hidden by default. Got: enabled=${enabledConfig.legendSettings?.enabled}, placement=${enabledConfig.legendSettings?.placement}`);
+}
+
+
 const sidebarProject = cloneProject(project);
 sidebarProject.sidebar = {
   enabled: true,

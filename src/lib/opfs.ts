@@ -9,6 +9,7 @@ import {
   defaultTheme
 } from "./defaults";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
+import { migrateProject } from "./projectUpdates";
 
 const PROJECT_FILE = "last-project.json";
 const QUOTA_WARNING_RATIO = 0.82;
@@ -69,10 +70,11 @@ export function opfsErrorMessage(error: unknown): string {
 }
 
 function serializeProject(project: Qgis2webProject): Qgis2webProject & { files: Record<string, VirtualFile & { bufferBase64?: string }> } {
+  const migrated = migrateProject(project);
   return {
-    ...project,
+    ...migrated,
     files: Object.fromEntries(
-      Object.entries(project.files || {}).map(([path, file]) => [
+      Object.entries(migrated.files || {}).map(([path, file]) => [
         path,
         file.kind === "binary" && file.buffer
           ? { ...file, buffer: undefined, bufferBase64: arrayBufferToBase64(file.buffer) }
@@ -83,14 +85,17 @@ function serializeProject(project: Qgis2webProject): Qgis2webProject & { files: 
 }
 
 function deserializeProject(value: unknown): Qgis2webProject {
-  const project = value as Qgis2webProject & { files?: Record<string, VirtualFile & { bufferBase64?: string }> };
+  const project = migrateProject(value as Qgis2webProject & { files?: Record<string, VirtualFile & { bufferBase64?: string }> });
   const files = Object.fromEntries(
-    Object.entries(project.files || {}).map(([path, file]) => [
-      path,
-      file.kind === "binary" && file.bufferBase64
-        ? { ...file, buffer: base64ToArrayBuffer(file.bufferBase64), bufferBase64: undefined }
-        : file
-    ])
+    Object.entries(project.files || {}).map(([path, file]) => {
+      const hydratedFile = file as VirtualFile & { bufferBase64?: string };
+      return [
+        path,
+        hydratedFile.kind === "binary" && hydratedFile.bufferBase64
+          ? { ...hydratedFile, buffer: base64ToArrayBuffer(hydratedFile.bufferBase64), bufferBase64: undefined }
+          : hydratedFile
+      ];
+    })
   );
   return {
     ...project,

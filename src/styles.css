@@ -941,17 +941,25 @@ button:disabled {
 
 .layer-toggle-preview {
   position: absolute;
-  top: 82px;
+  top: 14px;
   right: 14px;
-  z-index: 730;
-  width: 220px;
-  max-height: 42%;
-  overflow: auto;
-  padding: 12px;
-  border-radius: 8px;
+  z-index: 720;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 12px 13px;
+  border-radius: 12px;
   background: var(--map-overlay-bg);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
 }
+
+.layer-toggle-preview.layer-toggle-compact {
+  width: 220px;
+}
+
+.layer-toggle-preview.layer-toggle-tree {
+  border-left: 3px solid color-mix(in srgb, var(--brand) 28%, white 72%);
+}
+
 
 .map-shell-header-top-full .layer-toggle-preview,
 .map-shell-header-top-full .legend-preview.legend-top-left,
@@ -983,11 +991,24 @@ button:disabled {
 }
 
 .layer-toggle-preview span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13px;
 }
+
+.legend-inside-control {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+}
+
+.legend-preview.legend-embedded {
+  position: static;
+  width: 100%;
+  max-width: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
 
 .legend-toggle {
   width: 100%;

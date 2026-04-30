@@ -115,7 +115,16 @@ export function MapCanvas({
       <style>{popupCss(project)}</style>
       <style>{labelCss(project.layers)}</style>
       {showLayerControl && (
-        <LayerControl layers={previewLayers} layerVisibility={layerVisibility} onLayerVisibilityChange={onLayerVisibilityChange} />
+        <LayerControl
+          layers={previewLayers}
+          layerVisibility={layerVisibility}
+          mode={project.mapSettings.layerControlMode}
+          legendGroups={legendGroups}
+          showLegendInside={project.legendSettings.enabled && project.legendSettings.placement === "inside-control"}
+          legendOpen={legendOpen}
+          onLayerVisibilityChange={onLayerVisibilityChange}
+          onLegendOpenChange={setLegendOpen}
+        />
       )}
       {project.legendSettings.enabled && project.legendSettings.placement !== "hidden" && project.legendSettings.placement !== "inside-control" && legendGroups.some((group) => group.items.length > 0) && (
         <LegendPanel groups={legendGroups} open={legendOpen} position={project.legendSettings.position} onOpenChange={setLegendOpen} />
