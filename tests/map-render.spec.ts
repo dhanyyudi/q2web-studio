@@ -124,6 +124,32 @@ test("imports fixture and renders map", async ({ page }) => {
   expect(autoFitEvents).not.toContain("apply");
 });
 
+test("runtime preview mirrors exported map path", async ({ page }) => {
+  const requests: string[] = [];
+  const consoleErrors: string[] = [];
+  page.on("request", (request) => {
+    requests.push(request.url());
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await assertRenderedMap(page, requests, consoleErrors);
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toBeVisible({ timeout: 15000 });
+  await expect(iframe).toHaveAttribute("sandbox", "allow-scripts allow-popups allow-same-origin");
+  await expect(iframe).toHaveAttribute("src", /blob:/);
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  await expect(frame.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: /Open Tab/i })).toBeEnabled();
+  expect(consoleErrors).toEqual([]);
+});
+
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
   const editorRequests: string[] = [];
   const editorConsoleErrors: string[] = [];

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { MapCanvas } from "./MapCanvas";
@@ -24,6 +24,7 @@ export function PreviewOverlay({
   onProjectChange,
   onTileError
 }: PreviewOverlayProps) {
+  const runtimePreviewRef = useRef<RuntimePreviewBundle | null>(null);
   const [mode, setMode] = useState<PreviewMode>("runtime");
   const [runtimePreview, setRuntimePreview] = useState<RuntimePreviewBundle | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
@@ -47,6 +48,7 @@ export function PreviewOverlay({
         }
         setRuntimePreview((current) => {
           current?.urls.forEach((url) => URL.revokeObjectURL(url));
+          runtimePreviewRef.current = bundle;
           return bundle;
         });
       })
@@ -63,10 +65,15 @@ export function PreviewOverlay({
   }, [mode, project]);
 
   useEffect(() => {
-    return () => {
-      runtimePreview?.urls.forEach((url) => URL.revokeObjectURL(url));
-    };
+    runtimePreviewRef.current = runtimePreview;
   }, [runtimePreview]);
+
+  useEffect(() => {
+    return () => {
+      runtimePreviewRef.current?.urls.forEach((url) => URL.revokeObjectURL(url));
+      runtimePreviewRef.current = null;
+    };
+  }, []);
 
   function openRuntimePreview() {
     if (!runtimePreview) return;
@@ -106,7 +113,10 @@ export function PreviewOverlay({
           runtimePreview && !runtimeBusy ? (
             <iframe
               title="Runtime preview"
+              data-testid="runtime-preview-frame"
               className="runtime-preview-frame"
+              // The ZIP-derived preview rewrites assets to blob: URLs. Chromium blocks
+              // those subresources in an opaque sandbox, so same-origin is required here.
               sandbox="allow-scripts allow-popups allow-same-origin"
               src={runtimePreview.url}
             />
