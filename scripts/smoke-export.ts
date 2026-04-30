@@ -67,6 +67,10 @@ function expectMissingFile(zip: JSZip, path: string): void {
 function cloneProject(project: Qgis2webProject): Qgis2webProject {
   return {
     ...project,
+    branding: {
+      ...project.branding,
+      welcome: { ...project.branding.welcome }
+    },
     runtime: {
       ...project.runtime,
       widgets: project.runtime.widgets.map((widget) => ({ ...widget, assetPaths: [...widget.assetPaths] }))
@@ -120,9 +124,28 @@ const sidebarConfig = JSON.parse(await zipText(sidebarZip, `${root}q2ws-config.j
 if (!sidebarConfig.sidebar?.enabled || !String(sidebarConfig.sidebar?.content || "").includes("Tentang peta")) {
   throw new Error("Expected q2ws-config.json to preserve enabled sidebar settings.");
 }
+const welcomeProject = cloneProject(project);
+welcomeProject.branding = {
+  ...welcomeProject.branding,
+  showWelcome: true,
+  welcome: {
+    ...welcomeProject.branding.welcome,
+    enabled: true,
+    title: "Selamat datang di Cirebon",
+    subtitle: "#### Halo **semua**\n\n> Ringkasan aman\n\n<script>alert(1)</script>\n\n1. Jelajahi layer",
+    ctaLabel: "Mulai jelajah"
+  }
+};
+const welcomeZip = await exportZip(welcomeProject);
+const welcomeConfig = JSON.parse(await zipText(welcomeZip, `${root}q2ws-config.json`));
+if (!welcomeConfig.branding?.welcome?.enabled || !String(welcomeConfig.branding?.welcome?.subtitle || "").includes("<script>alert(1)</script>")) {
+  throw new Error("Expected q2ws-config.json to preserve welcome markdown source before runtime sanitization.");
+}
 const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
-if (!runtimeSource.includes('openList("ol")') || !runtimeSource.includes('^\\d+\\.\\s+(.+)$')) {
-  throw new Error("Expected runtime sidebar markdown renderer to preserve ordered lists.");
+for (const expectedRuntimeCode of ['openList("ol")', '^\\d+\\.\\s+(.+)$', '^(#{1,6})\\s+(.+)$', 'var blockquote = trimmed.match', 'renderMarkdown(welcomeConfig.subtitle', 'q2ws-welcome-content']) {
+  if (!runtimeSource.includes(expectedRuntimeCode)) {
+    throw new Error(`Expected runtime welcome/sidebar markdown support to include: ${expectedRuntimeCode}`);
+  }
 }
 
 const disabledProject = cloneProject(project);

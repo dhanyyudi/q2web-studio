@@ -382,11 +382,18 @@ export const q2wsRuntime = String.raw`(function () {
         closeList();
         return;
       }
-      var heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+      var heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
       if (heading) {
         flushParagraph();
         closeList();
         html.push("<h" + heading[1].length + ">" + inlineMarkdown(heading[2]) + "</h" + heading[1].length + ">");
+        return;
+      }
+      var blockquote = trimmed.match(/^>\s+(.+)$/);
+      if (blockquote) {
+        flushParagraph();
+        closeList();
+        html.push("<blockquote>" + inlineMarkdown(blockquote[1]) + "</blockquote>");
         return;
       }
       var unorderedListItem = trimmed.match(/^(?:[-*])\s+(.+)$/);
@@ -439,7 +446,7 @@ export const q2wsRuntime = String.raw`(function () {
       var storageKey = "q2ws-welcome-seen-" + (branding.title || "map");
       if (welcomeConfig.showOnce && localStorage.getItem(storageKey)) return;
       var welcome = createEl("div", { id: "q2ws-welcome", class: "q2ws-welcome-" + (welcomeConfig.placement || "center") });
-      welcome.innerHTML = '<div><h2>' + escapeHtml(welcomeConfig.title || branding.title || "WebGIS") + '</h2><p>' + escapeHtml(welcomeConfig.subtitle || branding.subtitle || "") + '</p><button type="button">' + escapeHtml(welcomeConfig.ctaLabel || "Mulai jelajah") + '</button></div>';
+      welcome.innerHTML = '<div><h2>' + escapeHtml(welcomeConfig.title || branding.title || "WebGIS") + '</h2><div class="q2ws-welcome-content">' + renderMarkdown(welcomeConfig.subtitle || branding.subtitle || "") + '</div><button type="button">' + escapeHtml(welcomeConfig.ctaLabel || "Mulai jelajah") + '</button></div>';
       var dismiss = function () {
         if (welcomeConfig.showOnce) localStorage.setItem(storageKey, "1");
         welcome.remove();
@@ -769,13 +776,20 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
 
 #q2ws-sidebar p,
 #q2ws-sidebar ul,
-#q2ws-sidebar ol {
+#q2ws-sidebar ol,
+#q2ws-sidebar blockquote {
   margin: 0 0 12px;
 }
 
 #q2ws-sidebar ul,
 #q2ws-sidebar ol {
   padding-left: 20px;
+}
+
+#q2ws-sidebar blockquote {
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--q2ws-accent) 42%, white 58%);
+  color: color-mix(in srgb, var(--q2ws-text) 82%, white 18%);
 }
 
 #q2ws-sidebar a {
@@ -1019,14 +1033,39 @@ body.q2ws-has-header-top-right-pill #q2ws-layer-control {
 }
 
 #q2ws-welcome > div {
-  width: min(460px, calc(100vw - 40px));
-  padding: 28px;
-  border-radius: 14px;
-  background: white;
-  font-family: Inter, Segoe UI, Arial, sans-serif;
+  width: min(520px, calc(100vw - 24px));
+  padding: 24px;
+  border-radius: calc(var(--q2ws-radius) + 6px);
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.28);
+}
+
+.q2ws-welcome-content {
+  color: var(--q2ws-text);
+  line-height: 1.55;
+}
+
+.q2ws-welcome-content :is(p, ul, ol, blockquote) {
+  margin: 0 0 12px;
+}
+
+.q2ws-welcome-content ul,
+.q2ws-welcome-content ol {
+  padding-left: 20px;
+}
+
+.q2ws-welcome-content blockquote {
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--q2ws-accent) 42%, white 58%);
+  color: color-mix(in srgb, var(--q2ws-text) 82%, white 18%);
+}
+
+.q2ws-welcome-content a {
+  color: var(--q2ws-accent);
 }
 
 #q2ws-welcome button {
+
   border: 0;
   border-radius: 8px;
   padding: 10px 16px;
