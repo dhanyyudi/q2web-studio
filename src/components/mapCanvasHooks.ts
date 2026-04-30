@@ -17,7 +17,7 @@ import {
 import { TerraDrawLeafletAdapter } from "terra-draw-leaflet-adapter";
 import { styleForFeature } from "../lib/style";
 import { shouldSimplifyLayer, simplifyLayersForPreview } from "../lib/simplifyClient";
-import type { BasemapConfig, DrawMode, LayerManifest, Qgis2webProject, TextAnnotation } from "../types/project";
+import type { BasemapConfig, DrawMode, LayerManifest, Qgis2webProject, SelectedFeatureRef, TextAnnotation } from "../types/project";
 import { updateLayerGeojson } from "../lib/projectUpdates";
 import { buildLabel, buildPopup, createBasemap, escapeHtml, fromTerraDrawFeature, pointClusterIcon, projectBounds, shouldClusterLayer, toTerraDrawFeatures } from "./mapCanvasHelpers";
 
@@ -156,26 +156,53 @@ export function useSimplifiedLayers(visibleLayers: LayerManifest[], mapZoom: num
   return simplifiedLayers;
 }
 
-export function useGeoJsonLayers(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, renderLayers: LayerManifest[], textAnnotations: TextAnnotation[]) {
+export function useGeoJsonLayers(
+  mapRef: MutableRefObject<L.Map | null>,
+  mapInstanceVersion: number,
+  renderLayers: LayerManifest[],
+  textAnnotations: TextAnnotation[],
+  selectedFeature: SelectedFeatureRef | null,
+  onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void
+) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const layerGroup = L.layerGroup().addTo(map);
+    const featureId = (feature: Feature) => String(feature.properties?.__q2ws_id ?? feature.id ?? "");
 
     renderLayers.forEach((layer) => {
       const clusterPoints = shouldClusterLayer(layer);
       const geoLayer = L.geoJSON(layer.geojson, {
-        style: (feature) => styleForFeature(layer, feature as Feature),
+        style: (feature) => {
+          const baseStyle = styleForFeature(layer, feature as Feature);
+          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature.featureId === featureId(feature as Feature);
+          return isSelected
+            ? {
+                ...baseStyle,
+                weight: Math.max((baseStyle.weight || layer.style.strokeWidth || 2) + 2, 3),
+                color: "#ff7a18",
+                fillOpacity: typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.12, 1) : baseStyle.fillOpacity
+              }
+            : baseStyle;
+        },
         pointToLayer: (feature, latlng) => {
+          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature.featureId === featureId(feature as Feature);
           if (clusterPoints) {
             return L.marker(latlng, { icon: pointClusterIcon(layer, feature as Feature) });
           }
           return L.circleMarker(latlng, {
             ...styleForFeature(layer, feature as Feature),
-            radius: layer.style.pointRadius
+            radius: isSelected ? layer.style.pointRadius + 4 : layer.style.pointRadius,
+            weight: isSelected ? Math.max(layer.style.strokeWidth + 2, 3) : layer.style.strokeWidth,
+            color: isSelected ? "#ff7a18" : undefined,
+            fillOpacity: isSelected ? Math.min(layer.style.fillOpacity + 0.12, 1) : layer.style.fillOpacity
           });
         },
         onEachFeature: (feature, leafletLayer) => {
+          const currentFeatureId = featureId(feature as Feature);
+          leafletLayer.on("click", () => {
+            onSelectedFeatureChange({ layerId: layer.id, featureId: currentFeatureId });
+          });
           if (layer.label?.enabled && layer.label.field) {
             const labelValue = feature.properties?.[layer.label.field];
             if (labelValue != null && labelValue !== "") {
@@ -218,7 +245,7 @@ export function useGeoJsonLayers(mapRef: MutableRefObject<L.Map | null>, mapInst
     return () => {
       layerGroup.remove();
     };
-  }, [mapInstanceVersion, mapRef, renderLayers, textAnnotations]);
+  }, [mapInstanceVersion, mapRef, onSelectedFeatureChange, renderLayers, selectedFeature, textAnnotations]);
 }
 
 export function useAutoFit(

@@ -5,7 +5,7 @@ import { Maximize2, Minimize2, Settings2, Table2, X } from "lucide-react";
 import { toast } from "sonner";
 import { addField, deleteField, renameField, updateFeatureProperty } from "../lib/projectUpdates";
 import { fieldNames } from "../lib/style";
-import type { LayerManifest, Qgis2webProject } from "../types/project";
+import type { LayerManifest, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 
 export type TableMode = "open" | "minimized" | "maximized";
 
@@ -25,6 +25,8 @@ type AttributeTableProps = {
   renameTo: string;
   setRenameTo: (value: string) => void;
   updateProject: (project: Qgis2webProject) => void;
+  selectedFeatureId: string;
+  onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void;
 };
 
 export function AttributeTable(props: AttributeTableProps) {
@@ -36,6 +38,7 @@ export function AttributeTable(props: AttributeTableProps) {
     () => new Map(props.layer.geojson.features.map((feature, index) => [feature, index])),
     [props.layer.geojson.features]
   );
+  const featureId = (feature: LayerManifest["geojson"]["features"][number]) => String(feature.properties?.__q2ws_id ?? feature.id ?? "");
   const rows = useMemo(
     () =>
       normalizedFilter
@@ -109,16 +112,23 @@ export function AttributeTable(props: AttributeTableProps) {
               {virtualRows.map((virtualRow) => {
                 const feature = rows[virtualRow.index];
                 const sourceIndex = sourceIndexByFeature.get(feature) ?? virtualRow.index;
+                const currentFeatureId = featureId(feature);
+                const selected = currentFeatureId === props.selectedFeatureId;
                 return (
-                  <tr key={String(feature.id || `${sourceIndex}-${virtualRow.index}`)}>
+                  <tr
+                    key={currentFeatureId || String(feature.id || `${sourceIndex}-${virtualRow.index}`)}
+                    className={selected ? "selected" : ""}
+                    onClick={() => props.onSelectedFeatureChange({ layerId: props.layer.id, featureId: currentFeatureId })}
+                  >
                     <td>{sourceIndex + 1}</td>
                     {fields.map((field) => (
                       <td key={field}>
                         <input
                           value={String(feature.properties?.[field] ?? "")}
+                          onClick={() => props.onSelectedFeatureChange({ layerId: props.layer.id, featureId: currentFeatureId })}
                           onChange={(event) =>
                             props.updateProject(
-                              updateFeatureProperty(props.project, props.layer.id, sourceIndex, field, event.target.value)
+                              updateFeatureProperty(props.project, props.layer.id, currentFeatureId, field, event.target.value)
                             )
                           }
                         />

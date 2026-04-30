@@ -1,6 +1,10 @@
 import type { FeatureCollection } from "geojson";
 import type { LayerControlMode, LayerManifest, Qgis2webProject } from "../types/project";
 
+function featureMatchesId(feature: FeatureCollection["features"][number], featureId: string): boolean {
+  return String(feature.properties?.__q2ws_id ?? feature.id ?? "") === featureId;
+}
+
 const phaseCLayerControlModes: LayerControlMode[] = ["compact", "expanded", "tree"];
 
 export function migrateProject(project: Qgis2webProject): Qgis2webProject {
@@ -47,14 +51,14 @@ export function updateLayerGeojson(
 export function updateFeatureProperty(
   project: Qgis2webProject,
   layerId: string,
-  featureIndex: number,
+  featureId: string,
   key: string,
   value: string
 ): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
   if (!layer) return project;
-  const features = layer.geojson.features.map((feature, index) =>
-    index === featureIndex
+  const features = layer.geojson.features.map((feature) =>
+    featureMatchesId(feature, featureId)
       ? {
           ...feature,
           properties: {
