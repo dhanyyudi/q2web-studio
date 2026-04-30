@@ -968,6 +968,7 @@ button:disabled {
 }
 
 .map-shell-header-top-left-pill .layer-toggle-preview,
+.map-shell-header-top-right-pill .layer-toggle-preview,
 .map-shell-header-top-center-card .legend-preview.legend-top-left,
 .map-shell-header-top-right-pill .legend-preview.legend-top-right {
   top: 92px;
