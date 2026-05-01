@@ -100,6 +100,10 @@ if (!enabledIndex.includes("q2ws-runtime.js") || !enabledIndex.includes("q2ws-cu
   throw new Error("Expected exported index.html to include q2ws runtime and custom CSS.");
 }
 
+if (!enabledIndex.includes('Content-Security-Policy') || !enabledIndex.includes("default-src 'self' blob:")) {
+  throw new Error("Expected exported index.html to include patched CSP meta for q2ws runtime assets.");
+}
+
 if (!enabledIndex.includes("js/leaflet-measure.js") || !enabledIndex.includes("css/leaflet-measure.css")) {
   throw new Error("Expected enabled measure widget assets to remain referenced in exported index.html.");
 }
