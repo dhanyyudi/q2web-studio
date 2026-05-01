@@ -55,8 +55,36 @@ export function updateFeatureProperty(
   key: string,
   value: string
 ): Qgis2webProject {
+  return setFeatureProperty(project, layerId, featureId, key, value);
+}
+
+export function addFeatureProperty(
+  project: Qgis2webProject,
+  layerId: string,
+  featureId: string,
+  key: string,
+  value: string
+): Qgis2webProject {
+  const cleanKey = key.trim().replace(/\s+/g, "_");
+  if (!cleanKey) return project;
+  return setFeatureProperty(project, layerId, featureId, cleanKey, value);
+}
+
+export function deleteFeatureProperty(project: Qgis2webProject, layerId: string, featureId: string, key: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
-  if (!layer) return project;
+  if (!layer || !key || key === "__q2ws_id") return project;
+  const features = layer.geojson.features.map((feature) => {
+    if (!featureMatchesId(feature, featureId)) return feature;
+    const properties = { ...(feature.properties || {}) };
+    delete properties[key];
+    return { ...feature, properties };
+  });
+  return updateLayerGeojson(project, layerId, { ...layer.geojson, features });
+}
+
+function setFeatureProperty(project: Qgis2webProject, layerId: string, featureId: string, key: string, value: string): Qgis2webProject {
+  const layer = project.layers.find((candidate) => candidate.id === layerId);
+  if (!layer || !key) return project;
   const features = layer.geojson.features.map((feature) =>
     featureMatchesId(feature, featureId)
       ? {
@@ -106,24 +134,65 @@ export function renameField(project: Qgis2webProject, layerId: string, oldKey: s
     delete properties[oldKey];
     return { ...feature, properties };
   });
+  const popupFields = layer.popupFields.map((field) => field.key === oldKey ? { ...field, key: cleanKey } : field);
+  const popupTemplate = layer.popupTemplate
+    ? {
+        ...layer.popupTemplate,
+        html: layer.popupTemplate.html.replaceAll(`{{${oldKey}}}`, `{{${cleanKey}}}`),
+        fields: layer.popupTemplate.fields.map((field) => field.key === oldKey ? { ...field, key: cleanKey } : field)
+      }
+    : undefined;
+  const label = layer.label
+    ? {
+        ...layer.label,
+        field: layer.label.field === oldKey ? cleanKey : layer.label.field,
+        htmlTemplate: layer.label.htmlTemplate?.replaceAll(`{{${oldKey}}}`, `{{${cleanKey}}}`)
+      }
+    : undefined;
   return updateLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
-    popupFields: layer.popupFields.map((field) =>
-      field.key === oldKey ? { ...field, key: cleanKey, label: cleanKey } : field
-    )
+    popupFields,
+    popupTemplate,
+    label,
+    style: {
+      ...layer.style,
+      categoryField: layer.style.categoryField === oldKey ? cleanKey : layer.style.categoryField
+    }
   });
 }
 
 export function deleteField(project: Qgis2webProject, layerId: string, key: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
-  if (!layer || !key) return project;
+  if (!layer || !key || key === "__q2ws_id") return project;
   const features = layer.geojson.features.map((feature) => {
     const properties = { ...(feature.properties || {}) };
     delete properties[key];
     return { ...feature, properties };
   });
+  const remainingFields = layer.popupFields.filter((field) => field.key !== key);
+  const nextLabelField = remainingFields[0]?.key || "";
+  const popupTemplate = layer.popupTemplate
+    ? {
+        ...layer.popupTemplate,
+        fields: layer.popupTemplate.fields.filter((field) => field.key !== key)
+      }
+    : undefined;
+  const label = layer.label
+    ? {
+        ...layer.label,
+        enabled: layer.label.field === key ? false : layer.label.enabled,
+        field: layer.label.field === key ? nextLabelField : layer.label.field,
+        htmlTemplate: layer.label.field === key ? (nextLabelField ? `{{${nextLabelField}}}` : "") : layer.label.htmlTemplate
+      }
+    : undefined;
   return updateLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
-    popupFields: layer.popupFields.filter((field) => field.key !== key)
+    popupFields: remainingFields,
+    popupTemplate,
+    label,
+    style: {
+      ...layer.style,
+      categoryField: layer.style.categoryField === key ? "" : layer.style.categoryField
+    }
   });
 }
