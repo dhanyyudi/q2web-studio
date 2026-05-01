@@ -47,7 +47,7 @@ async function fixtureFiles(): Promise<VirtualFile[]> {
     );
   } catch {
     const zip = await JSZip.loadAsync(await readFile(fixtureZipPath));
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir);
+    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
     return Promise.all(entries.map(async (entry) => {
       const rel = entry.name;
       const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
