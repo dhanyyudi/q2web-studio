@@ -239,6 +239,65 @@ test("runtime preview can reopen without leaking blob URLs", async ({ page }) =>
   expect(consoleErrors).toEqual([]);
 });
 
+test("applies simplify to selected line feature", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: "Sungai MultiLineString" }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  const before = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai");
+    const feature = layer?.geojson.features[0];
+    return JSON.stringify(feature?.geometry || null);
+  });
+
+  await page.getByRole("button", { name: /Simplify selected feature/i }).click();
+
+  await page.waitForFunction(
+    (previousGeometry) => {
+      const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+      const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai");
+      const feature = layer?.geojson.features[0];
+      return JSON.stringify(feature?.geometry || null) !== previousGeometry;
+    },
+    before,
+    { timeout: 15000 }
+  );
+
+  const after = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai");
+    const feature = layer?.geojson.features[0];
+    return JSON.stringify(feature?.geometry || null);
+  });
+  expect(after).not.toBe(before);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-simplify-smoke-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const dataEntry = zip.file("qgis2web_2026_04_22-06_30_44_400659/data/Sungai_5.js");
+    expect(dataEntry).toBeTruthy();
+    const dataText = await dataEntry!.async("string");
+    const geojson = JSON.parse(dataText.replace(/^var\s+json_Sungai_5\s*=\s*/, "").replace(/;\s*$/, ""));
+    expect(JSON.stringify(geojson.features[0].geometry)).toBe(after);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
   const editorRequests: string[] = [];
   const editorConsoleErrors: string[] = [];
