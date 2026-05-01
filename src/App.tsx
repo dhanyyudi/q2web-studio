@@ -32,6 +32,7 @@ import {
   XCircle
 } from "lucide-react";
 import bbox from "@turf/bbox";
+import { buffer as turfBuffer } from "@turf/buffer";
 import type { Feature, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
@@ -489,6 +490,75 @@ export function App() {
   function patchSelectedLayer(patch: Partial<LayerManifest>) {
     if (!project || !selectedLayer) return;
     updateProject(updateLayer(project, selectedLayer.id, patch));
+  }
+
+  function bufferSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const distanceText = window.prompt("Buffer distance in meters", "100");
+    if (!distanceText) return;
+    const distance = Number(distanceText);
+    if (!Number.isFinite(distance) || distance <= 0) {
+      toast.warning("Enter a positive buffer distance in meters.");
+      return;
+    }
+    const buffered = turfBuffer(selectedFeatureData.feature, distance, { units: "meters", steps: 16 });
+    if (!buffered || buffered.type !== "Feature") {
+      toast.error("Buffer could not be created for the selected feature.");
+      return;
+    }
+    const sourceLayer = selectedFeatureData.layer;
+    const sourceFeatureId = String(selectedFeatureData.feature.properties?.__q2ws_id ?? selectedFeatureData.feature.id ?? "feature");
+    const bufferId = `${sourceLayer.id}-buffer-${Math.round(distance)}m-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+    const outputLayer: LayerManifest = {
+      ...sourceLayer,
+      id: bufferId,
+      displayName: `${sourceLayer.displayName} buffer ${distance} m`,
+      sourcePath: `${project.name}/data/${bufferId}.js`,
+      dataVariable: `json_${bufferId}`,
+      layerVariable: `layer_${bufferId}`,
+      geometryType: buffered.geometry.type,
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "source_feature", label: "source_feature", visible: true, header: false },
+        { key: "buffer_m", label: "buffer_m", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: [{
+          ...buffered,
+          id: `${bufferId}::${sourceFeatureId}`,
+          properties: {
+            ...(buffered.properties || {}),
+            __q2ws_id: `${bufferId}::${sourceFeatureId}`,
+            source_layer: sourceLayer.displayName,
+            source_feature: sourceFeatureId,
+            buffer_m: distance
+          }
+        }]
+      },
+      style: {
+        ...sourceLayer.style,
+        fillColor: "#ff7a18",
+        strokeColor: "#ff7a18",
+        fillOpacity: 0.25,
+        strokeOpacity: 0.95,
+        strokeWidth: 2,
+        dashArray: "",
+        symbolType: "polygon"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Buffer ${sourceLayer.displayName}` });
+    setSelectedLayerId(outputLayer.id);
+    setSelectedFeature(null);
+    setInspectorMode("layer");
+    toast.success("Buffer layer created");
   }
 
   function ensureLayerLabel(layer: LayerManifest) {
@@ -1032,7 +1102,10 @@ export function App() {
                     <div className="selected-feature-panel">
                       <div className="selected-feature-meta">
                         <strong>{selectedFeatureData.feature.properties?.__q2ws_id || selectedFeatureData.feature.id}</strong>
-                        <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
+                        <div className="dialog-actions">
+                          <button type="button" className="btn compact" onClick={bufferSelectedFeature}>Buffer</button>
+                          <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
+                        </div>
                       </div>
                       {fieldNames(selectedLayer).map((field) => (
                         <TextInput
