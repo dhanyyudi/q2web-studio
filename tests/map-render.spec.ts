@@ -298,6 +298,61 @@ test("applies simplify to selected line feature", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test("merge all polygon features in layer creates a union output layer", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: "Zona Nilai Tanah" }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  const beforeFeatureCount = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Zona Nilai Tanah");
+    return layer?.geojson.features.length ?? 0;
+  });
+  expect(beforeFeatureCount).toBeGreaterThan(1);
+
+  await page.getByRole("button", { name: /Merge layer/i }).click();
+
+  await page.waitForFunction(
+    () => {
+      const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string }> } }).__q2ws_project;
+      return project?.layers.some((layer) => layer.displayName.includes("merge")) ?? false;
+    },
+    null,
+    { timeout: 15000 }
+  );
+
+  const mergeLayer = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ id: string; displayName: string; geojson: GeoJSON.FeatureCollection; layerTreeGroup?: string }> } }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName.includes("merge")) ?? null;
+  });
+  expect(mergeLayer).not.toBeNull();
+  expect(mergeLayer?.geojson.features.length).toBe(1);
+  expect(mergeLayer?.layerTreeGroup).toBe("Analysis");
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-merge-smoke-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const mergeDataEntry = Object.keys(zip.files).find((name) => name.includes("data/") && name.includes("merge"));
+    expect(mergeDataEntry).toBeTruthy();
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("creates polygon to line analysis output for selected polygon feature", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
@@ -355,6 +410,32 @@ test("creates polygon to line analysis output for selected polygon feature", asy
   expect(consoleErrors).toEqual([]);
 });
 
+test("merge aborts without creating output layer when union fails", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1&forceMergeUnionError=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: "Zona Nilai Tanah" }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Merge layer/i }).click();
+
+  await expect(page.getByText(/Merge failed\./i)).toBeVisible({ timeout: 15000 });
+
+  const mergeLayerExists = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string }> } }).__q2ws_project;
+    return project?.layers.some((layer) => layer.displayName.includes("merge")) ?? false;
+  });
+  expect(mergeLayerExists).toBe(false);
+  expect(consoleErrors).toEqual([]);
+});
+
 test("creates convex hull layer from selected polygon feature", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
@@ -364,6 +445,7 @@ test("creates convex hull layer from selected polygon feature", async ({ page })
   await page.goto("/?debug=1");
   await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
   await page.getByRole("button", { name: /Zona Nilai Tanah/i }).click();
   await page.locator(".attribute-panel tbody tr").first().click();
   await expect(page.locator(".selected-feature-panel")).toBeVisible();
