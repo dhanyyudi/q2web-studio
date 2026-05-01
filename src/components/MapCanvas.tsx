@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
-import type { DrawMode, LayerManifest, Qgis2webProject } from "../types/project";
+import type { DrawMode, LayerManifest, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
 import { useAutoFit, useBasemap, useGeoJsonLayers, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
@@ -17,6 +17,8 @@ type MapCanvasProps = {
   onLayerVisibilityChange?: (layerId: string, visible: boolean) => void;
   onTileError?: (message: string) => void;
   onProjectChange: (project: Qgis2webProject) => void;
+  selectedFeature: SelectedFeatureRef | null;
+  onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void;
 };
 
 export function MapCanvas({
@@ -30,7 +32,9 @@ export function MapCanvas({
   layerVisibility,
   onLayerVisibilityChange,
   onTileError,
-  onProjectChange
+  onProjectChange,
+  selectedFeature,
+  onSelectedFeatureChange
 }: MapCanvasProps) {
   const { containerRef, mapRef, mapZoom, mapInstanceVersion } = useLeafletMap();
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
@@ -81,7 +85,7 @@ export function MapCanvas({
   }, [project.legendSettings.collapsed]);
 
   useBasemap(mapRef, mapInstanceVersion, project.basemaps, project.mapSettings.basemap, onTileError);
-  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations);
+  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, selectedFeature, onSelectedFeatureChange);
   useAutoFit(
     mapRef,
     renderLayers,

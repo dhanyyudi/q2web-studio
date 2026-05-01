@@ -42,7 +42,7 @@ import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { logoFileToDataUrl } from "./lib/logo";
-import { migrateProject, updateLayer } from "./lib/projectUpdates";
+import { migrateProject, updateFeatureProperty, updateLayer } from "./lib/projectUpdates";
 import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
@@ -57,6 +57,7 @@ import type {
   MapViewMode,
   PopupTemplateMode,
   Qgis2webProject,
+  SelectedFeatureRef,
   TextAnnotation
 } from "./types/project";
 
@@ -105,6 +106,7 @@ export function App() {
   const tablePanelRef = usePanelRef();
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
+  const [selectedFeature, setSelectedFeature] = useState<SelectedFeatureRef | null>(null);
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>("project");
   const [drawMode, setDrawMode] = useState<DrawMode>("select");
   const [snapEnabled, setSnapEnabled] = useState(false);
@@ -135,6 +137,16 @@ export function App() {
   );
   const selectedGeometryKind = geometryKindOf(selectedLayer?.geometryType || "");
   const selectedLayerHasMultiGeometry = Boolean(selectedLayer && layerHasMultiGeometry(selectedLayer));
+  const selectedFeatureData = useMemo(() => {
+    if (!project || !selectedFeature) return null;
+    const layer = project.layers.find((item) => item.id === selectedFeature.layerId);
+    if (!layer) return null;
+    const feature = layer.geojson.features.find(
+      (item) => String(item.properties?.__q2ws_id ?? item.id ?? "") === selectedFeature.featureId
+    );
+    if (!feature) return null;
+    return { layer, feature };
+  }, [project, selectedFeature]);
   const canEditGeometry = Boolean(selectedLayer && !selectedLayerHasMultiGeometry);
   const canDrawPoint = canEditGeometry && selectedGeometryKind === "point";
   const canDrawLine = canEditGeometry && selectedGeometryKind === "line";
@@ -175,6 +187,18 @@ export function App() {
       setSelectedLayerId(project.layers[0]?.id || "");
     }
   }, [project, selectedLayerId]);
+
+  useEffect(() => {
+    if (!selectedFeature) return;
+    if (!selectedFeatureData) {
+      setSelectedFeature(null);
+      return;
+    }
+    if (selectedFeature.layerId !== selectedLayerId) {
+      setSelectedLayerId(selectedFeature.layerId);
+      setInspectorMode("layer");
+    }
+  }, [selectedFeature, selectedFeatureData, selectedLayerId]);
 
   useEffect(() => {
     if (!selectedLayer) return;
@@ -342,6 +366,7 @@ export function App() {
   async function closeProject() {
     setProject(null);
     setSelectedLayerId("");
+    setSelectedFeature(null);
     setInspectorMode("project");
     setDrawMode("select");
     setPreviewOpen(false);
@@ -817,6 +842,7 @@ export function App() {
                   <div key={layer.id} className={layer.id === selectedLayer?.id ? "layer-row selected" : "layer-row"}>
                     <button type="button" className="layer-main" onClick={() => {
                       setSelectedLayerId(layer.id);
+                      setSelectedFeature(null);
                       setInspectorMode("layer");
                     }}>
                       <span>{layer.displayName}</span>
@@ -899,6 +925,8 @@ export function App() {
                     geometryEditingDisabled={!canEditGeometry}
                     onProjectChange={updateProject}
                     onTileError={handleTileError}
+                    selectedFeature={selectedFeature}
+                    onSelectedFeatureChange={setSelectedFeature}
                   />
                 </Panel>
                 <Separator className="panel-resize-handle" />
@@ -924,6 +952,8 @@ export function App() {
                     renameTo={renameTo}
                     setRenameTo={setRenameTo}
                     updateProject={updateProject}
+                    selectedFeatureId={selectedFeature?.layerId === selectedLayer.id ? selectedFeature.featureId : ""}
+                    onSelectedFeatureChange={setSelectedFeature}
                   />
                 </Panel>
               </Group>
@@ -1278,6 +1308,27 @@ export function App() {
                 <Tabs.Content value="layer" className="tabs-content">
                   <PanelTitle title="Layer Editor" />
                   <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
+                  <PanelTitle title="Selected Feature" />
+                  {selectedFeatureData && selectedFeatureData.layer.id === selectedLayer.id ? (
+                    <div className="selected-feature-panel">
+                      <div className="selected-feature-meta">
+                        <strong>{selectedFeatureData.feature.properties?.__q2ws_id || selectedFeatureData.feature.id}</strong>
+                        <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
+                      </div>
+                      {fieldNames(selectedLayer).map((field) => (
+                        <TextInput
+                          key={field}
+                          label={field}
+                          value={String(selectedFeatureData.feature.properties?.[field] ?? "")}
+                          onChange={(value) =>
+                            updateProject(updateFeatureProperty(project, selectedLayer.id, String(selectedFeatureData.feature.properties?.__q2ws_id ?? selectedFeatureData.feature.id ?? ""), field, value))
+                          }
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="editor-note">Select a feature from the map or attribute table to edit its properties.</div>
+                  )}
                   {selectedLayerHasMultiGeometry && (
                     <div className="editor-note">This layer contains multi-geometry features. Style, popup, legend, and attributes remain editable, but vertex editing is disabled to keep the data safe.</div>
                   )}
@@ -1683,9 +1734,27 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       logoPath: branding.logoPath || "",
       logoPlacement: branding.logoPlacement || "left"
     },
-    layers: (migrated.layers || []).map((layer) => ({
-      ...layer,
-      layerTreeGroup: layer.layerTreeGroup || "Layers",
+    layers: (migrated.layers || []).map((layer) => {
+      const featureIds = new Set<string>();
+      return {
+        ...layer,
+        geojson: {
+          ...layer.geojson,
+          features: layer.geojson.features.map((feature, index) => {
+            const sourceId = String(feature.properties?.__q2ws_id ?? feature.id ?? `${layer.id}-${index}`);
+            const baseId = `${layer.id}::${sourceId}`;
+            const stableId = uniqueFeatureId(featureIds, baseId, `${layer.id}-${index}`);
+            return {
+              ...feature,
+              id: feature.id ?? stableId,
+              properties: {
+                ...(feature.properties || {}),
+                __q2ws_id: stableId
+              }
+            };
+          })
+        },
+        layerTreeGroup: layer.layerTreeGroup || "Layers",
       popupTemplate: layer.popupTemplate
         ? {
             ...layer.popupTemplate,
@@ -1710,7 +1779,8 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
           sourceImagePath: category.sourceImagePath || ""
         }))
       }
-    })),
+    };
+    }),
     manualLegendItems: (migrated.manualLegendItems || []).map((item) => ({
       ...item,
       strokeWidth: item.strokeWidth ?? 2,
@@ -1719,6 +1789,18 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       sourceImagePath: item.sourceImagePath || ""
     }))
   };
+}
+
+function uniqueFeatureId(existingIds: Set<string>, candidate: string, fallback: string): string {
+  const baseId = candidate || fallback;
+  let nextId = baseId;
+  let suffix = 1;
+  while (existingIds.has(nextId)) {
+    suffix += 1;
+    nextId = `${baseId}-${suffix}`;
+  }
+  existingIds.add(nextId);
+  return nextId;
 }
 
 function projectCenter(project: Qgis2webProject): [number, number] {
