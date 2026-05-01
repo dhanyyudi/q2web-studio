@@ -49,6 +49,13 @@ async function unzipToDirectory(zipPath: string, outputDir: string) {
   );
 }
 
+async function saveDownloadToTempDir(download: import("@playwright/test").Download, prefix: string): Promise<{ tempDir: string; zipPath: string }> {
+  const tempDir = await mkdtemp(join(tmpdir(), prefix));
+  const zipPath = join(tempDir, download.suggestedFilename() || basename(await download.path() || "export.zip"));
+  await download.saveAs(zipPath);
+  return { tempDir, zipPath };
+}
+
 async function startStaticServer(rootDir: string): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = createServer(async (request, response) => {
     try {
@@ -147,7 +154,88 @@ test("runtime preview mirrors exported map path", async ({ page }) => {
   const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
   await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
   await expect(frame.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("button", { name: /Open Tab/i })).toBeEnabled();
+  const openTabButton = page.getByRole("button", { name: /Open Tab/i });
+  await expect(openTabButton).toBeEnabled();
+
+  const [previewTab] = await Promise.all([
+    page.waitForEvent("popup"),
+    openTabButton.click()
+  ]);
+  try {
+    await previewTab.waitForLoadState("domcontentloaded");
+    await expect(previewTab.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+    await expect(previewTab.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
+  } finally {
+    await previewTab.close();
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
+test("Export Now downloads the same runtime ZIP from preview", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByTestId("open-preview").click();
+  await expect(page.locator('[data-testid="runtime-preview-frame"]')).toBeVisible({ timeout: 15000 });
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export Now/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-export-now-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const entries = Object.keys(zip.files);
+    expect(download.suggestedFilename()).toBe("qgis2web_2026_04_22-06_30_44_400659-studio.zip");
+    expect(entries).toContain("qgis2web_2026_04_22-06_30_44_400659/q2ws-config.json");
+    expect(entries).toContain("qgis2web_2026_04_22-06_30_44_400659/q2ws-runtime.js");
+    expect(entries).toContain("qgis2web_2026_04_22-06_30_44_400659/q2ws-custom.css");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
+test("runtime preview can reopen without leaking blob URLs", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.evaluate(() => {
+    const originalCreate = URL.createObjectURL.bind(URL);
+    const originalRevoke = URL.revokeObjectURL.bind(URL);
+    const active = new Set<string>();
+    (window as Window & { __q2wsBlobUrls?: Set<string> }).__q2wsBlobUrls = active;
+    URL.createObjectURL = ((value: Blob | MediaSource) => {
+      const url = originalCreate(value);
+      active.add(url);
+      return url;
+    }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = ((url: string) => {
+      active.delete(url);
+      originalRevoke(url);
+    }) as typeof URL.revokeObjectURL;
+  });
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  for (let index = 0; index < 3; index += 1) {
+    await page.getByTestId("open-preview").click();
+    await expect(page.locator('[data-testid="runtime-preview-frame"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.frameLocator('[data-testid="runtime-preview-frame"]').locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: /Exit Preview/i }).click();
+    await expect(page.locator('[data-testid="runtime-preview-frame"]')).toHaveCount(0);
+  }
+
+  const activeBlobUrls = await page.evaluate(() => (window as Window & { __q2wsBlobUrls?: Set<string> }).__q2wsBlobUrls?.size || 0);
+  expect(activeBlobUrls).toBe(0);
   expect(consoleErrors).toEqual([]);
 });
 
@@ -169,9 +257,7 @@ test("exports ZIP and rendered runtime stays healthy", async ({ page, browser },
     page.waitForEvent("download"),
     page.getByRole("button", { name: /Export ZIP/i }).click()
   ]);
-  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-export-smoke-"));
-  const zipPath = join(tempDir, download.suggestedFilename() || basename(await download.path() || "export.zip"));
-  await download.saveAs(zipPath);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-export-smoke-");
   await unzipToDirectory(zipPath, tempDir);
 
   const extractedRoot = join(tempDir, "qgis2web_2026_04_22-06_30_44_400659");
