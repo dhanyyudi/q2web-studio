@@ -311,9 +311,22 @@ test("creates polygon to line analysis output for selected polygon feature", asy
   await page.locator(".attribute-panel tbody tr").first().click();
   await expect(page.locator(".selected-feature-panel")).toBeVisible();
 
+  const sourceBefore = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Batas Desa");
+    return JSON.stringify(layer?.geojson.features[0]?.geometry || null);
+  });
+
   await page.getByRole("button", { name: /Polygon to line/i }).click();
 
   await expect(page.getByRole("button", { name: /Batas Desa polygon to line/i })).toBeVisible({ timeout: 15000 });
+
+  const sourceAfter = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Batas Desa");
+    return JSON.stringify(layer?.geojson.features[0]?.geometry || null);
+  });
+  expect(sourceAfter).toBe(sourceBefore);
 
   const analysisLayer = await page.evaluate(() => {
     const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geometryType: string; layerTreeGroup?: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
