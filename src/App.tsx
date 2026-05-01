@@ -1741,7 +1741,8 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
         geojson: {
           ...layer.geojson,
           features: layer.geojson.features.map((feature, index) => {
-            const baseId = String(feature.properties?.__q2ws_id ?? feature.id ?? `${layer.id}-${index}`);
+            const sourceId = String(feature.properties?.__q2ws_id ?? feature.id ?? `${layer.id}-${index}`);
+            const baseId = `${layer.id}::${sourceId}`;
             const stableId = uniqueFeatureId(featureIds, baseId, `${layer.id}-${index}`);
             return {
               ...feature,

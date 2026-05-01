@@ -194,9 +194,13 @@ export function useGeoJsonLayers(
           return L.circleMarker(latlng, {
             ...baseStyle,
             radius: isSelected ? layer.style.pointRadius + 4 : layer.style.pointRadius,
-            weight: isSelected ? Math.max((baseStyle.weight || layer.style.strokeWidth || 2) + 2, 3) : baseStyle.weight,
-            color: isSelected ? "#ff7a18" : baseStyle.color,
-            fillOpacity: isSelected && typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.12, 1) : baseStyle.fillOpacity
+            ...(isSelected
+              ? {
+                  weight: Math.max((baseStyle.weight || layer.style.strokeWidth || 2) + 2, 3),
+                  color: "#ff7a18",
+                  fillOpacity: typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.12, 1) : baseStyle.fillOpacity
+                }
+              : {})
           });
         },
         onEachFeature: (feature, leafletLayer) => {
