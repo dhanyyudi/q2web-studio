@@ -355,6 +355,62 @@ test("creates convex hull layer from selected polygon feature", async ({ page })
   expect(consoleErrors).toEqual([]);
 });
 
+test("divides selected line feature into equal parts", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Sungai/i }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Divide line/i }).click();
+
+  await page.waitForFunction(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    return project?.layers.some((candidate) => candidate.displayName === "Sungai divided (3 parts)") || false;
+  }, null, { timeout: 15000 });
+
+  const dividedLayer = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geometryType: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai divided (3 parts)");
+    return layer ? {
+      geometryType: layer.geometryType,
+      featureCount: layer.geojson.features.length,
+      featureIds: layer.geojson.features.map((f) => String(f.properties?.__q2ws_id ?? ""))
+    } : null;
+  });
+  expect(dividedLayer).not.toBeNull();
+  expect(dividedLayer?.geometryType).toBe("MultiLineString");
+  expect(dividedLayer?.featureCount).toBe(3);
+  expect(dividedLayer?.featureIds.every((id) => id.includes("divided"))).toBe(true);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-divide-smoke-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const entries = Object.keys(zip.files);
+    const dividedDataPath = entries.find((entry) => /data\/.*divided.*\.js$/.test(entry));
+    expect(dividedDataPath).toBeTruthy();
+    const dataText = await zip.file(dividedDataPath!)!.async("string");
+    const variableMatch = dataText.match(/^var\s+([A-Za-z0-9_]+)\s*=\s*/);
+    expect(variableMatch).not.toBeNull();
+    const geojson = JSON.parse(dataText.replace(/^var\s+[A-Za-z0-9_]+\s*=\s*/, "").replace(/;\s*$/, ""));
+    expect(geojson.features).toHaveLength(3);
+    expect(geojson.features.every((f: GeoJSON.Feature) => f.geometry?.type === "MultiLineString" || f.geometry?.type === "LineString")).toBe(true);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
   const editorRequests: string[] = [];
   const editorConsoleErrors: string[] = [];

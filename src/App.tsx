@@ -35,7 +35,9 @@ import bbox from "@turf/bbox";
 import { buffer as turfBuffer } from "@turf/buffer";
 import convex from "@turf/convex";
 import simplify from "@turf/simplify";
-import type { Feature, Point } from "geojson";
+import length from "@turf/length";
+import along from "@turf/along";
+import type { Feature, LineString, MultiLineString, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
 import { MapCanvas } from "./components/MapCanvas";
@@ -676,6 +678,110 @@ export function App() {
     toast.success("Convex hull layer created");
   }
 
+  const DIVIDE_PARTS = 3;
+  function divideLineSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const { layer, feature } = selectedFeatureData;
+    if (!layer.geometryType.includes("Line")) {
+      toast.warning("Divide line is available for line features only.");
+      return;
+    }
+    if (!feature.geometry) {
+      toast.warning("Selected feature has no geometry to divide.");
+      return;
+    }
+    try {
+      const lineFeature = feature as Feature<LineString | MultiLineString>;
+      let lineString: LineString;
+      if (lineFeature.geometry.type === "MultiLineString") {
+        const allCoords: Array<[number, number]> = [];
+        for (const ring of lineFeature.geometry.coordinates) {
+          for (const coord of ring) {
+            allCoords.push(coord as [number, number]);
+          }
+        }
+        lineString = { type: "LineString", coordinates: allCoords };
+      } else {
+        lineString = lineFeature.geometry;
+      }
+      const totalLength = length({ type: "Feature", geometry: lineString, properties: {} }, { units: "kilometers" });
+      if (totalLength === 0) {
+        toast.warning("Selected feature has zero length, cannot divide.");
+        return;
+      }
+      const segmentLength = totalLength / DIVIDE_PARTS;
+      const segments: LineString[] = [];
+      const lineFeatureForAlong = { type: "Feature" as const, geometry: lineString, properties: {} };
+      for (let i = 0; i < DIVIDE_PARTS; i += 1) {
+        const startDist = i * segmentLength;
+        const endDist = (i + 1) * segmentLength;
+        const startPoint = along(lineFeatureForAlong, startDist, { units: "kilometers" });
+        const endPoint = along(lineFeatureForAlong, endDist, { units: "kilometers" });
+        segments.push({
+          type: "LineString",
+          coordinates: [startPoint.geometry.coordinates, endPoint.geometry.coordinates]
+        });
+      }
+      const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
+      const divideId = `${layer.id}-divided-${DIVIDE_PARTS}-parts-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+      const outputLayer: LayerManifest = {
+      ...layer,
+      id: divideId,
+      displayName: `${layer.displayName} divided (${DIVIDE_PARTS} parts)`,
+      sourcePath: `${project.name}/data/${divideId}.js`,
+      dataVariable: `json_${divideId}`,
+      layerVariable: `layer_${divideId}`,
+      geometryType: "MultiLineString",
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "source_feature", label: "source_feature", visible: true, header: false },
+        { key: "operation", label: "operation", visible: true, header: false },
+        { key: "segment_index", label: "segment_index", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: segments.map((segment, index) => ({
+          type: "Feature" as const,
+          id: `${divideId}::${sourceFeatureId}::${index}`,
+          geometry: segment,
+          properties: {
+            __q2ws_id: `${divideId}::${sourceFeatureId}::${index}`,
+            source_layer: layer.displayName,
+            source_feature: sourceFeatureId,
+            operation: "divide_line",
+            segment_index: index + 1
+          }
+        }))
+      },
+      style: {
+        ...layer.style,
+        fillColor: "#059669",
+        strokeColor: "#059669",
+        fillOpacity: 0.2,
+        strokeOpacity: 0.95,
+        strokeWidth: 2,
+        dashArray: "6 4",
+        symbolType: "line"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Divide ${layer.displayName} into ${DIVIDE_PARTS} parts` });
+      setSelectedLayerId(outputLayer.id);
+      setSelectedFeature(null);
+      setInspectorMode("layer");
+      toast.success(`Line divided into ${DIVIDE_PARTS} equal segments`);
+    } catch (error) {
+      console.error("Failed to divide line:", error);
+      toast.error("Failed to divide line. Check console for details.");
+    }
+  }
+
   function selectedFeatureIdValue() {
     return String(selectedFeatureData?.feature.properties?.__q2ws_id ?? selectedFeatureData?.feature.id ?? "");
   }
@@ -1283,6 +1389,9 @@ export function App() {
                       <div className="selected-feature-actions">
                         <button type="button" className="btn compact" onClick={convexHullSelectedFeature}>
                           Convex hull
+                        </button>
+                        <button type="button" className="btn compact" onClick={divideLineSelectedFeature} disabled={!selectedFeatureData?.layer.geometryType.includes("Line")}>
+                          Divide line
                         </button>
                         <button type="button" className="btn compact" onClick={simplifySelectedFeature}>
                           Simplify selected feature
