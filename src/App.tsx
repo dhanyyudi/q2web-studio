@@ -501,6 +501,10 @@ export function App() {
       toast.warning("Enter a positive buffer distance in meters.");
       return;
     }
+    if (!selectedFeatureData.feature.geometry) {
+      toast.warning("Selected feature has no geometry to buffer.");
+      return;
+    }
     const buffered = turfBuffer(selectedFeatureData.feature, distance, { units: "meters", steps: 16 });
     if (!buffered || buffered.type !== "Feature") {
       toast.error("Buffer could not be created for the selected feature.");
