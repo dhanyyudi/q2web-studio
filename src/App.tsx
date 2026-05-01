@@ -876,7 +876,12 @@ export function App() {
     if (!project || !selectedLayer || selectedFeatureIds.length === 0) return;
     const deltaText = window.prompt("Translate selected features by dx, dy in coordinate units", "0, 0");
     if (!deltaText) return;
-    const [dx, dy] = deltaText.split(/[,\s]+/).map(Number);
+    const deltaTokens = deltaText.trim().split(/[\s,]+/).filter(Boolean);
+    if (deltaTokens.length !== 2) {
+      toast.warning("Enter numeric dx and dy values.");
+      return;
+    }
+    const [dx, dy] = deltaTokens.map(Number);
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
       toast.warning("Enter numeric dx and dy values.");
       return;
