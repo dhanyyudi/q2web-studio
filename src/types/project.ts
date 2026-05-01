@@ -272,7 +272,7 @@ export type WorkerErrorResponse = {
 export type StudioWorkerMessage = WorkerParseRequest;
 export type StudioWorkerResponse = WorkerParseResponse | WorkerErrorResponse;
 
-export type DrawMode = "select" | "point" | "linestring" | "polygon" | "rectangle" | "circle" | "delete";
+export type DrawMode = "select" | "point" | "linestring" | "polygon" | "rectangle" | "circle" | "delete" | "lasso";
 
 export function isFeatureCollection(value: unknown): value is FeatureCollection {
   return Boolean(

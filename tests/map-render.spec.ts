@@ -119,6 +119,8 @@ test("imports fixture and renders map", async ({ page }) => {
   await page.keyboard.press("3");
   await expect(page.locator(".draw-status")).toContainText(/preview-only/i);
   await expect(page.getByTitle(/Draw line \(3\)/i)).toBeDisabled();
+  await page.keyboard.press("7");
+  await expect(page.locator(".draw-status")).toContainText(/lasso/i);
 
   await page.evaluate(() => {
     (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
@@ -130,6 +132,93 @@ test("imports fixture and renders map", async ({ page }) => {
     return events.filter((entry) => entry.source === "autofit").map((entry) => entry.event);
   });
   expect(autoFitEvents).not.toContain("apply");
+});
+
+test("lasso selects multiple features in the selected layer", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const lassoLayerName = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.geojson.features.length > 0);
+    if (!layer) throw new Error("Expected a layer for lasso selection.");
+    return layer.displayName;
+  });
+  await page.getByRole("button", { name: new RegExp(lassoLayerName, "i") }).click();
+  await expect(page.locator(".draw-status")).toContainText(/preview-only/i);
+  await page.evaluate(() => {
+    (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
+  });
+
+  await page.getByTitle(/Lasso select multiple features \(7\)/i).click();
+  await expect(page.locator(".draw-status")).toContainText(/lasso/i);
+  await page.evaluate((layerName) => {
+    const map = (window as Window & { __q2ws_map?: { fire: (type: string, data: unknown) => void } }).__q2ws_map;
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === layerName);
+    if (!map || !layer) throw new Error("Expected debug map and project.");
+    const coordinates = layer.geojson.features.flatMap((feature) => {
+      const geometry = feature.geometry;
+      if (!geometry) return [];
+      const values = JSON.stringify(geometry.coordinates).match(/-?\d+(?:\.\d+)?/g)?.map(Number) || [];
+      const pairs: Array<[number, number]> = [];
+      for (let index = 0; index < values.length - 1; index += 2) pairs.push([values[index], values[index + 1]]);
+      return pairs;
+    });
+    const lngs = coordinates.map(([lng]) => lng);
+    const lats = coordinates.map(([, lat]) => lat);
+    const west = Math.min(...lngs) - 0.001;
+    const south = Math.min(...lats) - 0.001;
+    const east = Math.max(...lngs) + 0.001;
+    const north = Math.max(...lats) + 0.001;
+    const points = [[north, west], [north, east], [south, east], [south, west], [north, west]];
+    map.fire("mousedown", { latlng: { lat: points[0][0], lng: points[0][1] } });
+    points.slice(1).forEach(([lat, lng]) => map.fire("mousemove", { latlng: { lat, lng } }));
+    map.fire("mouseup", { latlng: { lat: points[0][0], lng: points[0][1] } });
+  }, lassoLayerName);
+
+  await expect(page.getByTestId("multi-select-panel")).toContainText(/\d+ features selected/);
+  const selectedCount = await page.getByTestId("multi-select-panel").textContent();
+  expect(Number(selectedCount?.match(/(\d+) features selected/)?.[1] || 0)).toBeGreaterThan(0);
+  const terraDrawEvents = await page.evaluate(() => {
+    const events = (window as Window & { __q2wsDebugEvents?: Array<{ source?: string; event?: string }> }).__q2wsDebugEvents || [];
+    return events.filter((entry) => entry.source === "terradraw").map((entry) => entry.event);
+  });
+  expect(terraDrawEvents).toEqual([]);
+
+  const featureClickPoint = await page.evaluate((layerName) => {
+    const map = (window as Window & { __q2ws_map?: { latLngToContainerPoint: (latLng: [number, number]) => { x: number; y: number } } }).__q2ws_map;
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === layerName);
+    if (!map || !layer) throw new Error("Expected debug map and project.");
+    const geometry = layer.geojson.features[0].geometry;
+    const values = JSON.stringify(geometry?.coordinates).match(/-?\d+(?:\.\d+)?/g)?.map(Number) || [];
+    const pairs: Array<[number, number]> = [];
+    for (let index = 0; index < values.length - 1; index += 2) pairs.push([values[index], values[index + 1]]);
+    const lngs = pairs.map(([lng]) => lng);
+    const lats = pairs.map(([, lat]) => lat);
+    const lng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    const lat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const point = map.latLngToContainerPoint([lat, lng]);
+    const rect = document.querySelector(".map-canvas")!.getBoundingClientRect();
+    return { x: rect.left + point.x, y: rect.top + point.y };
+  }, lassoLayerName);
+  await page.mouse.click(featureClickPoint.x, featureClickPoint.y);
+  await expect(page.getByTestId("multi-select-panel")).toContainText("0 features selected");
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Select all/i }).click();
+  await expect(page.getByTestId("multi-select-panel")).toContainText(/\d+ features selected/);
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await expect(page.getByTestId("multi-select-panel")).toContainText("0 features selected");
+  expect(consoleErrors).toEqual([]);
 });
 
 test("runtime preview mirrors exported map path", async ({ page }) => {
