@@ -16,7 +16,7 @@ type MapCanvasProps = {
   layerVisibility?: Record<string, boolean>;
   onLayerVisibilityChange?: (layerId: string, visible: boolean) => void;
   onTileError?: (message: string) => void;
-  onProjectChange: (project: Qgis2webProject) => void;
+  onProjectChange: (project: Qgis2webProject, options?: { label?: string; group?: string; coalesceMs?: number }) => void;
   selectedFeature: SelectedFeatureRef | null;
   onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void;
 };

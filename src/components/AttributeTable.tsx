@@ -24,7 +24,7 @@ type AttributeTableProps = {
   setRenameFrom: (value: string) => void;
   renameTo: string;
   setRenameTo: (value: string) => void;
-  updateProject: (project: Qgis2webProject) => void;
+  updateProject: (project: Qgis2webProject, options?: { label?: string; group?: string; coalesceMs?: number }) => void;
   selectedFeatureId: string;
   onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void;
 };
@@ -128,7 +128,8 @@ export function AttributeTable(props: AttributeTableProps) {
                           onClick={() => props.onSelectedFeatureChange({ layerId: props.layer.id, featureId: currentFeatureId })}
                           onChange={(event) =>
                             props.updateProject(
-                              updateFeatureProperty(props.project, props.layer.id, currentFeatureId, field, event.target.value)
+                              updateFeatureProperty(props.project, props.layer.id, currentFeatureId, field, event.target.value),
+                              { label: `Edit ${field}`, group: `feature-property:${props.layer.id}:${currentFeatureId}:${field}`, coalesceMs: 600 }
                             )
                           }
                         />
