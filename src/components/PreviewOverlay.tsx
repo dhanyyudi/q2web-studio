@@ -73,7 +73,6 @@ export function PreviewOverlay({
     return () => {
       runtimePreviewRef.current?.urls.forEach((url) => URL.revokeObjectURL(url));
       runtimePreviewRef.current = null;
-      if (openTabUrlRef.current) URL.revokeObjectURL(openTabUrlRef.current);
       openTabUrlRef.current = null;
     };
   }, []);
