@@ -1610,7 +1610,7 @@ function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeomet
 function pushHistoryEntry(entries: HistoryEntry[], entry: HistoryEntry, coalesceMs: number): HistoryEntry[] {
   const previous = entries[entries.length - 1];
   if (coalesceMs > 0 && entry.group && previous?.group === entry.group && entry.updatedAt - previous.updatedAt <= coalesceMs) {
-    return [...entries.slice(0, -1), { ...previous, label: entry.label, updatedAt: entry.updatedAt }];
+    return [...entries.slice(0, -1), { ...previous, label: entry.label }];
   }
   return [...entries.slice(-(HISTORY_LIMIT - 1)), entry];
 }
