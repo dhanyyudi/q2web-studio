@@ -12,6 +12,7 @@ type MapCanvasProps = {
   drawMode: DrawMode;
   snapEnabled?: boolean;
   geometryEditingDisabled?: boolean;
+  lassoSelectionEnabled?: boolean;
   preview?: boolean;
   showLayerControl?: boolean;
   layerVisibility?: Record<string, boolean>;
@@ -30,6 +31,7 @@ export function MapCanvas({
   drawMode,
   snapEnabled = false,
   geometryEditingDisabled = false,
+  lassoSelectionEnabled = false,
   preview = false,
   showLayerControl = false,
   layerVisibility,
@@ -90,12 +92,12 @@ export function MapCanvas({
   }, [project.legendSettings.collapsed]);
 
   useBasemap(mapRef, mapInstanceVersion, project.basemaps, project.mapSettings.basemap, onTileError);
-  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, selectedFeature, selectedFeatureIds, onSelectedFeatureChange);
+  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, selectedFeature, selectedLayerId, selectedFeatureIds, onSelectedFeatureChange);
   useLassoSelection({
     mapRef,
     mapInstanceVersion,
     drawMode,
-    geometryEditingDisabled,
+    lassoSelectionEnabled,
     preview,
     onDrawStatusChange: setDrawStatus,
     onLassoComplete: onLassoComplete || (() => undefined)

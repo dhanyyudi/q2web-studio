@@ -506,6 +506,11 @@ export function App() {
     toast.error(message);
   }, []);
 
+  const handleSelectedFeatureChange = useCallback((selection: SelectedFeatureRef | null) => {
+    setSelectedFeature(selection);
+    if (selection) setSelectedFeatureIds([]);
+  }, []);
+
   function patchSelectedLayer(patch: Partial<LayerManifest>) {
     if (!project || !selectedLayer) return;
     updateProject(updateLayer(project, selectedLayer.id, patch));
@@ -1202,12 +1207,13 @@ export function App() {
                     selectedLayerId={selectedLayer.id}
                     drawMode={drawMode}
                     snapEnabled={snapEnabled}
-                    geometryEditingDisabled={drawMode !== "lasso" && !canEditGeometry}
+                    geometryEditingDisabled={!canEditGeometry}
+                    lassoSelectionEnabled={Boolean(selectedLayer)}
                     onProjectChange={updateProject}
                     onTileError={handleTileError}
                     selectedFeature={selectedFeature}
                     selectedFeatureIds={selectedFeatureIds}
-                    onSelectedFeatureChange={setSelectedFeature}
+                    onSelectedFeatureChange={handleSelectedFeatureChange}
                     onLassoComplete={handleLassoComplete}
                   />
                 </Panel>
@@ -1235,7 +1241,7 @@ export function App() {
                     setRenameTo={setRenameTo}
                     updateProject={updateProject}
                     selectedFeatureId={selectedFeature?.layerId === selectedLayer.id ? selectedFeature.featureId : ""}
-                    onSelectedFeatureChange={setSelectedFeature}
+                    onSelectedFeatureChange={handleSelectedFeatureChange}
                   />
                 </Panel>
               </Group>
