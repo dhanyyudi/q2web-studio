@@ -69,6 +69,10 @@ export function opfsErrorMessage(error: unknown): string {
   return "Browser cache could not be restored.";
 }
 
+export function hydrateStoredProjectForTest(value: unknown): Qgis2webProject {
+  return deserializeProject(value);
+}
+
 function serializeProject(project: Qgis2webProject): Qgis2webProject & { files: Record<string, VirtualFile & { bufferBase64?: string }> } {
   const migrated = migrateProject(project);
   return {

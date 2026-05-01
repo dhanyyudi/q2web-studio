@@ -1,9 +1,13 @@
-import { readdir, readFile } from "node:fs/promises";
+import JSZip from "jszip";
+import { access, readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { parseQgis2webProject } from "../src/lib/qgis2webParser";
+import { hydrateStoredProjectForTest } from "../src/lib/opfs";
 import type { VirtualFile } from "../src/types/project";
 
-const fixtureRoot = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659");
+const fixtureName = "qgis2web_2026_04_22-06_30_44_400659";
+const fixtureRoot = join(process.cwd(), "docs", "example_export", fixtureName);
+const fixtureZipPath = join(process.cwd(), "docs", "example_export", `${fixtureName}.zip`);
 
 async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -16,28 +20,57 @@ async function walk(dir: string): Promise<string[]> {
   return nested.flat();
 }
 
-const paths = await walk(fixtureRoot);
-const files: VirtualFile[] = await Promise.all(
-  paths.map(async (path) => {
-    const rel = `qgis2web_2026_04_22-06_30_44_400659/${relative(fixtureRoot, path).replaceAll("\\", "/")}`;
-    const isText = /\.(html|js|css|json|txt|svg)$/i.test(path);
-    if (isText) {
+async function fixtureFiles(): Promise<VirtualFile[]> {
+  try {
+    await access(fixtureRoot);
+    const paths = await walk(fixtureRoot);
+    return Promise.all(
+      paths.map(async (path) => {
+        const rel = `${fixtureName}/${relative(fixtureRoot, path).replaceAll("\\", "/")}`;
+        const isText = /\.(html|js|css|json|txt|svg)$/i.test(path);
+        if (isText) {
+          return {
+            path: rel,
+            name: rel.split("/").pop() || rel,
+            kind: "text" as const,
+            text: await readFile(path, "utf8")
+          };
+        }
+        const buffer = await readFile(path);
+        return {
+          path: rel,
+          name: rel.split("/").pop() || rel,
+          kind: "binary" as const,
+          buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+        };
+      })
+    );
+  } catch {
+    const zip = await JSZip.loadAsync(await readFile(fixtureZipPath));
+    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
+    return Promise.all(entries.map(async (entry) => {
+      const rel = entry.name;
+      const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
+      if (isText) {
+        return {
+          path: rel,
+          name: rel.split("/").pop() || rel,
+          kind: "text" as const,
+          text: await entry.async("string")
+        };
+      }
+      const buffer = await entry.async("nodebuffer");
       return {
         path: rel,
         name: rel.split("/").pop() || rel,
-        kind: "text" as const,
-        text: await readFile(path, "utf8")
+        kind: "binary" as const,
+        buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
       };
-    }
-    const buffer = await readFile(path);
-    return {
-      path: rel,
-      name: rel.split("/").pop() || rel,
-      kind: "binary" as const,
-      buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-    };
-  })
-);
+    }));
+  }
+}
+
+const files = await fixtureFiles();
 
 const project = parseQgis2webProject(files);
 const layerNames = project.layers.map((layer) => layer.displayName).sort();
@@ -153,4 +186,26 @@ for (const expectedRuntimeCode of ["function applyDisabledWidgets", "removeContr
   }
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legend labels, line styles, and runtime widget disable hardening verified.`);
+const legacyStoredProject = hydrateStoredProjectForTest({
+  ...project,
+  basemaps: undefined,
+  runtime: undefined,
+  popupSettings: undefined,
+  sidebar: undefined,
+  layers: project.layers.map((layer) => ({
+    ...layer,
+    popupTemplate: undefined,
+    popupSettings: undefined
+  }))
+});
+if (!legacyStoredProject.basemaps.length || !Array.isArray(legacyStoredProject.runtime.widgets)) {
+  throw new Error("Expected legacy OPFS project hydration to restore basemaps and runtime defaults.");
+}
+if (!legacyStoredProject.popupSettings || !legacyStoredProject.sidebar) {
+  throw new Error("Expected legacy OPFS project hydration to restore popup and sidebar defaults.");
+}
+if (legacyStoredProject.layers.some((layer) => !layer.layerTreeGroup || !layer.style.symbolType)) {
+  throw new Error("Expected legacy OPFS project hydration to restore layer defaults.");
+}
+
+console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legend labels, line styles, and runtime widget disable hardening verified.`);

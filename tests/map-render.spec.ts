@@ -5,7 +5,11 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 
-const fixtureRoot = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659");
+const fixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659.zip");
+
+async function importFixture(page: import("@playwright/test").Page) {
+  await page.locator('input[accept*=".zip"]').setInputFiles(fixtureZip);
+}
 
 async function assertRenderedMap(page: import("@playwright/test").Page, requests: string[], consoleErrors: string[]) {
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
@@ -161,7 +165,7 @@ test("imports fixture and renders map", async ({ page }) => {
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await assertRenderedMap(page, requests, consoleErrors);
 
   const debugBufferExists = await page.evaluate(() => Array.isArray((window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents));
@@ -201,7 +205,7 @@ test("lasso selects multiple features in the selected layer", async ({ page }) =
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
   const lassoLayerName = await page.evaluate(() => {
@@ -275,7 +279,7 @@ test("lasso selects multiple features in the selected layer", async ({ page }) =
 
   await page.getByRole("button", { name: /Select all/i }).click();
   await expect(page.getByTestId("multi-select-panel")).toContainText(/\d+ features selected/);
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await expect(page.getByTestId("multi-select-panel")).toContainText("0 features selected");
   expect(consoleErrors).toEqual([]);
@@ -349,6 +353,108 @@ test("exports translated coordinates in ZIP data", async ({ page }) => {
   }
 });
 
+test("undoes and redoes selected feature translation", async ({ page }) => {
+  const fixtureDir = await createTranslateFixture();
+  try {
+    await page.goto("/?debug=1");
+    await page.locator('input[webkitdirectory]').setInputFiles(fixtureDir);
+    await expect(page.locator(".status-box")).toContainText(/Imported 3 layers/i, { timeout: 15000 });
+
+    const lineLayerName = await displayNameBySource(page, "SimpleLine_2.js");
+    await page.getByRole("button", { name: new RegExp(lineLayerName, "i") }).click();
+    await lassoFirstFeature(page, lineLayerName);
+    const before = await layerCoordinates(page, lineLayerName);
+    page.once("dialog", async (dialog) => {
+      await dialog.accept("0.001, -0.002");
+    });
+    await page.getByTestId("multi-select-panel").getByRole("button", { name: /Translate selected/i }).click();
+    const translated = await layerCoordinates(page, lineLayerName);
+    expect(translated).not.toEqual(before);
+
+    await page.getByRole("button", { name: /Undo \(Translate selected features\)/i }).click();
+    await expect(page.getByRole("button", { name: /Redo \(Translate selected features\)/i })).toBeEnabled();
+    expect(await layerCoordinates(page, lineLayerName)).toEqual(before);
+
+    await page.getByRole("button", { name: /Redo \(Translate selected features\)/i }).click();
+    await expect(page.getByRole("button", { name: /Undo \(Translate selected features\)/i })).toBeEnabled();
+    expect(await layerCoordinates(page, lineLayerName)).toEqual(translated);
+  } finally {
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("rotates selected simple features in place and exports coordinates", async ({ page }) => {
+  const fixtureDir = await createTranslateFixture();
+  try {
+    await page.goto("/?debug=1");
+    await page.locator('input[webkitdirectory]').setInputFiles(fixtureDir);
+    await expect(page.locator(".status-box")).toContainText(/Imported 3 layers/i, { timeout: 15000 });
+
+    const lineLayerName = await displayNameBySource(page, "SimpleLine_2.js");
+    await page.getByRole("button", { name: new RegExp(lineLayerName, "i") }).click();
+    await lassoFirstFeature(page, lineLayerName);
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toMatch(/degrees/i);
+      await dialog.accept("90");
+    });
+    await page.getByTestId("multi-select-panel").getByRole("button", { name: /Rotate selected/i }).click();
+
+    const after = await layerCoordinates(page, lineLayerName);
+    expect(after[0]).toEqual([[108.47, -6.79], [108.46, -6.78]]);
+    expect(after[1]).toEqual([[108.51, -6.74], [108.52, -6.73]]);
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /Export ZIP/i }).click()
+    ]);
+    const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-rotate-export-");
+    try {
+      const geojson = await exportedGeojson(zipPath, "SimpleLine_2.js");
+      expect(geojson.features[0]?.geometry?.coordinates).toEqual([[108.47, -6.79], [108.46, -6.78]]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  } finally {
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("scales selected simple features in place and exports coordinates", async ({ page }) => {
+  const fixtureDir = await createTranslateFixture();
+  try {
+    await page.goto("/?debug=1");
+    await page.locator('input[webkitdirectory]').setInputFiles(fixtureDir);
+    await expect(page.locator(".status-box")).toContainText(/Imported 3 layers/i, { timeout: 15000 });
+
+    const lineLayerName = await displayNameBySource(page, "SimpleLine_2.js");
+    await page.getByRole("button", { name: new RegExp(lineLayerName, "i") }).click();
+    await lassoFirstFeature(page, lineLayerName);
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toMatch(/factor/i);
+      await dialog.accept("2");
+    });
+    await page.getByTestId("multi-select-panel").getByRole("button", { name: /Scale selected/i }).click();
+
+    const after = await layerCoordinates(page, lineLayerName);
+    expect(after[0]).toEqual([[108.455, -6.795], [108.475, -6.775]]);
+    expect(after[1]).toEqual([[108.51, -6.74], [108.52, -6.73]]);
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /Export ZIP/i }).click()
+    ]);
+    const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-scale-export-");
+    try {
+      const geojson = await exportedGeojson(zipPath, "SimpleLine_2.js");
+      expect(geojson.features[0]?.geometry?.coordinates).toEqual([[108.455, -6.795], [108.475, -6.775]]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  } finally {
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
 test("runtime preview mirrors exported map path", async ({ page }) => {
   const requests: string[] = [];
   const consoleErrors: string[] = [];
@@ -360,7 +466,7 @@ test("runtime preview mirrors exported map path", async ({ page }) => {
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await assertRenderedMap(page, requests, consoleErrors);
 
   await page.getByTestId("open-preview").click();
@@ -388,6 +494,38 @@ test("runtime preview mirrors exported map path", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test("runtime preview mirrors disabled widget export state", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.locator(".widget-row", { hasText: /Measure tool/i }).locator('input[type="checkbox"]').uncheck();
+  await page.locator(".widget-row", { hasText: /Address search/i }).locator('input[type="checkbox"]').uncheck();
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toBeVisible({ timeout: 15000 });
+  await expect(iframe).toHaveAttribute("src", /blob:/);
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  await expect(frame.locator(".leaflet-control-measure")).toHaveCount(0);
+
+  const srcdoc = await page.evaluate(async () => {
+    const iframe = document.querySelector<HTMLIFrameElement>('[data-testid="runtime-preview-frame"]');
+    if (!iframe?.src) return "";
+    return fetch(iframe.src).then((response) => response.text());
+  });
+  expect(srcdoc).not.toContain("leaflet-measure.css");
+  expect(srcdoc).not.toContain("leaflet.photon.css");
+  expect(consoleErrors).toEqual([]);
+});
+
 test("Export Now downloads the same runtime ZIP from preview", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
@@ -395,7 +533,7 @@ test("Export Now downloads the same runtime ZIP from preview", async ({ page }) 
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await page.getByTestId("open-preview").click();
   await expect(page.locator('[data-testid="runtime-preview-frame"]')).toBeVisible({ timeout: 15000 });
@@ -440,7 +578,7 @@ test("runtime preview can reopen without leaking blob URLs", async ({ page }) =>
       originalRevoke(url);
     }) as typeof URL.revokeObjectURL;
   });
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
   for (let index = 0; index < 3; index += 1) {
@@ -463,7 +601,7 @@ test("applies simplify to selected line feature", async ({ page }) => {
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await page.getByRole("button", { name: "Sungai MultiLineString" }).click();
   await page.locator(".attribute-panel tbody tr").first().click();
@@ -522,7 +660,7 @@ test("merge all polygon features in layer creates a union output layer", async (
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
   await page.getByRole("button", { name: "Zona Nilai Tanah" }).click();
@@ -577,7 +715,7 @@ test("creates polygon to line analysis output for selected polygon feature", asy
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await page.getByRole("button", { name: "Batas Desa MultiPolygon" }).click();
   await page.locator(".attribute-panel tbody tr").first().click();
@@ -634,7 +772,7 @@ test("merge aborts without creating output layer when union fails", async ({ pag
   });
 
   await page.goto("/?debug=1&forceMergeUnionError=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
   await page.getByRole("button", { name: "Zona Nilai Tanah" }).click();
@@ -660,7 +798,7 @@ test("creates convex hull layer from selected polygon feature", async ({ page })
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
   await page.getByRole("button", { name: /Zona Nilai Tanah/i }).click();
@@ -718,7 +856,7 @@ test("divides selected line feature into equal parts", async ({ page }) => {
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await page.getByRole("button", { name: /Sungai/i }).click();
   await page.locator(".attribute-panel tbody tr").first().click();
@@ -771,6 +909,192 @@ test("divides selected line feature into equal parts", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test("splits selected line feature at midpoint", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Sungai/i }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Split line/i }).click();
+
+  await page.waitForFunction(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string }> } }).__q2ws_project;
+    return project?.layers.some((candidate) => candidate.displayName === "Sungai split midpoint") || false;
+  }, null, { timeout: 15000 });
+
+  const splitLayer = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geometryType: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai split midpoint");
+    return layer ? {
+      geometryType: layer.geometryType,
+      featureCount: layer.geojson.features.length,
+      operations: layer.geojson.features.map((f) => String(f.properties?.operation ?? "")),
+      geometries: layer.geojson.features.map((f) => f.geometry)
+    } : null;
+  });
+  expect(splitLayer).not.toBeNull();
+  expect(splitLayer?.geometryType).toBe("LineString");
+  expect(splitLayer?.featureCount).toBe(2);
+  expect(splitLayer?.operations).toEqual(["split_line", "split_line"]);
+  expect(splitLayer?.geometries.every((geometry) => geometry?.type === "LineString")).toBe(true);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-split-smoke-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const entries = Object.keys(zip.files);
+    const splitDataPath = entries.find((entry) => /data\/.*split_midpoint.*\.js$/.test(entry));
+    expect(splitDataPath).toBeTruthy();
+    const dataText = await zip.file(splitDataPath!)!.async("string");
+    const geojson = JSON.parse(dataText.replace(/^var\s+[A-Za-z0-9_]+\s*=\s*/, "").replace(/;\s*$/, ""));
+    expect(geojson.features).toHaveLength(2);
+    expect(geojson.features.every((f: GeoJSON.Feature) => f.geometry?.type === "LineString")).toBe(true);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
+test("exported runtime keeps measure and photon assets when enabled", async ({ page, browser }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-widget-enabled-");
+  await unzipToDirectory(zipPath, tempDir);
+
+  const extractedRoot = join(tempDir, "qgis2web_2026_04_22-06_30_44_400659");
+  const indexHtml = await readFile(join(extractedRoot, "index.html"), "utf8");
+  expect(indexHtml).toContain("leaflet-measure.css");
+  expect(indexHtml).toContain("leaflet.photon.css");
+
+  const staticServer = await startStaticServer(extractedRoot);
+  const runtimePage = await browser.newPage();
+  try {
+    await runtimePage.goto(`${staticServer.origin}/?debug=1`);
+    await runtimePage.waitForFunction(() => Boolean((window as Window & { map?: { _loaded?: boolean } }).map?._loaded), null, { timeout: 15000 });
+    await expect(runtimePage.locator(".leaflet-control-measure")).toBeVisible({ timeout: 15000 });
+  } finally {
+    await runtimePage.close();
+    await staticServer.close();
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("exported runtime removes measure and photon assets when disabled", async ({ page, browser }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.locator(".widget-row", { hasText: /Measure tool/i }).locator('input[type="checkbox"]').uncheck();
+  await page.locator(".widget-row", { hasText: /Address search/i }).locator('input[type="checkbox"]').uncheck();
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-widget-disabled-");
+  await unzipToDirectory(zipPath, tempDir);
+
+  const extractedRoot = join(tempDir, "qgis2web_2026_04_22-06_30_44_400659");
+  const indexHtml = await readFile(join(extractedRoot, "index.html"), "utf8");
+  expect(indexHtml).not.toContain("leaflet-measure.css");
+  expect(indexHtml).not.toContain("leaflet.photon.css");
+
+  const staticServer = await startStaticServer(extractedRoot);
+  const runtimePage = await browser.newPage();
+  try {
+    await runtimePage.goto(`${staticServer.origin}/?debug=1`);
+    await runtimePage.waitForFunction(() => Boolean((window as Window & { map?: { _loaded?: boolean } }).map?._loaded), null, { timeout: 15000 });
+    await expect(runtimePage.locator(".leaflet-control-measure")).toHaveCount(0);
+  } finally {
+    await runtimePage.close();
+    await staticServer.close();
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("exported runtime keeps labels and layer tree when enabled", async ({ page, browser }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-labels-tree-enabled-");
+  await unzipToDirectory(zipPath, tempDir);
+
+  const extractedRoot = join(tempDir, "qgis2web_2026_04_22-06_30_44_400659");
+  const indexHtml = await readFile(join(extractedRoot, "index.html"), "utf8");
+  expect(indexHtml).toContain("labels.js");
+  expect(indexHtml).toContain("L.Control.Layers.Tree");
+
+  const staticServer = await startStaticServer(extractedRoot);
+  const runtimePage = await browser.newPage();
+  try {
+    await runtimePage.goto(`${staticServer.origin}/?debug=1`);
+    await runtimePage.waitForFunction(() => Boolean((window as Window & { map?: { _loaded?: boolean } }).map?._loaded), null, { timeout: 15000 });
+    await expect(runtimePage.locator(".leaflet-tooltip").first()).toBeVisible({ timeout: 15000 });
+    await expect(runtimePage.locator(".leaflet-control-layers")).toHaveCount(1);
+  } finally {
+    await runtimePage.close();
+    await staticServer.close();
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("exported runtime removes labels and layer tree when disabled", async ({ page, browser }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.locator(".widget-row", { hasText: /Permanent labels/i }).locator('input[type="checkbox"]').uncheck();
+  await page.locator(".widget-row", { hasText: /Layer tree control/i }).locator('input[type="checkbox"]').uncheck();
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-labels-tree-disabled-");
+  await unzipToDirectory(zipPath, tempDir);
+
+  const extractedRoot = join(tempDir, "qgis2web_2026_04_22-06_30_44_400659");
+  const indexHtml = await readFile(join(extractedRoot, "index.html"), "utf8");
+  expect(indexHtml).not.toContain("labels.js");
+  expect(indexHtml).not.toContain("L.Control.Layers.Tree");
+
+  const staticServer = await startStaticServer(extractedRoot);
+  const runtimePage = await browser.newPage();
+  try {
+    await runtimePage.goto(`${staticServer.origin}/?debug=1`);
+    await runtimePage.waitForFunction(() => Boolean((window as Window & { map?: { _loaded?: boolean } }).map?._loaded), null, { timeout: 15000 });
+    await expect(runtimePage.locator(".leaflet-tooltip")).toHaveCount(0);
+    await expect(runtimePage.locator(".leaflet-control-layers")).toHaveCount(0);
+  } finally {
+    await runtimePage.close();
+    await staticServer.close();
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
   const editorRequests: string[] = [];
   const editorConsoleErrors: string[] = [];
@@ -782,7 +1106,7 @@ test("exports ZIP and rendered runtime stays healthy", async ({ page, browser },
   });
 
   await page.goto("/?debug=1");
-  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await importFixture(page);
   await assertRenderedMap(page, editorRequests, editorConsoleErrors);
 
   const [download] = await Promise.all([

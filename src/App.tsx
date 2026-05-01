@@ -905,6 +905,62 @@ export function App() {
     toast.success(`Translated ${translatedCount} feature${translatedCount === 1 ? "" : "s"}`);
   }
 
+  function rotateSelectedFeatures() {
+    if (!project || !selectedLayer || selectedFeatureIds.length === 0) return;
+    const angleText = window.prompt("Rotate selected features by degrees", "0");
+    if (!angleText) return;
+    const angle = Number(angleText.trim());
+    if (!Number.isFinite(angle)) {
+      toast.warning("Enter a numeric degree value.");
+      return;
+    }
+    const selectedIds = new Set(selectedFeatureIds);
+    let rotatedCount = 0;
+    const features = selectedLayer.geojson.features.map((feature) => {
+      const featureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "");
+      if (!selectedIds.has(featureId) || !feature.geometry || !isSimpleEditableGeometry(feature.geometry)) return feature;
+      rotatedCount += 1;
+      return { ...feature, geometry: rotateGeometry(feature.geometry, angle) };
+    });
+    if (rotatedCount === 0) {
+      toast.warning("No selected simple features to rotate.");
+      return;
+    }
+    updateProject(updateLayerGeojson(project, selectedLayer.id, { ...selectedLayer.geojson, features }), {
+      label: "Rotate selected features",
+      group: `rotate-features:${selectedLayer.id}`
+    });
+    toast.success(`Rotated ${rotatedCount} feature${rotatedCount === 1 ? "" : "s"}`);
+  }
+
+  function scaleSelectedFeatures() {
+    if (!project || !selectedLayer || selectedFeatureIds.length === 0) return;
+    const factorText = window.prompt("Scale selected features by factor", "1");
+    if (!factorText) return;
+    const factor = Number(factorText.trim());
+    if (!Number.isFinite(factor) || factor <= 0) {
+      toast.warning("Enter a positive numeric scale factor.");
+      return;
+    }
+    const selectedIds = new Set(selectedFeatureIds);
+    let scaledCount = 0;
+    const features = selectedLayer.geojson.features.map((feature) => {
+      const featureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "");
+      if (!selectedIds.has(featureId) || !feature.geometry || !isSimpleEditableGeometry(feature.geometry)) return feature;
+      scaledCount += 1;
+      return { ...feature, geometry: scaleGeometry(feature.geometry, factor) };
+    });
+    if (scaledCount === 0) {
+      toast.warning("No selected simple features to scale.");
+      return;
+    }
+    updateProject(updateLayerGeojson(project, selectedLayer.id, { ...selectedLayer.geojson, features }), {
+      label: "Scale selected features",
+      group: `scale-features:${selectedLayer.id}`
+    });
+    toast.success(`Scaled ${scaledCount} feature${scaledCount === 1 ? "" : "s"}`);
+  }
+
   const handleLassoComplete = useCallback((polygon: Polygon) => {
     if (!selectedLayer) return;
     const selectedIds = selectedLayer.geojson.features
@@ -918,6 +974,48 @@ export function App() {
     setSelectedFeature(null);
     toast.info(`Lasso selected ${selectedIds.length} features`);
   }, [selectedLayer]);
+
+  function splitLineSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const { layer, feature } = selectedFeatureData;
+    if (!layer.geometryType.includes("Line")) {
+      toast.warning("Split line is available for line features only.");
+      return;
+    }
+    if (!feature.geometry) {
+      toast.warning("Selected feature has no geometry to split.");
+      return;
+    }
+    try {
+      const lineFeature = feature as Feature<LineString | MultiLineString>;
+      const lineParts = lineFeature.geometry.type === "MultiLineString"
+        ? lineFeature.geometry.coordinates
+        : [lineFeature.geometry.coordinates];
+      const segments = lineParts.flatMap((coordinates) => splitLinePartAtMidpoint(coordinates as Array<[number, number]>));
+      if (segments.length === 0) {
+        toast.warning("Selected feature has zero length, cannot split.");
+        return;
+      }
+      const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
+      const splitId = `${layer.id}-split_midpoint-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+      const outputLayer = buildLineOperationLayer(project, layer, splitId, `${layer.displayName} split midpoint`, sourceFeatureId, "split_line", segments, {
+        fillColor: "#7c3aed",
+        strokeColor: "#7c3aed",
+        fillOpacity: 0.2,
+        strokeOpacity: 0.95,
+        strokeWidth: 2,
+        dashArray: "4 4"
+      });
+      updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Split ${layer.displayName} at midpoint` });
+      setSelectedLayerId(outputLayer.id);
+      setSelectedFeature(null);
+      setInspectorMode("layer");
+      toast.success("Line split at midpoint");
+    } catch (error) {
+      console.error("Failed to split line:", error);
+      toast.error("Failed to split line. Check console for details.");
+    }
+  }
 
   const DIVIDE_PARTS = 3;
   function divideLineSelectedFeature() {
@@ -943,54 +1041,15 @@ export function App() {
       }
       const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
       const divideId = `${layer.id}-divided-${DIVIDE_PARTS}-parts-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
-      const outputLayer: LayerManifest = {
-      ...layer,
-      id: divideId,
-      displayName: `${layer.displayName} divided (${DIVIDE_PARTS} parts)`,
-      sourcePath: `${project.name}/data/${divideId}.js`,
-      dataVariable: `json_${divideId}`,
-      layerVariable: `layer_${divideId}`,
-      geometryType: "LineString",
-      visible: true,
-      showInLayerControl: true,
-      popupEnabled: true,
-      legendEnabled: true,
-      layerTreeGroup: "Analysis",
-      label: undefined,
-      popupFields: [
-        { key: "source_layer", label: "source_layer", visible: true, header: false },
-        { key: "source_feature", label: "source_feature", visible: true, header: false },
-        { key: "operation", label: "operation", visible: true, header: false },
-        { key: "segment_index", label: "segment_index", visible: true, header: false }
-      ],
-      popupTemplate: undefined,
-      geojson: {
-        type: "FeatureCollection",
-        features: segments.map((segment, index) => ({
-          type: "Feature" as const,
-          id: `${divideId}::${sourceFeatureId}::${index}`,
-          geometry: segment,
-          properties: {
-            __q2ws_id: `${divideId}::${sourceFeatureId}::${index}`,
-            source_layer: layer.displayName,
-            source_feature: sourceFeatureId,
-            operation: "divide_line",
-            segment_index: index + 1
-          }
-        }))
-      },
-      style: {
-        ...layer.style,
+      const outputLayer = buildLineOperationLayer(project, layer, divideId, `${layer.displayName} divided (${DIVIDE_PARTS} parts)`, sourceFeatureId, "divide_line", segments, {
         fillColor: "#059669",
         strokeColor: "#059669",
         fillOpacity: 0.2,
         strokeOpacity: 0.95,
         strokeWidth: 2,
-        dashArray: "6 4",
-        symbolType: "line"
-      }
-    };
-    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Divide ${layer.displayName} into ${DIVIDE_PARTS} parts` });
+        dashArray: "6 4"
+      });
+      updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Divide ${layer.displayName} into ${DIVIDE_PARTS} parts` });
       setSelectedLayerId(outputLayer.id);
       setSelectedFeature(null);
       setInspectorMode("layer");
@@ -1624,6 +1683,9 @@ export function App() {
                         <button type="button" className="btn compact" onClick={convexHullSelectedFeature}>
                           Convex hull
                         </button>
+                        <button type="button" className="btn compact" onClick={splitLineSelectedFeature} disabled={!selectedFeatureData?.layer.geometryType.includes("Line")}>
+                          Split line
+                        </button>
                         <button type="button" className="btn compact" onClick={divideLineSelectedFeature} disabled={!selectedFeatureData?.layer.geometryType.includes("Line")}>
                           Divide line
                         </button>
@@ -1639,6 +1701,8 @@ export function App() {
                     <span>{selectedFeatureIds.length} features selected</span>
                     <button type="button" className="btn compact" onClick={selectAllFeatures}>Select all</button>
                     <button type="button" className="btn compact" onClick={translateSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Translate selected</button>
+                    <button type="button" className="btn compact" onClick={rotateSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Rotate selected</button>
+                    <button type="button" className="btn compact" onClick={scaleSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Scale selected</button>
                     <button type="button" className="btn compact" onClick={clearSelection} disabled={selectedFeatureIds.length === 0}>Clear selection</button>
                   </div>
                   {selectedLayerHasMultiGeometry && (
@@ -1976,6 +2040,66 @@ function translateCoordinate(coordinate: GeoJSON.Position, dx: number, dy: numbe
   return [coordinate[0] + dx, coordinate[1] + dy, ...coordinate.slice(2)];
 }
 
+function rotateGeometry<T extends Point | LineString | Polygon>(geometry: T, angleDegrees: number): T {
+  const center = geometryCenter(geometry);
+  if (!center) return geometry;
+  if (geometry.type === "Point") {
+    return { ...geometry, coordinates: rotateCoordinate(geometry.coordinates, center, angleDegrees) } as T;
+  }
+  if (geometry.type === "LineString") {
+    return { ...geometry, coordinates: geometry.coordinates.map((coordinate) => rotateCoordinate(coordinate, center, angleDegrees)) } as T;
+  }
+  return {
+    ...geometry,
+    coordinates: geometry.coordinates.map((ring) => ring.map((coordinate) => rotateCoordinate(coordinate, center, angleDegrees)))
+  } as T;
+}
+
+function geometryCenter(geometry: Point | LineString | Polygon): GeoJSON.Position | null {
+  if (geometry.type === "Point") return geometry.coordinates;
+  const pairs = geometry.type === "LineString"
+    ? geometry.coordinates
+    : geometry.coordinates.flat();
+  if (pairs.length === 0) return null;
+  const lngs = pairs.map((coordinate) => coordinate[0]);
+  const lats = pairs.map((coordinate) => coordinate[1]);
+  return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
+}
+
+function rotateCoordinate(coordinate: GeoJSON.Position, center: GeoJSON.Position, angleDegrees: number): GeoJSON.Position {
+  const radians = angleDegrees * (Math.PI / 180);
+  const dx = coordinate[0] - center[0];
+  const dy = coordinate[1] - center[1];
+  const x = dx * Math.cos(radians) - dy * Math.sin(radians);
+  const y = dx * Math.sin(radians) + dy * Math.cos(radians);
+  return [roundCoordinate(center[0] + x), roundCoordinate(center[1] + y), ...coordinate.slice(2)];
+}
+
+function roundCoordinate(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function scaleGeometry<T extends Point | LineString | Polygon>(geometry: T, factor: number): T {
+  const center = geometryCenter(geometry);
+  if (!center) return geometry;
+  if (geometry.type === "Point") {
+    return { ...geometry, coordinates: scaleCoordinate(geometry.coordinates, center, factor) } as T;
+  }
+  if (geometry.type === "LineString") {
+    return { ...geometry, coordinates: geometry.coordinates.map((coordinate) => scaleCoordinate(coordinate, center, factor)) } as T;
+  }
+  return {
+    ...geometry,
+    coordinates: geometry.coordinates.map((ring) => ring.map((coordinate) => scaleCoordinate(coordinate, center, factor)))
+  } as T;
+}
+
+function scaleCoordinate(coordinate: GeoJSON.Position, center: GeoJSON.Position, factor: number): GeoJSON.Position {
+  const dx = coordinate[0] - center[0];
+  const dy = coordinate[1] - center[1];
+  return [roundCoordinate(center[0] + dx * factor), roundCoordinate(center[1] + dy * factor), ...coordinate.slice(2)];
+}
+
 function representativePoint(geometry: Geometry | null | undefined): Feature<Point> | null {
   if (!geometry) return null;
   if (geometry.type === "Point") return { type: "Feature", properties: {}, geometry };
@@ -1989,6 +2113,69 @@ function representativePoint(geometry: Geometry | null | undefined): Feature<Poi
       coordinates: [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
     }
   };
+}
+
+function buildLineOperationLayer(
+  project: Qgis2webProject,
+  layer: LayerManifest,
+  layerId: string,
+  displayName: string,
+  sourceFeatureId: string,
+  operation: string,
+  segments: LineString[],
+  stylePatch: Partial<LayerManifest["style"]>
+): LayerManifest {
+  return {
+    ...layer,
+    id: layerId,
+    displayName,
+    sourcePath: `${project.name}/data/${layerId}.js`,
+    dataVariable: `json_${layerId}`,
+    layerVariable: `layer_${layerId}`,
+    geometryType: "LineString",
+    visible: true,
+    showInLayerControl: true,
+    popupEnabled: true,
+    legendEnabled: true,
+    layerTreeGroup: "Analysis",
+    label: undefined,
+    popupFields: [
+      { key: "source_layer", label: "source_layer", visible: true, header: false },
+      { key: "source_feature", label: "source_feature", visible: true, header: false },
+      { key: "operation", label: "operation", visible: true, header: false },
+      { key: "segment_index", label: "segment_index", visible: true, header: false }
+    ],
+    popupTemplate: undefined,
+    geojson: {
+      type: "FeatureCollection",
+      features: segments.map((segment, index) => ({
+        type: "Feature" as const,
+        id: `${layerId}::${sourceFeatureId}::${index}`,
+        geometry: segment,
+        properties: {
+          __q2ws_id: `${layerId}::${sourceFeatureId}::${index}`,
+          source_layer: layer.displayName,
+          source_feature: sourceFeatureId,
+          operation,
+          segment_index: index + 1
+        }
+      }))
+    },
+    style: {
+      ...layer.style,
+      fillColor: stylePatch.fillColor ?? layer.style.fillColor,
+      strokeColor: stylePatch.strokeColor ?? layer.style.strokeColor,
+      fillOpacity: stylePatch.fillOpacity ?? layer.style.fillOpacity,
+      strokeOpacity: stylePatch.strokeOpacity ?? layer.style.strokeOpacity,
+      strokeWidth: stylePatch.strokeWidth ?? layer.style.strokeWidth,
+      dashArray: stylePatch.dashArray ?? layer.style.dashArray,
+      symbolType: "line"
+    }
+  };
+}
+
+function splitLinePartAtMidpoint(coordinates: Array<[number, number]>): LineString[] {
+  return divideLinePart(coordinates, 2);
 }
 
 function divideLinePart(coordinates: Array<[number, number]>, parts: number): LineString[] {
