@@ -119,6 +119,8 @@ test("imports fixture and renders map", async ({ page }) => {
   await page.keyboard.press("3");
   await expect(page.locator(".draw-status")).toContainText(/preview-only/i);
   await expect(page.getByTitle(/Draw line \(3\)/i)).toBeDisabled();
+  await page.keyboard.press("7");
+  await expect(page.locator(".draw-status")).toContainText(/lasso/i);
 
   await page.evaluate(() => {
     (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
@@ -154,7 +156,7 @@ test("lasso selects multiple features in the selected layer", async ({ page }) =
     (window as Window & { __q2wsDebugEvents?: unknown[] }).__q2wsDebugEvents = [];
   });
 
-  await page.getByRole("button", { name: /Lasso select multiple features/i }).click();
+  await page.getByTitle(/Lasso select multiple features \(7\)/i).click();
   await expect(page.locator(".draw-status")).toContainText(/lasso/i);
   await page.evaluate((layerName) => {
     const map = (window as Window & { __q2ws_map?: { fire: (type: string, data: unknown) => void } }).__q2ws_map;
@@ -213,7 +215,8 @@ test("lasso selects multiple features in the selected layer", async ({ page }) =
 
   await page.getByRole("button", { name: /Select all/i }).click();
   await expect(page.getByTestId("multi-select-panel")).toContainText(/\d+ features selected/);
-  await page.getByRole("button", { name: /Clear selection/i }).click();
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await expect(page.getByTestId("multi-select-panel")).toContainText("0 features selected");
   expect(consoleErrors).toEqual([]);
 });

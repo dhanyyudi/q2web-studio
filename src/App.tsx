@@ -112,6 +112,7 @@ export function App() {
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const mapPanelRef = usePanelRef();
   const tablePanelRef = usePanelRef();
+  const projectSelectionIdentityRef = useRef("");
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeatureRef | null>(null);
@@ -162,6 +163,7 @@ export function App() {
   const canDrawPoint = canEditGeometry && selectedGeometryKind === "point";
   const canDrawLine = canEditGeometry && selectedGeometryKind === "line";
   const canDrawPolygon = canEditGeometry && selectedGeometryKind === "polygon";
+  const projectSelectionIdentity = useMemo(() => project ? projectSelectionIdentityKey(project) : "", [project]);
 
   useEffect(() => {
     applyAppTheme(appTheme);
@@ -198,6 +200,12 @@ export function App() {
       setSelectedLayerId(project.layers[0]?.id || "");
     }
   }, [project, selectedLayerId]);
+
+  useEffect(() => {
+    if (projectSelectionIdentityRef.current === projectSelectionIdentity) return;
+    projectSelectionIdentityRef.current = projectSelectionIdentity;
+    setSelectedFeatureIds([]);
+  }, [projectSelectionIdentity]);
 
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has("debug")) return;
@@ -1695,7 +1703,6 @@ function isDrawModeAllowed(drawMode: DrawMode, geometryKind: GeometryKind): bool
 }
 
 function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeometry: boolean): DrawMode | null {
-  if (!canEditGeometry) return null;
   const modeByKey: Record<string, DrawMode> = {
     "1": "select",
     "2": "point",
@@ -1707,7 +1714,12 @@ function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeomet
   };
   const mode = modeByKey[key];
   if (!mode) return null;
+  if (!canEditGeometry && mode !== "lasso") return null;
   return isDrawModeAllowed(mode, geometryKind) ? mode : null;
+}
+
+function projectSelectionIdentityKey(project: Qgis2webProject): string {
+  return `${project.importedAt}::${project.name}::${project.layers.map((layer) => layer.id).join("|")}`;
 }
 
 function pushHistoryEntry(entries: HistoryEntry[], entry: HistoryEntry, coalesceMs: number): HistoryEntry[] {
