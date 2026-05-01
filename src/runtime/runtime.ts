@@ -43,6 +43,18 @@ export const q2wsRuntime = String.raw`(function () {
   function applyLayerConfig(config) {
     (config.layers || []).forEach(function (layerConfig) {
       var layer = window[layerConfig.layerVariable];
+      if (!layer && layerConfig.geojson && window.L) {
+        layer = window.L.geoJSON(layerConfig.geojson, {
+          style: function (feature) {
+            return styleFor(layerConfig, feature);
+          },
+          pointToLayer: function (feature, latlng) {
+            var style = styleFor(layerConfig, feature);
+            return window.L.circleMarker(latlng, style);
+          }
+        });
+        window[layerConfig.layerVariable] = layer;
+      }
       if (!layer) return;
       if (layer.setStyle) {
         layer.setStyle(function (feature) {

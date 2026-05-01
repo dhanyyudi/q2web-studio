@@ -32,6 +32,7 @@ import {
   XCircle
 } from "lucide-react";
 import bbox from "@turf/bbox";
+import { buffer as turfBuffer } from "@turf/buffer";
 import simplify from "@turf/simplify";
 import type { Feature, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
@@ -44,7 +45,7 @@ import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { logoFileToDataUrl } from "./lib/logo";
-import { migrateProject, updateFeatureProperty, updateLayer, updateLayerGeojson } from "./lib/projectUpdates";
+import { addFeatureProperty, deleteFeatureProperty, migrateProject, renameField, updateFeatureProperty, updateLayer, updateLayerGeojson } from "./lib/projectUpdates";
 import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
@@ -126,6 +127,8 @@ export function App() {
   const [newField, setNewField] = useState("");
   const [renameFrom, setRenameFrom] = useState("");
   const [renameTo, setRenameTo] = useState("");
+  const [newFeaturePropertyKey, setNewFeaturePropertyKey] = useState("");
+  const [newFeaturePropertyValue, setNewFeaturePropertyValue] = useState("");
   const [history, setHistory] = useState<{ past: HistoryEntry[]; future: HistoryEntry[] }>({
     past: [],
     future: []
@@ -527,6 +530,120 @@ export function App() {
       group: `simplify-feature:${layer.id}:${featureId}`
     });
     toast.success("Selected feature simplified");
+  }
+
+  function bufferSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const distanceText = window.prompt("Buffer distance in meters", "100");
+    if (!distanceText) return;
+    const distance = Number(distanceText);
+    if (!Number.isFinite(distance) || distance <= 0) {
+      toast.warning("Enter a positive buffer distance in meters.");
+      return;
+    }
+    if (!selectedFeatureData.feature.geometry) {
+      toast.warning("Selected feature has no geometry to buffer.");
+      return;
+    }
+    const buffered = turfBuffer(selectedFeatureData.feature, distance, { units: "meters", steps: 16 });
+    if (!buffered || buffered.type !== "Feature") {
+      toast.error("Buffer could not be created for the selected feature.");
+      return;
+    }
+    const sourceLayer = selectedFeatureData.layer;
+    const sourceFeatureId = String(selectedFeatureData.feature.properties?.__q2ws_id ?? selectedFeatureData.feature.id ?? "feature");
+    const bufferId = `${sourceLayer.id}-buffer-${Math.round(distance)}m-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+    const outputLayer: LayerManifest = {
+      ...sourceLayer,
+      id: bufferId,
+      displayName: `${sourceLayer.displayName} buffer ${distance} m`,
+      sourcePath: `${project.name}/data/${bufferId}.js`,
+      dataVariable: `json_${bufferId}`,
+      layerVariable: `layer_${bufferId}`,
+      geometryType: buffered.geometry.type,
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "source_feature", label: "source_feature", visible: true, header: false },
+        { key: "buffer_m", label: "buffer_m", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: [{
+          ...buffered,
+          id: `${bufferId}::${sourceFeatureId}`,
+          properties: {
+            ...(buffered.properties || {}),
+            __q2ws_id: `${bufferId}::${sourceFeatureId}`,
+            source_layer: sourceLayer.displayName,
+            source_feature: sourceFeatureId,
+            buffer_m: distance
+          }
+        }]
+      },
+      style: {
+        ...sourceLayer.style,
+        fillColor: "#ff7a18",
+        strokeColor: "#ff7a18",
+        fillOpacity: 0.25,
+        strokeOpacity: 0.95,
+        strokeWidth: 2,
+        dashArray: "",
+        symbolType: "polygon"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Buffer ${sourceLayer.displayName}` });
+    setSelectedLayerId(outputLayer.id);
+    setSelectedFeature(null);
+    setInspectorMode("layer");
+    toast.success("Buffer layer created");
+  }
+
+  function selectedFeatureIdValue() {
+    return String(selectedFeatureData?.feature.properties?.__q2ws_id ?? selectedFeatureData?.feature.id ?? "");
+  }
+
+  function updateSelectedFeatureField(field: string, value: string) {
+    if (!project || !selectedLayer || !selectedFeatureData) return;
+    const featureId = selectedFeatureIdValue();
+    updateProject(
+      updateFeatureProperty(project, selectedLayer.id, featureId, field, value),
+      { label: `Edit ${field}`, group: `feature-property:${selectedLayer.id}:${featureId}:${field}`, coalesceMs: 600 }
+    );
+  }
+
+  function addSelectedFeatureProperty() {
+    if (!project || !selectedLayer || !selectedFeatureData) return;
+    if (!newFeaturePropertyKey.trim()) return;
+    const featureId = selectedFeatureIdValue();
+    updateProject(
+      addFeatureProperty(project, selectedLayer.id, featureId, newFeaturePropertyKey, newFeaturePropertyValue),
+      { label: `Add ${newFeaturePropertyKey.trim()}`, group: `feature-property-add:${selectedLayer.id}:${featureId}:${newFeaturePropertyKey.trim()}` }
+    );
+    setNewFeaturePropertyKey("");
+    setNewFeaturePropertyValue("");
+    toast.success("Property added to selected feature");
+  }
+
+  function removeSelectedFeatureProperty(field: string) {
+    if (!project || !selectedLayer || !selectedFeatureData) return;
+    const featureId = selectedFeatureIdValue();
+    updateProject(
+      deleteFeatureProperty(project, selectedLayer.id, featureId, field),
+      { label: `Delete ${field}`, group: `feature-property-delete:${selectedLayer.id}:${featureId}:${field}` }
+    );
+    toast.success("Property removed from selected feature");
+  }
+
+  function renameSelectedPopupField(oldKey: string, newKey: string) {
+    if (!project || !selectedLayer) return;
+    updateProject(renameField(project, selectedLayer.id, oldKey, newKey));
   }
 
   function ensureLayerLabel(layer: LayerManifest) {
@@ -1070,23 +1187,33 @@ export function App() {
                     <div className="selected-feature-panel">
                       <div className="selected-feature-meta">
                         <strong>{selectedFeatureData.feature.properties?.__q2ws_id || selectedFeatureData.feature.id}</strong>
-                        <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
+                        <div className="dialog-actions">
+                          <button type="button" className="btn compact" onClick={bufferSelectedFeature}>Buffer</button>
+                          <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
+                        </div>
+                      </div>
+                      <div className="feature-property-list">
+                        {Object.keys(selectedFeatureData.feature.properties || {}).filter((field) => field !== "__q2ws_id").map((field) => (
+                          <div className="feature-property-row" key={field}>
+                            <TextInput
+                              label={field}
+                              value={String(selectedFeatureData.feature.properties?.[field] ?? "")}
+                              onChange={(value) => updateSelectedFeatureField(field, value)}
+                            />
+                            <button type="button" className="btn compact danger" onClick={() => removeSelectedFeatureProperty(field)}>Delete</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="feature-property-add">
+                        <TextInput label="New property key" value={newFeaturePropertyKey} onChange={setNewFeaturePropertyKey} />
+                        <TextInput label="Value" value={newFeaturePropertyValue} onChange={setNewFeaturePropertyValue} />
+                        <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add to feature</button>
                       </div>
                       <div className="selected-feature-actions">
                         <button type="button" className="btn compact" onClick={simplifySelectedFeature}>
                           Simplify selected feature
                         </button>
                       </div>
-                      {fieldNames(selectedLayer).map((field) => (
-                        <TextInput
-                          key={field}
-                          label={field}
-                          value={String(selectedFeatureData.feature.properties?.[field] ?? "")}
-                          onChange={(value) =>
-                            updateProject(updateFeatureProperty(project, selectedLayer.id, String(selectedFeatureData.feature.properties?.__q2ws_id ?? selectedFeatureData.feature.id ?? ""), field, value))
-                          }
-                        />
-                      ))}
                     </div>
                   ) : (
                     <div className="editor-note">Select a feature from the map or attribute table to edit its properties.</div>
@@ -1213,18 +1340,43 @@ export function App() {
                   <PanelTitle title="Popup Fields" />
                   <div className="popup-fields">
                     {selectedLayer.popupFields.map((field) => (
-                      <label key={field.key}>
-                        <input
-                          type="checkbox"
-                          checked={field.visible}
+                      <div className="popup-field-row" key={field.key}>
+                        <label className="popup-field-toggle">
+                          <input
+                            type="checkbox"
+                            checked={field.visible}
                             onChange={(event) => {
                               const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item);
                               patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
                             }}
-
+                          />
+                          Visible
+                        </label>
+                        <input
+                          className="popup-field-key-input"
+                          value={field.key}
+                          onChange={(event) => renameSelectedPopupField(field.key, event.target.value)}
                         />
-                        {field.label}
-                      </label>
+                        <input
+                          className="popup-field-label-input"
+                          value={field.label}
+                          onChange={(event) => {
+                            const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, label: event.target.value } : item);
+                            patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                          }}
+                        />
+                        <label className="popup-field-toggle">
+                          <input
+                            type="checkbox"
+                            checked={field.header}
+                            onChange={(event) => {
+                              const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, header: event.target.checked } : item);
+                              patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                            }}
+                          />
+                          Header
+                        </label>
+                      </div>
                     ))}
                   </div>
                 </Tabs.Content>

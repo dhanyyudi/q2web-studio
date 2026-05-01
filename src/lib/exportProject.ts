@@ -49,7 +49,8 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
       popupTemplate: layer.popupTemplate,
       popupSettings: layer.popupSettings,
       label: layer.label,
-      style: layer.style
+      style: layer.style,
+      geojson: layer.geojson
     })),
     legend: allLegendItems(project.layers, project.manualLegendItems),
     legendGroups: legendGroupsForLayers(project.layers, project.manualLegendItems),
