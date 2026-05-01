@@ -353,6 +353,64 @@ test("merge all polygon features in layer creates a union output layer", async (
   expect(consoleErrors).toEqual([]);
 });
 
+test("creates convex hull layer from selected polygon feature", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Zona Nilai Tanah/i }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Convex hull/i }).click();
+
+  await page.waitForFunction(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    return project?.layers.some((candidate) => candidate.displayName === "Zona Nilai Tanah convex hull") || false;
+  }, null, { timeout: 15000 });
+
+  const hullLayer = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geometryType: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === "Zona Nilai Tanah convex hull");
+    return layer ? {
+      geometryType: layer.geometryType,
+      featureCount: layer.geojson.features.length,
+      featureId: String(layer.geojson.features[0]?.properties?.__q2ws_id ?? ""),
+      geometry: JSON.stringify(layer.geojson.features[0]?.geometry ?? null)
+    } : null;
+  });
+  expect(hullLayer).not.toBeNull();
+  expect(hullLayer?.geometryType).toBe("Polygon");
+  expect(hullLayer?.featureCount).toBe(1);
+  expect(hullLayer?.featureId).toContain("convex_hull");
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-convex-hull-smoke-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const entries = Object.keys(zip.files);
+    const hullDataPath = entries.find((entry) => /data\/.*convex_hull.*\.js$/.test(entry));
+    expect(hullDataPath).toBeTruthy();
+    const dataText = await zip.file(hullDataPath!)!.async("string");
+    const variableMatch = dataText.match(/^var\s+([A-Za-z0-9_]+)\s*=\s*/);
+    expect(variableMatch).not.toBeNull();
+    const geojson = JSON.parse(dataText.replace(/^var\s+[A-Za-z0-9_]+\s*=\s*/, "").replace(/;\s*$/, ""));
+    expect(geojson.features).toHaveLength(1);
+    expect(JSON.stringify(geojson.features[0].geometry)).toBe(hullLayer?.geometry);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
   const editorRequests: string[] = [];
   const editorConsoleErrors: string[] = [];
