@@ -56,6 +56,66 @@ async function saveDownloadToTempDir(download: import("@playwright/test").Downlo
   return { tempDir, zipPath };
 }
 
+async function createTranslateFixture(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "q2ws-translate-fixture-"));
+  await mkdir(join(root, "data"), { recursive: true });
+  await writeFile(join(root, "index.html"), `<!doctype html><html><head></head><body><div id="map"></div><script src="data/SimplePoint_1.js"></script><script src="data/SimpleLine_2.js"></script><script src="data/SimplePolygon_3.js"></script><script>var map = L.map('map'); var layer_SimplePoint_1 = new L.geoJson(json_SimplePoint_1, {}); var layer_SimpleLine_2 = new L.geoJson(json_SimpleLine_2, {}); var layer_SimplePolygon_3 = new L.geoJson(json_SimplePolygon_3, {}); map.addLayer(layer_SimplePoint_1); map.addLayer(layer_SimpleLine_2); map.addLayer(layer_SimplePolygon_3);</script></body></html>`);
+  await writeFile(join(root, "data", "SimplePoint_1.js"), `var json_SimplePoint_1 = {"type":"FeatureCollection","name":"SimplePoint","features":[{"type":"Feature","properties":{"name":"point-one"},"geometry":{"type":"Point","coordinates":[108.45,-6.78]}},{"type":"Feature","properties":{"name":"point-two"},"geometry":{"type":"Point","coordinates":[108.49,-6.74]}}]};`);
+  await writeFile(join(root, "data", "SimpleLine_2.js"), `var json_SimpleLine_2 = {"type":"FeatureCollection","name":"SimpleLine","features":[{"type":"Feature","properties":{"name":"line-one"},"geometry":{"type":"LineString","coordinates":[[108.46,-6.79],[108.47,-6.78]]}},{"type":"Feature","properties":{"name":"line-two"},"geometry":{"type":"LineString","coordinates":[[108.51,-6.74],[108.52,-6.73]]}}]};`);
+  await writeFile(join(root, "data", "SimplePolygon_3.js"), `var json_SimplePolygon_3 = {"type":"FeatureCollection","name":"SimplePolygon","features":[{"type":"Feature","properties":{"name":"polygon-one"},"geometry":{"type":"Polygon","coordinates":[[[108.43,-6.81],[108.44,-6.81],[108.44,-6.80],[108.43,-6.80],[108.43,-6.81]]]}},{"type":"Feature","properties":{"name":"polygon-two"},"geometry":{"type":"Polygon","coordinates":[[[108.50,-6.75],[108.51,-6.75],[108.51,-6.74],[108.50,-6.74],[108.50,-6.75]]]}}]};`);
+  return root;
+}
+
+async function displayNameBySource(page: import("@playwright/test").Page, sourceFileName: string): Promise<string> {
+  return page.evaluate((fileName) => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; sourcePath: string }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.sourcePath.endsWith(`/data/${fileName}`));
+    if (!layer) throw new Error(`Expected layer from ${fileName}.`);
+    return layer.displayName;
+  }, sourceFileName);
+}
+
+async function layerCoordinates(page: import("@playwright/test").Page, layerName: string): Promise<unknown[]> {
+  return page.evaluate((name) => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === name);
+    if (!layer) throw new Error(`Expected layer ${name}.`);
+    return layer.geojson.features.map((feature) => feature.geometry?.coordinates);
+  }, layerName);
+}
+
+async function lassoFirstFeature(page: import("@playwright/test").Page, layerName: string) {
+  await page.getByTitle(/Lasso select multiple features \(7\)/i).click();
+  await page.evaluate((name) => {
+    const map = (window as Window & { __q2ws_map?: { fire: (type: string, data: unknown) => void } }).__q2ws_map;
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName === name);
+    if (!map || !layer) throw new Error("Expected debug map and layer.");
+    const values = JSON.stringify(layer.geojson.features[0]?.geometry?.coordinates).match(/-?\d+(?:\.\d+)?/g)?.map(Number) || [];
+    const pairs: Array<[number, number]> = [];
+    for (let index = 0; index < values.length - 1; index += 2) pairs.push([values[index], values[index + 1]]);
+    const lngs = pairs.map(([lng]) => lng);
+    const lats = pairs.map(([, lat]) => lat);
+    const west = Math.min(...lngs) - 0.01;
+    const south = Math.min(...lats) - 0.01;
+    const east = Math.max(...lngs) + 0.01;
+    const north = Math.max(...lats) + 0.01;
+    const points = [[north, west], [north, east], [south, east], [south, west], [north, west]];
+    map.fire("mousedown", { latlng: { lat: points[0][0], lng: points[0][1] } });
+    points.slice(1).forEach(([lat, lng]) => map.fire("mousemove", { latlng: { lat, lng } }));
+    map.fire("mouseup", { latlng: { lat: points[0][0], lng: points[0][1] } });
+  }, layerName);
+  await expect(page.getByTestId("multi-select-panel")).toContainText("1 features selected");
+}
+
+async function exportedGeojson(zipPath: string, dataFileName: string): Promise<GeoJSON.FeatureCollection> {
+  const zip = await JSZip.loadAsync(await readFile(zipPath));
+  const entry = Object.keys(zip.files).find((path) => path.endsWith(`/data/${dataFileName}`));
+  if (!entry) throw new Error(`Expected exported ${dataFileName}.`);
+  const dataText = await zip.file(entry)!.async("string");
+  return JSON.parse(dataText.replace(/^var\s+[A-Za-z0-9_]+\s*=\s*/, "").replace(/;\s*$/, ""));
+}
+
 async function startStaticServer(rootDir: string): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = createServer(async (request, response) => {
     try {
@@ -219,6 +279,74 @@ test("lasso selects multiple features in the selected layer", async ({ page }) =
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
   await expect(page.getByTestId("multi-select-panel")).toContainText("0 features selected");
   expect(consoleErrors).toEqual([]);
+});
+
+test("translates selected simple features in place", async ({ page }) => {
+  const fixtureDir = await createTranslateFixture();
+  try {
+    await page.goto("/?debug=1");
+    await page.locator('input[webkitdirectory]').setInputFiles(fixtureDir);
+    await expect(page.locator(".status-box")).toContainText(/Imported 3 layers/i, { timeout: 15000 });
+
+    for (const sourceFileName of ["SimplePoint_1.js", "SimpleLine_2.js", "SimplePolygon_3.js"]) {
+      const layerName = await displayNameBySource(page, sourceFileName);
+      await page.getByRole("button", { name: new RegExp(layerName, "i") }).click();
+      const before = await layerCoordinates(page, layerName);
+      await lassoFirstFeature(page, layerName);
+      page.once("dialog", async (dialog) => {
+        expect(dialog.message()).toMatch(/dx/i);
+        await dialog.accept("0.001 -0.002 999");
+      });
+      await page.getByTestId("multi-select-panel").getByRole("button", { name: /Translate selected/i }).click();
+      const afterInvalid = await layerCoordinates(page, layerName);
+      expect(afterInvalid).toEqual(before);
+
+      page.once("dialog", async (dialog) => {
+        expect(dialog.message()).toMatch(/dx/i);
+        await dialog.accept("0.001, -0.002");
+      });
+      await page.getByTestId("multi-select-panel").getByRole("button", { name: /Translate selected/i }).click();
+      await expect(page.getByTestId("multi-select-panel")).toContainText("1 features selected");
+
+      const after = await layerCoordinates(page, layerName);
+      expect(after[0]).not.toEqual(before[0]);
+      expect(after[1]).toEqual(before[1]);
+    }
+  } finally {
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test("exports translated coordinates in ZIP data", async ({ page }) => {
+  const fixtureDir = await createTranslateFixture();
+  try {
+    await page.goto("/?debug=1");
+    await page.locator('input[webkitdirectory]').setInputFiles(fixtureDir);
+    await expect(page.locator(".status-box")).toContainText(/Imported 3 layers/i, { timeout: 15000 });
+
+    const lineLayerName = await displayNameBySource(page, "SimpleLine_2.js");
+    await page.getByRole("button", { name: new RegExp(lineLayerName, "i") }).click();
+    await lassoFirstFeature(page, lineLayerName);
+    page.once("dialog", async (dialog) => {
+      await dialog.accept("0.001, -0.002");
+    });
+    await page.getByRole("button", { name: /Translate selected/i }).click();
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /Export ZIP/i }).click()
+    ]);
+    const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-translate-export-");
+    try {
+      const geojson = await exportedGeojson(zipPath, "SimpleLine_2.js");
+      expect(geojson.features[0]?.geometry?.coordinates).toEqual([[108.461, -6.792], [108.471, -6.782]]);
+      expect(geojson.features[1]?.geometry?.coordinates).toEqual([[108.51, -6.74], [108.52, -6.73]]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  } finally {
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
 });
 
 test("runtime preview mirrors exported map path", async ({ page }) => {

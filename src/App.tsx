@@ -872,6 +872,39 @@ export function App() {
     toast.info("Selection cleared");
   }
 
+  function translateSelectedFeatures() {
+    if (!project || !selectedLayer || selectedFeatureIds.length === 0) return;
+    const deltaText = window.prompt("Translate selected features by dx, dy in coordinate units", "0, 0");
+    if (!deltaText) return;
+    const deltaTokens = deltaText.trim().split(/[\s,]+/).filter(Boolean);
+    if (deltaTokens.length !== 2) {
+      toast.warning("Enter numeric dx and dy values.");
+      return;
+    }
+    const [dx, dy] = deltaTokens.map(Number);
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+      toast.warning("Enter numeric dx and dy values.");
+      return;
+    }
+    const selectedIds = new Set(selectedFeatureIds);
+    let translatedCount = 0;
+    const features = selectedLayer.geojson.features.map((feature) => {
+      const featureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "");
+      if (!selectedIds.has(featureId) || !feature.geometry || !isSimpleEditableGeometry(feature.geometry)) return feature;
+      translatedCount += 1;
+      return { ...feature, geometry: translateGeometry(feature.geometry, dx, dy) };
+    });
+    if (translatedCount === 0) {
+      toast.warning("No selected simple features to translate.");
+      return;
+    }
+    updateProject(updateLayerGeojson(project, selectedLayer.id, { ...selectedLayer.geojson, features }), {
+      label: "Translate selected features",
+      group: `translate-features:${selectedLayer.id}`
+    });
+    toast.success(`Translated ${translatedCount} feature${translatedCount === 1 ? "" : "s"}`);
+  }
+
   const handleLassoComplete = useCallback((polygon: Polygon) => {
     if (!selectedLayer) return;
     const selectedIds = selectedLayer.geojson.features
@@ -1605,6 +1638,7 @@ export function App() {
                   <div className="multi-select-actions" data-testid="multi-select-panel">
                     <span>{selectedFeatureIds.length} features selected</span>
                     <button type="button" className="btn compact" onClick={selectAllFeatures}>Select all</button>
+                    <button type="button" className="btn compact" onClick={translateSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Translate selected</button>
                     <button type="button" className="btn compact" onClick={clearSelection} disabled={selectedFeatureIds.length === 0}>Clear selection</button>
                   </div>
                   {selectedLayerHasMultiGeometry && (
@@ -1919,6 +1953,27 @@ function popupHtmlFromLayer(layer: LayerManifest): string {
       : `<tr><th scope="row">${field.label}</th><td>{{${field.key}}}</td></tr>`)
     .join("");
   return `<table>${rows}</table>`;
+}
+
+function isSimpleEditableGeometry(geometry: Geometry): geometry is Point | LineString | Polygon {
+  return geometry.type === "Point" || geometry.type === "LineString" || geometry.type === "Polygon";
+}
+
+function translateGeometry<T extends Point | LineString | Polygon>(geometry: T, dx: number, dy: number): T {
+  if (geometry.type === "Point") {
+    return { ...geometry, coordinates: translateCoordinate(geometry.coordinates, dx, dy) } as T;
+  }
+  if (geometry.type === "LineString") {
+    return { ...geometry, coordinates: geometry.coordinates.map((coordinate) => translateCoordinate(coordinate, dx, dy)) } as T;
+  }
+  return {
+    ...geometry,
+    coordinates: geometry.coordinates.map((ring) => ring.map((coordinate) => translateCoordinate(coordinate, dx, dy)))
+  } as T;
+}
+
+function translateCoordinate(coordinate: GeoJSON.Position, dx: number, dy: number): GeoJSON.Position {
+  return [coordinate[0] + dx, coordinate[1] + dy, ...coordinate.slice(2)];
 }
 
 function representativePoint(geometry: Geometry | null | undefined): Feature<Point> | null {
