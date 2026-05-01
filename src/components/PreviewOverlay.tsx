@@ -83,13 +83,7 @@ export function PreviewOverlay({
     const blob = new Blob([runtimePreview.srcdoc], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     openTabUrlRef.current = url;
-    const opened = window.open(url, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      URL.revokeObjectURL(url);
-      openTabUrlRef.current = null;
-      toast.error("Runtime preview tab was blocked by the browser.");
-      return;
-    }
+    window.open(url, "_blank", "noopener,noreferrer");
     window.setTimeout(() => {
       if (openTabUrlRef.current === url) openTabUrlRef.current = null;
       URL.revokeObjectURL(url);
