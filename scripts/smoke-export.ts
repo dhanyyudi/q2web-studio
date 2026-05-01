@@ -207,6 +207,58 @@ for (const expectedEditorTreeCode of ["layer-tree-group", "layer-tree-toggle", "
   }
 }
 
+const generatedLayerProject = cloneProject(project);
+const sourceLayer = generatedLayerProject.layers[0];
+generatedLayerProject.layers = [
+  ...generatedLayerProject.layers,
+  {
+    ...sourceLayer,
+    id: "generated_buffer_test",
+    displayName: "Generated Buffer Test",
+    sourcePath: `${root}data/generated_buffer_test.js`,
+    dataVariable: "json_generated_buffer_test",
+    layerVariable: "layer_generated_buffer_test",
+    layerTreeGroup: "Analysis",
+    geojson: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          id: "generated_buffer_test::1",
+          properties: { name: "generated" },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[
+              [108.46, -6.79],
+              [108.47, -6.79],
+              [108.47, -6.78],
+              [108.46, -6.78],
+              [108.46, -6.79]
+            ]]
+          }
+        }
+      ]
+    }
+  }
+];
+const generatedLayerZip = await exportZip(generatedLayerProject);
+const generatedLayerConfig = JSON.parse(await zipText(generatedLayerZip, `${root}q2ws-config.json`));
+const generatedLayerConfigItem = generatedLayerConfig.layers?.find((layer: { id: string; geojson?: unknown }) => layer.id === "generated_buffer_test");
+if (!generatedLayerConfigItem?.geojson || (generatedLayerConfigItem.geojson as { type?: string }).type !== "FeatureCollection") {
+  throw new Error("Expected q2ws-config.json to include GeoJSON for Studio-generated layers so runtime export can instantiate them.");
+}
+const runtimeSourceForGeneratedLayers = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+for (const expectedGeneratedLayerCode of ["layerConfig.geojson", "window.L.geoJSON", "window[layerConfig.layerVariable]"]) {
+  if (!runtimeSourceForGeneratedLayers.includes(expectedGeneratedLayerCode)) {
+    throw new Error(`Expected runtime generated-layer support to include: ${expectedGeneratedLayerCode}`);
+  }
+}
+
+const appSourceForBuffer = await readFile(join(process.cwd(), "src", "App.tsx"), "utf8");
+if (!appSourceForBuffer.includes("selectedFeatureData.feature.geometry")) {
+  throw new Error("Expected Buffer action to guard selected features with null geometry before calling Turf.");
+}
+
 const welcomeProject = cloneProject(project);
 welcomeProject.branding = {
   ...welcomeProject.branding,
