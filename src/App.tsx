@@ -63,8 +63,8 @@ import type {
 type InspectorMode = "project" | "layer";
 type GeometryKind = "point" | "line" | "polygon" | "unknown";
 type AppThemeMode = "light" | "dark" | "system";
-type HistoryEntry = { project: Qgis2webProject; label: string; group?: string };
-type UpdateProjectOptions = { label?: string; group?: string };
+type HistoryEntry = { project: Qgis2webProject; label: string; group?: string; updatedAt: number };
+type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
 
 const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
 const APP_THEME_STORAGE_KEY = "q2ws-app-theme";
@@ -385,8 +385,9 @@ export function App() {
         past: pushHistoryEntry(current.past, {
           project,
           label: options.label || "Project change",
-          group: options.group
-        }),
+          group: options.group,
+          updatedAt: Date.now()
+        }, options.coalesceMs ?? 0),
         future: []
       }));
     }
@@ -408,7 +409,7 @@ export function App() {
     restoreProject(previous.project);
     setHistory({
       past: history.past.slice(0, -1),
-      future: [{ project, label: previous.label, group: previous.group }, ...history.future].slice(0, HISTORY_LIMIT)
+      future: [{ project, label: previous.label, group: previous.group, updatedAt: Date.now() }, ...history.future].slice(0, HISTORY_LIMIT)
     });
     toast.info(`Undid ${previous.label}`);
   }
@@ -419,7 +420,7 @@ export function App() {
     if (!next) return;
     restoreProject(next.project);
     setHistory({
-      past: pushHistoryEntry(history.past, { project, label: next.label, group: next.group }),
+      past: pushHistoryEntry(history.past, { project, label: next.label, group: next.group, updatedAt: Date.now() }, 0),
       future: history.future.slice(1)
     });
     toast.info(`Redid ${next.label}`);
@@ -1606,9 +1607,10 @@ function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeomet
   return isDrawModeAllowed(mode, geometryKind) ? mode : null;
 }
 
-function pushHistoryEntry(entries: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
-  if (entry.group && entries[entries.length - 1]?.group === entry.group) {
-    return entries;
+function pushHistoryEntry(entries: HistoryEntry[], entry: HistoryEntry, coalesceMs: number): HistoryEntry[] {
+  const previous = entries[entries.length - 1];
+  if (coalesceMs > 0 && entry.group && previous?.group === entry.group && entry.updatedAt - previous.updatedAt <= coalesceMs) {
+    return [...entries.slice(0, -1), { ...previous, label: entry.label, updatedAt: entry.updatedAt }];
   }
   return [...entries.slice(-(HISTORY_LIMIT - 1)), entry];
 }
