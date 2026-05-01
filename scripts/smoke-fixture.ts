@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { parseQgis2webProject } from "../src/lib/qgis2webParser";
+import { hydrateStoredProjectForTest } from "../src/lib/opfs";
 import type { VirtualFile } from "../src/types/project";
 
 const fixtureRoot = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659");
@@ -153,4 +154,26 @@ for (const expectedRuntimeCode of ["function applyDisabledWidgets", "removeContr
   }
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legend labels, line styles, and runtime widget disable hardening verified.`);
+const legacyStoredProject = hydrateStoredProjectForTest({
+  ...project,
+  basemaps: undefined,
+  runtime: undefined,
+  popupSettings: undefined,
+  sidebar: undefined,
+  layers: project.layers.map((layer) => ({
+    ...layer,
+    popupTemplate: undefined,
+    popupSettings: undefined
+  }))
+});
+if (!legacyStoredProject.basemaps.length || !Array.isArray(legacyStoredProject.runtime.widgets)) {
+  throw new Error("Expected legacy OPFS project hydration to restore basemaps and runtime defaults.");
+}
+if (!legacyStoredProject.popupSettings || !legacyStoredProject.sidebar) {
+  throw new Error("Expected legacy OPFS project hydration to restore popup and sidebar defaults.");
+}
+if (legacyStoredProject.layers.some((layer) => !layer.layerTreeGroup || !layer.style.symbolType)) {
+  throw new Error("Expected legacy OPFS project hydration to restore layer defaults.");
+}
+
+console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legend labels, line styles, and runtime widget disable hardening verified.`);
