@@ -26,6 +26,7 @@
     "@turf/bbox": "^7.3.5",
     "@turf/buffer": "^7.3.5",
     "@turf/convex": "^7.3.5",
+    "@turf/polygon-to-line": "^7.3.5",
     "@turf/simplify": "^7.3.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
