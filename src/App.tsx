@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import bbox from "@turf/bbox";
 import { buffer as turfBuffer } from "@turf/buffer";
+import convex from "@turf/convex";
 import simplify from "@turf/simplify";
 import { polygonToLine } from "@turf/polygon-to-line";
 import type { Feature, Point } from "geojson";
@@ -675,6 +676,76 @@ export function App() {
     toast.success("Polygon to line layer created");
   }
 
+  function convexHullSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const { layer, feature } = selectedFeatureData;
+    if (!layer.geometryType.includes("Line") && !layer.geometryType.includes("Polygon")) {
+      toast.warning("Convex hull is available for line and polygon features.");
+      return;
+    }
+    if (!feature.geometry) {
+      toast.warning("Selected feature has no geometry for convex hull.");
+      return;
+    }
+    const hulled = convex(feature);
+    if (!hulled?.geometry) {
+      toast.info("Selected feature does not have enough geometry for a convex hull.");
+      return;
+    }
+    const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
+    const hullId = `${layer.id}-convex_hull-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+    const outputLayer: LayerManifest = {
+      ...layer,
+      id: hullId,
+      displayName: `${layer.displayName} convex hull`,
+      sourcePath: `${project.name}/data/${hullId}.js`,
+      dataVariable: `json_${hullId}`,
+      layerVariable: `layer_${hullId}`,
+      geometryType: hulled.geometry.type,
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "source_feature", label: "source_feature", visible: true, header: false },
+        { key: "operation", label: "operation", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: [{
+          ...hulled,
+          id: `${hullId}::${sourceFeatureId}`,
+          properties: {
+            ...(hulled.properties || {}),
+            __q2ws_id: `${hullId}::${sourceFeatureId}`,
+            source_layer: layer.displayName,
+            source_feature: sourceFeatureId,
+            operation: "convex_hull"
+          }
+        }]
+      },
+      style: {
+        ...layer.style,
+        fillColor: "#7c3aed",
+        strokeColor: "#7c3aed",
+        fillOpacity: 0.2,
+        strokeOpacity: 0.95,
+        strokeWidth: 2,
+        dashArray: "6 4",
+        symbolType: "polygon"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Convex hull ${layer.displayName}` });
+    setSelectedLayerId(outputLayer.id);
+    setSelectedFeature(null);
+    setInspectorMode("layer");
+    toast.success("Convex hull layer created");
+  }
+
   function selectedFeatureIdValue() {
     return String(selectedFeatureData?.feature.properties?.__q2ws_id ?? selectedFeatureData?.feature.id ?? "");
   }
@@ -1282,6 +1353,9 @@ export function App() {
                       <div className="selected-feature-actions">
                         <button type="button" className="btn compact" onClick={polygonToLineSelectedFeature}>
                           Polygon to line
+                        </button>
+                        <button type="button" className="btn compact" onClick={convexHullSelectedFeature}>
+                          Convex hull
                         </button>
                         <button type="button" className="btn compact" onClick={simplifySelectedFeature}>
                           Simplify selected feature
