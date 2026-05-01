@@ -34,6 +34,7 @@ import {
 import bbox from "@turf/bbox";
 import { buffer as turfBuffer } from "@turf/buffer";
 import simplify from "@turf/simplify";
+import { polygonToLine } from "@turf/polygon-to-line";
 import type { Feature, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
@@ -603,6 +604,75 @@ export function App() {
     setSelectedFeature(null);
     setInspectorMode("layer");
     toast.success("Buffer layer created");
+  }
+
+  function polygonToLineSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const { layer: sourceLayer, feature } = selectedFeatureData;
+    if (!feature.geometry) {
+      toast.warning("Selected feature has no geometry to convert.");
+      return;
+    }
+    if (feature.geometry.type !== "Polygon" && feature.geometry.type !== "MultiPolygon") {
+      toast.warning("Polygon to line is available for polygon features.");
+      return;
+    }
+    const lineOutput = polygonToLine(feature as Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+    const lineFeatures = lineOutput.type === "FeatureCollection" ? lineOutput.features : [lineOutput];
+    const outputGeometryType = lineFeatures[0]?.geometry?.type;
+    if (lineFeatures.length === 0 || !outputGeometryType) {
+      toast.error("Polygon to line output could not be created.");
+      return;
+    }
+    const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
+    const outputId = `${sourceLayer.id}-polygon-to-line-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+    const outputLayer: LayerManifest = {
+      ...sourceLayer,
+      id: outputId,
+      displayName: `${sourceLayer.displayName} polygon to line`,
+      sourcePath: `${project.name}/data/${outputId}.js`,
+      dataVariable: `json_${outputId}`,
+      layerVariable: `layer_${outputId}`,
+      geometryType: outputGeometryType,
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "source_feature", label: "source_feature", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: lineFeatures.map((lineFeature, index) => ({
+          ...lineFeature,
+          id: `${outputId}::${sourceFeatureId}::${index}`,
+          properties: {
+            ...(lineFeature.properties || {}),
+            __q2ws_id: `${outputId}::${sourceFeatureId}::${index}`,
+            source_layer: sourceLayer.displayName,
+            source_feature: sourceFeatureId
+          }
+        }))
+      },
+      style: {
+        ...sourceLayer.style,
+        fillOpacity: 0,
+        strokeColor: "#ff7a18",
+        strokeOpacity: 0.95,
+        strokeWidth: 3,
+        dashArray: "6 4",
+        symbolType: "line"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Polygon to line ${sourceLayer.displayName}` });
+    setSelectedLayerId(outputLayer.id);
+    setSelectedFeature(null);
+    setInspectorMode("layer");
+    toast.success("Polygon to line layer created");
   }
 
   function selectedFeatureIdValue() {
@@ -1210,6 +1280,9 @@ export function App() {
                         <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add to feature</button>
                       </div>
                       <div className="selected-feature-actions">
+                        <button type="button" className="btn compact" onClick={polygonToLineSelectedFeature}>
+                          Polygon to line
+                        </button>
                         <button type="button" className="btn compact" onClick={simplifySelectedFeature}>
                           Simplify selected feature
                         </button>

@@ -298,6 +298,50 @@ test("applies simplify to selected line feature", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test("creates polygon to line analysis output for selected polygon feature", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: "Batas Desa MultiPolygon" }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Polygon to line/i }).click();
+
+  await expect(page.getByRole("button", { name: /Batas Desa polygon to line/i })).toBeVisible({ timeout: 15000 });
+
+  const analysisLayer = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geometryType: string; layerTreeGroup?: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName === "Batas Desa polygon to line") || null;
+  });
+  expect(analysisLayer?.geometryType).toMatch(/LineString/);
+  expect(analysisLayer?.layerTreeGroup).toBe("Analysis");
+  expect(analysisLayer?.geojson.features.length).toBeGreaterThan(0);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(download, "q2ws-polygon-to-line-");
+  try {
+    const zip = await JSZip.loadAsync(await readFile(zipPath));
+    const generatedDataEntry = Object.keys(zip.files).find((entry) => /data\/.*polygon_to_line.*\.js$/i.test(entry));
+    expect(generatedDataEntry).toBeTruthy();
+    const dataText = await zip.file(generatedDataEntry!)!.async("string");
+    expect(dataText).toContain("source_layer");
+    expect(dataText).toContain("BatasDesa");
+    expect(dataText).toContain("LineString");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("exports ZIP and rendered runtime stays healthy", async ({ page, browser }, testInfo) => {
   const editorRequests: string[] = [];
   const editorConsoleErrors: string[] = [];
