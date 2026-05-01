@@ -36,7 +36,6 @@ import { buffer as turfBuffer } from "@turf/buffer";
 import convex from "@turf/convex";
 import simplify from "@turf/simplify";
 import length from "@turf/length";
-import along from "@turf/along";
 import type { Feature, LineString, MultiLineString, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
@@ -692,35 +691,13 @@ export function App() {
     }
     try {
       const lineFeature = feature as Feature<LineString | MultiLineString>;
-      let lineString: LineString;
-      if (lineFeature.geometry.type === "MultiLineString") {
-        const allCoords: Array<[number, number]> = [];
-        for (const ring of lineFeature.geometry.coordinates) {
-          for (const coord of ring) {
-            allCoords.push(coord as [number, number]);
-          }
-        }
-        lineString = { type: "LineString", coordinates: allCoords };
-      } else {
-        lineString = lineFeature.geometry;
-      }
-      const totalLength = length({ type: "Feature", geometry: lineString, properties: {} }, { units: "kilometers" });
-      if (totalLength === 0) {
+      const lineParts = lineFeature.geometry.type === "MultiLineString"
+        ? lineFeature.geometry.coordinates
+        : [lineFeature.geometry.coordinates];
+      const segments = lineParts.flatMap((coordinates) => divideLinePart(coordinates as Array<[number, number]>, DIVIDE_PARTS));
+      if (segments.length === 0) {
         toast.warning("Selected feature has zero length, cannot divide.");
         return;
-      }
-      const segmentLength = totalLength / DIVIDE_PARTS;
-      const segments: LineString[] = [];
-      const lineFeatureForAlong = { type: "Feature" as const, geometry: lineString, properties: {} };
-      for (let i = 0; i < DIVIDE_PARTS; i += 1) {
-        const startDist = i * segmentLength;
-        const endDist = (i + 1) * segmentLength;
-        const startPoint = along(lineFeatureForAlong, startDist, { units: "kilometers" });
-        const endPoint = along(lineFeatureForAlong, endDist, { units: "kilometers" });
-        segments.push({
-          type: "LineString",
-          coordinates: [startPoint.geometry.coordinates, endPoint.geometry.coordinates]
-        });
       }
       const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
       const divideId = `${layer.id}-divided-${DIVIDE_PARTS}-parts-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
@@ -731,7 +708,7 @@ export function App() {
       sourcePath: `${project.name}/data/${divideId}.js`,
       dataVariable: `json_${divideId}`,
       layerVariable: `layer_${divideId}`,
-      geometryType: "MultiLineString",
+      geometryType: "LineString",
       visible: true,
       showInLayerControl: true,
       popupEnabled: true,
@@ -1713,6 +1690,95 @@ function popupHtmlFromLayer(layer: LayerManifest): string {
       : `<tr><th scope="row">${field.label}</th><td>{{${field.key}}}</td></tr>`)
     .join("");
   return `<table>${rows}</table>`;
+}
+
+function divideLinePart(coordinates: Array<[number, number]>, parts: number): LineString[] {
+  if (coordinates.length < 2 || parts < 1) return [];
+  const partFeature: Feature<LineString> = {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates },
+    properties: {}
+  };
+  const totalLength = length(partFeature, { units: "kilometers" });
+  if (totalLength === 0) return [];
+
+  const cumulativeDistances = [0];
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const segmentFeature: Feature<LineString> = {
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: [coordinates[index - 1], coordinates[index]] },
+      properties: {}
+    };
+    cumulativeDistances.push(cumulativeDistances[index - 1] + length(segmentFeature, { units: "kilometers" }));
+  }
+
+  const targets = Array.from({ length: parts + 1 }, (_, index) => totalLength * (index / parts));
+  const splitPoints = targets.map((targetDistance) => interpolatePointOnLine(coordinates, cumulativeDistances, targetDistance));
+  const segments: LineString[] = [];
+
+  for (let index = 0; index < parts; index += 1) {
+    const start = splitPoints[index];
+    const end = splitPoints[index + 1];
+    const segmentCoordinates: Array<[number, number]> = [start.coordinate];
+
+    for (let vertexIndex = start.segmentIndex + 1; vertexIndex <= end.segmentIndex; vertexIndex += 1) {
+      const vertex = coordinates[vertexIndex];
+      if (!pointsEqual(vertex, segmentCoordinates[segmentCoordinates.length - 1])) {
+        segmentCoordinates.push(vertex);
+      }
+    }
+
+    if (!pointsEqual(end.coordinate, segmentCoordinates[segmentCoordinates.length - 1])) {
+      segmentCoordinates.push(end.coordinate);
+    }
+
+    if (segmentCoordinates.length >= 2) {
+      segments.push({ type: "LineString", coordinates: segmentCoordinates });
+    }
+  }
+
+  return segments;
+}
+
+function interpolatePointOnLine(
+  coordinates: Array<[number, number]>,
+  cumulativeDistances: number[],
+  targetDistance: number
+): { coordinate: [number, number]; segmentIndex: number } {
+  if (targetDistance <= 0) {
+    return { coordinate: coordinates[0], segmentIndex: 0 };
+  }
+
+  const lastIndex = coordinates.length - 1;
+  const totalLength = cumulativeDistances[lastIndex];
+  if (targetDistance >= totalLength) {
+    return { coordinate: coordinates[lastIndex], segmentIndex: lastIndex - 1 };
+  }
+
+  for (let index = 0; index < lastIndex; index += 1) {
+    const segmentStart = cumulativeDistances[index];
+    const segmentEnd = cumulativeDistances[index + 1];
+    if (targetDistance > segmentEnd) continue;
+
+    const segmentLength = segmentEnd - segmentStart;
+    if (segmentLength === 0) {
+      return { coordinate: coordinates[index + 1], segmentIndex: index };
+    }
+
+    const ratio = (targetDistance - segmentStart) / segmentLength;
+    const [startX, startY] = coordinates[index];
+    const [endX, endY] = coordinates[index + 1];
+    return {
+      coordinate: [startX + ((endX - startX) * ratio), startY + ((endY - startY) * ratio)],
+      segmentIndex: index
+    };
+  }
+
+  return { coordinate: coordinates[lastIndex], segmentIndex: lastIndex - 1 };
+}
+
+function pointsEqual(a: [number, number], b: [number, number]): boolean {
+  return a[0] === b[0] && a[1] === b[1];
 }
 
 function geometryKindOf(geometryType: string): GeometryKind {

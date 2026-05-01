@@ -381,13 +381,16 @@ test("divides selected line feature into equal parts", async ({ page }) => {
     return layer ? {
       geometryType: layer.geometryType,
       featureCount: layer.geojson.features.length,
-      featureIds: layer.geojson.features.map((f) => String(f.properties?.__q2ws_id ?? ""))
+      featureIds: layer.geojson.features.map((f) => String(f.properties?.__q2ws_id ?? "")),
+      geometries: layer.geojson.features.map((f) => f.geometry)
     } : null;
   });
   expect(dividedLayer).not.toBeNull();
-  expect(dividedLayer?.geometryType).toBe("MultiLineString");
+  expect(dividedLayer?.geometryType).toBe("LineString");
   expect(dividedLayer?.featureCount).toBe(3);
   expect(dividedLayer?.featureIds.every((id) => id.includes("divided"))).toBe(true);
+  expect(dividedLayer?.geometries.every((geometry) => geometry?.type === "LineString")).toBe(true);
+  expect(dividedLayer?.geometries.some((geometry) => geometry?.type === "LineString" && geometry.coordinates.length > 2)).toBe(true);
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),
@@ -404,7 +407,8 @@ test("divides selected line feature into equal parts", async ({ page }) => {
     expect(variableMatch).not.toBeNull();
     const geojson = JSON.parse(dataText.replace(/^var\s+[A-Za-z0-9_]+\s*=\s*/, "").replace(/;\s*$/, ""));
     expect(geojson.features).toHaveLength(3);
-    expect(geojson.features.every((f: GeoJSON.Feature) => f.geometry?.type === "MultiLineString" || f.geometry?.type === "LineString")).toBe(true);
+    expect(geojson.features.every((f: GeoJSON.Feature) => f.geometry?.type === "LineString")).toBe(true);
+    expect(geojson.features.some((f: GeoJSON.Feature) => f.geometry?.type === "LineString" && f.geometry.coordinates.length > 2)).toBe(true);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
