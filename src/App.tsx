@@ -1734,24 +1734,26 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       logoPath: branding.logoPath || "",
       logoPlacement: branding.logoPlacement || "left"
     },
-     layers: (migrated.layers || []).map((layer) => ({
-       ...layer,
-       geojson: {
-         ...layer.geojson,
-         features: layer.geojson.features.map((feature, index) => {
-           const stableId = String(feature.properties?.__q2ws_id ?? feature.id ?? `${layer.id}-${index}`);
-           return {
-             ...feature,
-             id: feature.id ?? stableId,
-             properties: {
-               ...(feature.properties || {}),
-               __q2ws_id: stableId
-             }
-           };
-         })
-       },
-
-      layerTreeGroup: layer.layerTreeGroup || "Layers",
+    layers: (migrated.layers || []).map((layer) => {
+      const featureIds = new Set<string>();
+      return {
+        ...layer,
+        geojson: {
+          ...layer.geojson,
+          features: layer.geojson.features.map((feature, index) => {
+            const baseId = String(feature.properties?.__q2ws_id ?? feature.id ?? `${layer.id}-${index}`);
+            const stableId = uniqueFeatureId(featureIds, baseId, `${layer.id}-${index}`);
+            return {
+              ...feature,
+              id: feature.id ?? stableId,
+              properties: {
+                ...(feature.properties || {}),
+                __q2ws_id: stableId
+              }
+            };
+          })
+        },
+        layerTreeGroup: layer.layerTreeGroup || "Layers",
       popupTemplate: layer.popupTemplate
         ? {
             ...layer.popupTemplate,
@@ -1776,7 +1778,8 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
           sourceImagePath: category.sourceImagePath || ""
         }))
       }
-    })),
+    };
+    }),
     manualLegendItems: (migrated.manualLegendItems || []).map((item) => ({
       ...item,
       strokeWidth: item.strokeWidth ?? 2,
@@ -1785,6 +1788,18 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       sourceImagePath: item.sourceImagePath || ""
     }))
   };
+}
+
+function uniqueFeatureId(existingIds: Set<string>, candidate: string, fallback: string): string {
+  const baseId = candidate || fallback;
+  let nextId = baseId;
+  let suffix = 1;
+  while (existingIds.has(nextId)) {
+    suffix += 1;
+    nextId = `${baseId}-${suffix}`;
+  }
+  existingIds.add(nextId);
+  return nextId;
 }
 
 function projectCenter(project: Qgis2webProject): [number, number] {

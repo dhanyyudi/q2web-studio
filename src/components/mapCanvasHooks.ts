@@ -190,12 +190,13 @@ export function useGeoJsonLayers(
           if (clusterPoints) {
             return L.marker(latlng, { icon: pointClusterIcon(layer, feature as Feature) });
           }
+          const baseStyle = styleForFeature(layer, feature as Feature);
           return L.circleMarker(latlng, {
-            ...styleForFeature(layer, feature as Feature),
+            ...baseStyle,
             radius: isSelected ? layer.style.pointRadius + 4 : layer.style.pointRadius,
-            weight: isSelected ? Math.max(layer.style.strokeWidth + 2, 3) : layer.style.strokeWidth,
-            color: isSelected ? "#ff7a18" : undefined,
-            fillOpacity: isSelected ? Math.min(layer.style.fillOpacity + 0.12, 1) : layer.style.fillOpacity
+            weight: isSelected ? Math.max((baseStyle.weight || layer.style.strokeWidth || 2) + 2, 3) : baseStyle.weight,
+            color: isSelected ? "#ff7a18" : baseStyle.color,
+            fillOpacity: isSelected && typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.12, 1) : baseStyle.fillOpacity
           });
         },
         onEachFeature: (feature, leafletLayer) => {
