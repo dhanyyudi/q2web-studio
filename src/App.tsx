@@ -32,6 +32,7 @@ import {
   XCircle
 } from "lucide-react";
 import bbox from "@turf/bbox";
+import simplify from "@turf/simplify";
 import type { Feature, Point } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
@@ -43,7 +44,7 @@ import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
 import { logoFileToDataUrl } from "./lib/logo";
-import { migrateProject, updateFeatureProperty, updateLayer } from "./lib/projectUpdates";
+import { migrateProject, updateFeatureProperty, updateLayer, updateLayerGeojson } from "./lib/projectUpdates";
 import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
 import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
@@ -190,6 +191,14 @@ export function App() {
       setSelectedLayerId(project.layers[0]?.id || "");
     }
   }, [project, selectedLayerId]);
+
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("debug")) return;
+    (window as Window & { __q2ws_project?: Qgis2webProject | null }).__q2ws_project = project;
+    return () => {
+      delete (window as Window & { __q2ws_project?: Qgis2webProject | null }).__q2ws_project;
+    };
+  }, [project]);
 
   useEffect(() => {
     if (!selectedFeature) return;
@@ -489,6 +498,31 @@ export function App() {
   function patchSelectedLayer(patch: Partial<LayerManifest>) {
     if (!project || !selectedLayer) return;
     updateProject(updateLayer(project, selectedLayer.id, patch));
+  }
+
+  function simplifySelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const { layer, feature } = selectedFeatureData;
+    if (!layer.geometryType.includes("Line") && !layer.geometryType.includes("Polygon")) {
+      toast.warning("Simplify is available for line and polygon features.");
+      return;
+    }
+    const featureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "");
+    const simplified = simplify(feature as Feature, { tolerance: 0.00008, highQuality: true, mutate: false }) as Feature;
+    if (!simplified.geometry || JSON.stringify(simplified.geometry) === JSON.stringify(feature.geometry)) {
+      toast.info("Selected feature is already simple enough.");
+      return;
+    }
+    const features = layer.geojson.features.map((candidate) =>
+      String(candidate.properties?.__q2ws_id ?? candidate.id ?? "") === featureId
+        ? { ...candidate, geometry: simplified.geometry }
+        : candidate
+    );
+    updateProject(updateLayerGeojson(project, layer.id, { ...layer.geojson, features }), {
+      label: "Simplify selected feature",
+      group: `simplify-feature:${layer.id}:${featureId}`
+    });
+    toast.success("Selected feature simplified");
   }
 
   function ensureLayerLabel(layer: LayerManifest) {
@@ -1033,6 +1067,11 @@ export function App() {
                       <div className="selected-feature-meta">
                         <strong>{selectedFeatureData.feature.properties?.__q2ws_id || selectedFeatureData.feature.id}</strong>
                         <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
+                      </div>
+                      <div className="selected-feature-actions">
+                        <button type="button" className="btn compact" onClick={simplifySelectedFeature}>
+                          Simplify selected feature
+                        </button>
                       </div>
                       {fieldNames(selectedLayer).map((field) => (
                         <TextInput
