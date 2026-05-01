@@ -1347,9 +1347,27 @@ tbody tr:hover {
 
 .popup-fields {
   display: grid;
-  gap: 5px;
+  gap: 8px;
   max-height: 55vh;
   overflow: auto;
+}
+
+.popup-field-row {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.popup-field-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.popup-field-key-input,
+.popup-field-label-input {
+  min-width: 0;
 }
 
 .popup-custom-textarea {
@@ -1437,6 +1455,24 @@ tbody tr:hover {
   display: grid;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.feature-property-list,
+.feature-property-add {
+  display: grid;
+  gap: 8px;
+}
+
+.feature-property-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.feature-property-add {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
 }
 
 .selected-feature-meta {
