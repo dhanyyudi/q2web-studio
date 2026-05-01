@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "react-resizable-panels";
+import { Group, Panel, Separator, useDefaultLayout, usePanelRef, type GroupImperativeHandle } from "react-resizable-panels";
 import { Toaster, toast } from "sonner";
 import {
   AlertTriangle,
@@ -79,6 +79,8 @@ type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: numbe
 
 const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
 const APP_THEME_STORAGE_KEY = "q2ws-app-theme";
+const WORKSPACE_LAYOUT_STORAGE_KEY = "q2ws-workspace-layout";
+const LEFT_PANEL_COLLAPSED_STORAGE_KEY = "q2ws-left-panel-collapsed";
 const HISTORY_LIMIT = 30;
 const BASEMAP_PRESET_GROUPS: { name: string; items: BasemapConfig[] }[] = [
   {
@@ -114,6 +116,9 @@ export function App() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const workspaceGroupRef = useRef<GroupImperativeHandle | null>(null);
+  const sidePanelRef = usePanelRef();
+  const inspectorPanelRef = usePanelRef();
   const mapPanelRef = usePanelRef();
   const tablePanelRef = usePanelRef();
   const projectSelectionIdentityRef = useRef("");
@@ -131,6 +136,7 @@ export function App() {
   const [status, setStatus] = useState("Import a qgis2web export to start editing.");
   const [busy, setBusy] = useState(false);
   const [appTheme, setAppTheme] = useState<AppThemeMode>(() => readStoredTheme());
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() => readStoredBoolean(LEFT_PANEL_COLLAPSED_STORAGE_KEY, false));
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [newField, setNewField] = useState("");
@@ -145,6 +151,10 @@ export function App() {
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: TABLE_LAYOUT_STORAGE_KEY,
     panelIds: ["map", "attributes"]
+  });
+  const { defaultLayout: defaultWorkspaceLayout, onLayoutChanged: onWorkspaceLayoutChanged } = useDefaultLayout({
+    id: WORKSPACE_LAYOUT_STORAGE_KEY,
+    panelIds: ["left-panel", "main-stage", "right-panel"]
   });
 
   const selectedLayer = useMemo(
@@ -198,6 +208,14 @@ export function App() {
         toast.warning(message);
       });
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LEFT_PANEL_COLLAPSED_STORAGE_KEY, String(leftPanelCollapsed));
+    if (!workspaceGroupRef.current) return;
+    workspaceGroupRef.current.setLayout(leftPanelCollapsed
+      ? { "left-panel": 0, "main-stage": 74, "right-panel": 26 }
+      : { "left-panel": 18, "main-stage": 56, "right-panel": 26 });
+  }, [leftPanelCollapsed]);
 
   useEffect(() => {
     if (project && !selectedLayerId) {
@@ -1064,6 +1082,19 @@ export function App() {
     return String(selectedFeatureData?.feature.properties?.__q2ws_id ?? selectedFeatureData?.feature.id ?? "");
   }
 
+  function selectedFeatureTitle(layer: LayerManifest, feature: GeoJSON.Feature) {
+    const properties = feature.properties || {};
+    const labelField = layer.label?.field || "";
+    const preferredValue = labelField ? properties[labelField] : undefined;
+    if (preferredValue != null && String(preferredValue).trim()) return String(preferredValue).trim();
+    const nextProperty = Object.entries(properties).find(([key, value]) => key !== "__q2ws_id" && value != null && String(value).trim());
+    if (nextProperty) return String(nextProperty[1]).trim();
+    const featureIndex = layer.geojson.features.findIndex((candidate) => candidate === feature);
+    if (featureIndex >= 0) return `${layer.displayName} #${featureIndex + 1}`;
+    const fallback = String(properties.__q2ws_id ?? feature.id ?? `${layer.displayName} feature`);
+    return fallback.length > 32 ? `${fallback.slice(0, 31)}…` : fallback;
+  }
+
   function updateSelectedFeatureField(field: string, value: string) {
     if (!project || !selectedLayer || !selectedFeatureData) return;
     const featureId = selectedFeatureIdValue();
@@ -1321,7 +1352,7 @@ export function App() {
         <div className="brand-lockup">
           <div className="brand-mark">q2</div>
           <div>
-            <h1>qgis2web Studio</h1>
+            <h1>q2webstudio</h1>
             <p>Local-first low-code editor for qgis2web Leaflet exports.</p>
           </div>
         </div>
@@ -1384,11 +1415,9 @@ export function App() {
           <Button type="button" variant="outline" disabled={!project || busy} onClick={closeProject}>
             <XCircle size={16} /> Close Project
           </Button>
-          <Button asChild type="button" variant="outline">
-            <a href="https://tiptap.gg/dhanypedia" target="_blank" rel="noreferrer">
-              <Heart size={16} /> Support
-            </a>
-          </Button>
+          <a data-testid="support-link" className="support-fab" href="https://tiptap.gg/dhanypedia" target="_blank" rel="noreferrer" aria-label="Support this project" title="Support this project">
+            <Heart size={16} />
+          </a>
           <Button data-testid="open-preview" type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
             <Eye size={16} /> Preview
           </Button>
@@ -1422,12 +1451,24 @@ export function App() {
           }
         }}
       >
-        <aside className="side-panel">
-          <PanelTitle icon={<Wand2 size={16} />} title="Project" />
-          <div className="status-box">{busy ? "Working..." : status}</div>
+        <Group
+          id="workspace-panels"
+          groupRef={workspaceGroupRef}
+          defaultLayout={defaultWorkspaceLayout || { "left-panel": leftPanelCollapsed ? 0 : 18, "main-stage": leftPanelCollapsed ? 74 : 56, "right-panel": 26 }}
+          onLayoutChanged={onWorkspaceLayoutChanged}
+          className="workspace-panels"
+          orientation="horizontal"
+        >
+          <Panel id="left-panel" defaultSize={leftPanelCollapsed ? "0%" : "18%"} minSize="12%" maxSize="30%" collapsible collapsedSize="0%" panelRef={sidePanelRef}>
+            <aside className="side-panel">
+              <button type="button" className="panel-collapse-button" aria-label="Collapse side panel" onClick={() => setLeftPanelCollapsed(true)}>
+                <span>☰</span>
+              </button>
+              <PanelTitle icon={<Wand2 size={16} />} title="Project" />
+              <div className="status-box">{busy ? "Working..." : status}</div>
 
-          {project && (
-            <>
+              {project && (
+                <>
               <button
                 type="button"
                 className={inspectorMode === "project" ? "project-settings-button active" : "project-settings-button"}
@@ -1499,7 +1540,9 @@ export function App() {
             </>
           )}
         </aside>
-
+      </Panel>
+      <Separator className="workspace-resize-handle" />
+      <Panel id="main-stage" defaultSize={leftPanelCollapsed ? "74%" : "56%"} minSize="35%">
         <section className="main-stage">
           {project && selectedLayer ? (
             <>
@@ -1594,7 +1637,7 @@ export function App() {
               <div className="drop-card">
                 <FolderOpen size={42} />
                 <h2>Import qgis2web export</h2>
-                <p>Drag and drop a qgis2web ZIP here. Folder drag and drop also works in browsers that support folder entries.</p>
+                <p>Visual editor untuk hasil export qgis2web</p>
                 <small>Recommended: ZIP export for the cleanest browser import. Use Import Folder if drag and drop is blocked by the browser.</small>
               </div>
               <div className="empty-actions">
@@ -1608,8 +1651,11 @@ export function App() {
             </div>
           )}
         </section>
+      </Panel>
+      <Separator className="workspace-resize-handle" />
 
-        {project && (
+        <Panel id="right-panel" defaultSize="26%" minSize="20%" maxSize="45%" collapsible collapsedSize="0%" panelRef={inspectorPanelRef}>
+          {project ? (
           <aside className="inspector">
             <div className="inspector-scope">
               <span>Project</span>
@@ -1652,7 +1698,7 @@ export function App() {
                   {selectedFeatureData && selectedFeatureData.layer.id === selectedLayer.id ? (
                     <div className="selected-feature-panel">
                       <div className="selected-feature-meta">
-                        <strong>{selectedFeatureData.feature.properties?.__q2ws_id || selectedFeatureData.feature.id}</strong>
+                        <strong data-testid="selected-feature-title" title={selectedFeatureTitle(selectedFeatureData.layer, selectedFeatureData.feature)}>{selectedFeatureTitle(selectedFeatureData.layer, selectedFeatureData.feature)}</strong>
                         <div className="dialog-actions">
                           <button type="button" className="btn compact" onClick={bufferSelectedFeature}>Buffer</button>
                           <button type="button" className="btn compact" onClick={mergeSelectedLayer} disabled={selectedGeometryKind !== "polygon"}>Merge layer</button>
@@ -1881,7 +1927,14 @@ export function App() {
               </Tabs.Root>
             ) : null}
           </aside>
-        )}
+          ) : <div className="inspector inspector-empty" aria-hidden="true" />}
+        </Panel>
+      </Group>
+      {leftPanelCollapsed && (
+        <button data-testid="left-panel-expand" type="button" className="left-panel-expand" aria-label="Expand side panel" onClick={() => setLeftPanelCollapsed(false)}>
+          <span>☰</span>
+        </button>
+      )}
       </section>
       {previewOpen && project && selectedLayer && (
         <PreviewOverlay
@@ -1981,9 +2034,19 @@ function RangeInput(props: { label: string; value: number; min: number; max: num
 }
 
 function readStoredTheme(): AppThemeMode {
+  if (typeof window === "undefined") return "system";
   const stored = localStorage.getItem(APP_THEME_STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : "light";
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
 }
+
+function readStoredBoolean(key: string, fallback: boolean): boolean {
+  if (typeof window === "undefined") return fallback;
+  const stored = localStorage.getItem(key);
+  if (stored === "true") return true;
+  if (stored === "false") return false;
+  return fallback;
+}
+
 
 function applyAppTheme(theme: AppThemeMode): void {
   const resolved = theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : theme === "system" ? "light" : theme;
@@ -2404,14 +2467,16 @@ function hydrateProject(project: Qgis2webProject): Qgis2webProject {
         geojson: {
           ...layer.geojson,
           features: layer.geojson.features.map((feature, index) => {
-            const sourceId = String(feature.properties?.__q2ws_id ?? feature.id ?? `${layer.id}-${index}`);
-            const baseId = `${layer.id}::${sourceId}`;
+            const properties = feature.properties || {};
+            const existingStableId = typeof properties.__q2ws_id === "string" && properties.__q2ws_id.trim() ? properties.__q2ws_id : "";
+            const sourceId = String(feature.id ?? `${layer.id}-${index}`);
+            const baseId = existingStableId || `${layer.id}::${sourceId}`;
             const stableId = uniqueFeatureId(featureIds, baseId, `${layer.id}-${index}`);
             return {
               ...feature,
               id: feature.id ?? stableId,
               properties: {
-                ...(feature.properties || {}),
+                ...properties,
                 __q2ws_id: stableId
               }
             };

@@ -398,8 +398,15 @@ export function useAutoFit(
       return;
     }
     if (userMovedMapRef.current && lastAutoFitKeyRef.current) {
-      debugLog("autofit", "skip-after-user-move", { autoFitKey: instanceAutoFitKey, previousKey: lastAutoFitKeyRef.current });
-      return;
+      const previousKey = lastAutoFitKeyRef.current;
+      const previousParts = previousKey.split("::");
+      const currentParts = instanceAutoFitKey.split("::");
+      const zoomChanged = previousParts[previousParts.length - 1] !== currentParts[currentParts.length - 1]
+        || previousParts[previousParts.length - 2] !== currentParts[currentParts.length - 2];
+      if (!zoomChanged) {
+        debugLog("autofit", "skip-after-user-move", { autoFitKey: instanceAutoFitKey, previousKey });
+        return;
+      }
     }
     lastAutoFitKeyRef.current = instanceAutoFitKey;
     const bounds = (initialBounds ? L.latLngBounds(initialBounds) : null) || projectBounds(renderLayers);
