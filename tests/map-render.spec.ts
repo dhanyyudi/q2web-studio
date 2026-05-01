@@ -198,6 +198,69 @@ test("imports fixture and renders map", async ({ page }) => {
   expect(autoFitEvents).not.toContain("apply");
 });
 
+test("production headers allow temporary blob runtime preview", async ({ page }) => {
+  const response = await page.goto("/_headers");
+  expect(response?.ok()).toBe(true);
+  const headers = await page.locator("body").textContent();
+  expect(headers).toContain("script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' blob:");
+  expect(headers).toContain("style-src 'self' 'unsafe-inline' blob:");
+  expect(headers).toContain("TEMPORARY: 'unsafe-inline' + blob: required for blob-iframe Preview");
+});
+
+test("selected feature header uses a readable label and cannot overflow inspector", async ({ page }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  const heading = page.getByTestId("selected-feature-title");
+  await expect(heading).toBeVisible();
+  await expect(heading).not.toContainText(/::/);
+  await expect(heading).toContainText(/\S+/);
+  const hasHorizontalOverflow = await page.locator(".inspector").evaluate((element) => element.scrollWidth > element.clientWidth + 1);
+  expect(hasHorizontalOverflow).toBe(false);
+});
+
+test("initial zoom setting reapplies the editor map view", async ({ page }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.locator('label:has-text("Initial zoom") select').selectOption("fixed");
+  const zoomSlider = page.locator('label:has-text("Zoom level") input[type="range"]');
+  await zoomSlider.fill("9");
+  await expect.poll(() => page.evaluate(() => (window as Window & { __q2ws_map?: { getZoom: () => number } }).__q2ws_map?.getZoom())).toBe(9);
+});
+
+test("phase 1 branding uses q2webstudio and support button floats bottom left", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveTitle("q2webstudio");
+  await expect(page.getByRole("heading", { level: 1, name: "q2webstudio" })).toBeVisible();
+  await expect(page.locator(".empty-state")).toContainText("Visual editor untuk hasil export qgis2web");
+  const supportLink = page.getByTestId("support-link");
+  await expect(supportLink).toBeVisible();
+  await expect(supportLink).toHaveAttribute("href", "https://tiptap.gg/dhanypedia");
+  const supportBox = await supportLink.boundingBox();
+  if (!supportBox) throw new Error("Expected support button bounds.");
+  expect(supportBox.width).toBeLessThanOrEqual(40);
+  expect(supportBox.x).toBeLessThan(40);
+});
+
+test("phase 1 shell persists left panel collapse state", async ({ page }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+  const collapseButton = page.getByRole("button", { name: /Collapse side panel/i });
+  await expect(collapseButton).toBeVisible();
+  await collapseButton.click();
+  await expect(page.locator('[data-testid="left-panel-expand"]')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('[data-testid="left-panel-expand"]')).toBeVisible();
+  await page.getByTestId("left-panel-expand").click();
+  await expect(page.getByRole("button", { name: /Collapse side panel/i })).toBeVisible();
+});
+
 test("lasso selects multiple features in the selected layer", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {

@@ -1,4 +1,4 @@
-# qgis2web Studio
+# q2webstudio
 
 [![Support](https://img.shields.io/badge/Support-tiptap.gg-ff6b6b?style=for-the-badge)](https://tiptap.gg/dhanypedia)
 
@@ -12,7 +12,7 @@ Browser first, local first editor for qgis2web Leaflet exports.
 
 ## What it does
 
-qgis2web Studio helps you import an existing qgis2web Leaflet export, customize it visually, then export a refreshed static web map.
+q2webstudio helps you import an existing qgis2web Leaflet export, customize it visually, then export a refreshed static web map.
 
 ## Main features
 

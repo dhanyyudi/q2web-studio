@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "q2web-studio",
+  "name": "q2webstudio",
   "compatibility_date": "2025-04-01",
   "assets": {
     "directory": "./dist",

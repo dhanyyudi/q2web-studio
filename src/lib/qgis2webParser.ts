@@ -105,7 +105,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
     branding: {
       ...defaultBranding,
       title,
-      subtitle: "Diedit dengan qgis2web Studio"
+      subtitle: "Diedit dengan q2webstudio"
     },
     theme: defaultTheme,
     mapSettings: {

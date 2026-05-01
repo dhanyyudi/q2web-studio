@@ -1,5 +1,5 @@
 {
-  "name": "qgis2web-studio",
+  "name": "q2webstudio",
   "version": "0.1.0",
   "description": "A browser-first low-code editor for qgis2web Leaflet exports.",
   "private": true,

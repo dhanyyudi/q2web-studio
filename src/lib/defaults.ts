@@ -25,7 +25,7 @@ export const defaultTheme: ThemeSettings = {
 export const defaultBranding: BrandingSettings = {
   title: "Peta WebGIS Interaktif",
   subtitle: "Dibuat dari export qgis2web",
-  footer: "Dibuat dengan QGIS, qgis2web, dan qgis2web Studio",
+  footer: "Dibuat dengan q2webstudio",
   showHeader: true,
   showFooter: true,
   showWelcome: false,
