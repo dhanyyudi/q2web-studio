@@ -353,6 +353,32 @@ test("merge all polygon features in layer creates a union output layer", async (
   expect(consoleErrors).toEqual([]);
 });
 
+test("merge aborts without creating output layer when union fails", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1&forceMergeUnionError=1");
+  await page.locator('input[webkitdirectory]').setInputFiles(fixtureRoot);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: "Zona Nilai Tanah" }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  await page.getByRole("button", { name: /Merge layer/i }).click();
+
+  await expect(page.getByText(/Merge failed\./i)).toBeVisible({ timeout: 15000 });
+
+  const mergeLayerExists = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string }> } }).__q2ws_project;
+    return project?.layers.some((layer) => layer.displayName.includes("merge")) ?? false;
+  });
+  expect(mergeLayerExists).toBe(false);
+  expect(consoleErrors).toEqual([]);
+});
+
 test("creates convex hull layer from selected polygon feature", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {

@@ -629,10 +629,15 @@ export function App() {
         continue;
       }
       try {
+        if (new URLSearchParams(window.location.search).get("forceMergeUnionError") === "1") {
+          throw new Error("Forced merge union failure");
+        }
         const candidate: Feature<Polygon | MultiPolygon> | null = union(featureCollection([merged, feature]));
         if (candidate) merged = candidate;
-      } catch {
-        // skip geometry that turf cannot process
+      } catch (error) {
+        console.warn("Merge failed while unioning polygon features", error);
+        toast.error("Merge failed. No output layer was created because at least one polygon could not be unioned.");
+        return;
       }
     }
     if (!merged || !merged.geometry) {
