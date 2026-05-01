@@ -249,6 +249,11 @@ export type Qgis2webProject = {
   diagnostics: string[];
 };
 
+export type SelectedFeatureRef = {
+  layerId: string;
+  featureId: string;
+};
+
 export type WorkerParseRequest = {
   type: "parse";
   files: VirtualFile[];

@@ -139,6 +139,8 @@ export function PreviewOverlay({
             }
             onProjectChange={onProjectChange}
             onTileError={onTileError}
+            selectedFeature={null}
+            onSelectedFeatureChange={() => undefined}
           />
         )}
       </div>

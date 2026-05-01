@@ -1325,6 +1325,14 @@ td input {
   background: transparent;
 }
 
+tbody tr.selected {
+  background: color-mix(in srgb, var(--brand) 10%, var(--panel-bg));
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--panel-muted) 72%, var(--panel-bg));
+}
+
 .virtual-spacer td {
   padding: 0;
   border: 0;
@@ -1423,6 +1431,23 @@ td input {
   color: var(--app-fg);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.selected-feature-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.selected-feature-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--panel-muted);
 }
 
 .empty-state {
