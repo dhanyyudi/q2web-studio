@@ -13,6 +13,7 @@ import {
   EyeOff,
   FolderOpen,
   Layers3,
+  Lasso,
   Monitor,
   Moon,
   MousePointer2,
@@ -32,10 +33,11 @@ import {
   XCircle
 } from "lucide-react";
 import bbox from "@turf/bbox";
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { buffer as turfBuffer } from "@turf/buffer";
 import convex from "@turf/convex";
 import simplify from "@turf/simplify";
-import type { Feature, Point } from "geojson";
+import type { Feature, Geometry, Point, Polygon } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
 import { MapCanvas } from "./components/MapCanvas";
@@ -113,6 +115,7 @@ export function App() {
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeatureRef | null>(null);
+  const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>("project");
   const [drawMode, setDrawMode] = useState<DrawMode>("select");
   const [snapEnabled, setSnapEnabled] = useState(false);
@@ -217,9 +220,13 @@ export function App() {
   }, [selectedFeature, selectedFeatureData, selectedLayerId]);
 
   useEffect(() => {
+    setSelectedFeatureIds([]);
+  }, [selectedLayerId]);
+
+  useEffect(() => {
     if (!selectedLayer) return;
     if (!canEditGeometry) {
-      if (drawMode !== "select") {
+      if (drawMode !== "select" && drawMode !== "lasso") {
         setDrawMode("select");
         return;
       }
@@ -676,6 +683,35 @@ export function App() {
     toast.success("Convex hull layer created");
   }
 
+  function selectAllFeatures() {
+    if (!project || !selectedLayer) return;
+    const allIds = selectedLayer.geojson.features.map((feature) =>
+      String(feature.properties?.__q2ws_id ?? feature.id ?? "")
+    );
+    setSelectedFeatureIds(allIds);
+    toast.info(`Selected ${allIds.length} features`);
+  }
+
+  function clearSelection() {
+    setSelectedFeatureIds([]);
+    setSelectedFeature(null);
+    toast.info("Selection cleared");
+  }
+
+  const handleLassoComplete = useCallback((polygon: Polygon) => {
+    if (!selectedLayer) return;
+    const selectedIds = selectedLayer.geojson.features
+      .filter((feature) => {
+        const point = representativePoint(feature.geometry);
+        return point ? booleanPointInPolygon(point, polygon) : false;
+      })
+      .map((feature) => String(feature.properties?.__q2ws_id ?? feature.id ?? ""))
+      .filter(Boolean);
+    setSelectedFeatureIds(selectedIds);
+    setSelectedFeature(null);
+    toast.info(`Lasso selected ${selectedIds.length} features`);
+  }, [selectedLayer]);
+
   function selectedFeatureIdValue() {
     return String(selectedFeatureData?.feature.properties?.__q2ws_id ?? selectedFeatureData?.feature.id ?? "");
   }
@@ -895,6 +931,11 @@ export function App() {
   }
 
   function setDrawModeWithGuard(nextMode: DrawMode) {
+    if (nextMode === "lasso") {
+      if (!selectedLayer) return;
+      setDrawMode("lasso");
+      return;
+    }
     if (nextMode === "delete") {
       if (!canEditGeometry) return;
       setDrawMode("delete");
@@ -1118,6 +1159,9 @@ export function App() {
                 <ToolbarButton title={canEditGeometry ? "Select and edit" : "Multi-geometry layers are preview-only"} shortcut="1" active={drawMode === "select"} disabled={!canEditGeometry} onClick={() => setDrawModeWithGuard("select")}>
                   <MousePointer2 size={17} />
                 </ToolbarButton>
+                <ToolbarButton title="Lasso select multiple features" shortcut="7" active={drawMode === "lasso"} disabled={!selectedLayer} onClick={() => setDrawModeWithGuard("lasso")}>
+                  <Lasso size={17} />
+                </ToolbarButton>
                 <ToolbarButton title="Draw point" shortcut="2" active={drawMode === "point"} disabled={!canDrawPoint} onClick={() => setDrawModeWithGuard("point")}>
                   <Circle size={17} />
                 </ToolbarButton>
@@ -1158,11 +1202,13 @@ export function App() {
                     selectedLayerId={selectedLayer.id}
                     drawMode={drawMode}
                     snapEnabled={snapEnabled}
-                    geometryEditingDisabled={!canEditGeometry}
+                    geometryEditingDisabled={drawMode !== "lasso" && !canEditGeometry}
                     onProjectChange={updateProject}
                     onTileError={handleTileError}
                     selectedFeature={selectedFeature}
+                    selectedFeatureIds={selectedFeatureIds}
                     onSelectedFeatureChange={setSelectedFeature}
+                    onLassoComplete={handleLassoComplete}
                   />
                 </Panel>
                 <Separator className="panel-resize-handle" />
@@ -1292,6 +1338,11 @@ export function App() {
                   ) : (
                     <div className="editor-note">Select a feature from the map or attribute table to edit its properties.</div>
                   )}
+                  <div className="multi-select-actions" data-testid="multi-select-panel">
+                    <span>{selectedFeatureIds.length} features selected</span>
+                    <button type="button" className="btn compact" onClick={selectAllFeatures}>Select all</button>
+                    <button type="button" className="btn compact" onClick={clearSelection} disabled={selectedFeatureIds.length === 0}>Clear selection</button>
+                  </div>
                   {selectedLayerHasMultiGeometry && (
                     <div className="editor-note">This layer contains multi-geometry features. Style, popup, legend, and attributes remain editable, but vertex editing is disabled to keep the data safe.</div>
                   )}
@@ -1606,6 +1657,21 @@ function popupHtmlFromLayer(layer: LayerManifest): string {
   return `<table>${rows}</table>`;
 }
 
+function representativePoint(geometry: Geometry | null | undefined): Feature<Point> | null {
+  if (!geometry) return null;
+  if (geometry.type === "Point") return { type: "Feature", properties: {}, geometry };
+  const box = bbox({ type: "Feature", properties: {}, geometry });
+  if (box.some((value) => !Number.isFinite(value))) return null;
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Point",
+      coordinates: [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
+    }
+  };
+}
+
 function geometryKindOf(geometryType: string): GeometryKind {
   if (geometryType.includes("Point")) return "point";
   if (geometryType.includes("Line")) return "line";
@@ -1630,7 +1696,8 @@ function shortcutDrawMode(key: string, geometryKind: GeometryKind, canEditGeomet
     "3": "linestring",
     "4": "polygon",
     "5": "rectangle",
-    "6": "circle"
+    "6": "circle",
+    "7": "lasso"
   };
   const mode = modeByKey[key];
   if (!mode) return null;
@@ -1654,6 +1721,7 @@ function shortcutRows(geometryKind: GeometryKind, canEditGeometry: boolean): { k
     { keycap: "4", label: canEditGeometry && geometryKind === "polygon" ? "Draw polygon" : unavailable },
     { keycap: "5", label: canEditGeometry && geometryKind === "polygon" ? "Draw rectangle" : unavailable },
     { keycap: "6", label: canEditGeometry && geometryKind === "polygon" ? "Draw circle" : unavailable },
+    { keycap: "7", label: canEditGeometry ? "Lasso select" : unavailable },
     { keycap: "?", label: "Open this shortcuts dialog" },
     { keycap: "Esc", label: "Close shortcuts dialog" },
     { keycap: "Cmd/Ctrl+Z", label: "Undo project edit" },

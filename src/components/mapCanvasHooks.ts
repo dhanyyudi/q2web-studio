@@ -4,7 +4,7 @@ import L from "leaflet";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import type { Feature, FeatureCollection } from "geojson";
+import type { Feature, FeatureCollection, Polygon } from "geojson";
 import {
   TerraDraw,
   TerraDrawCircleMode,
@@ -162,6 +162,7 @@ export function useGeoJsonLayers(
   renderLayers: LayerManifest[],
   textAnnotations: TextAnnotation[],
   selectedFeature: SelectedFeatureRef | null,
+  selectedFeatureIds: string[],
   onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void
 ) {
   useEffect(() => {
@@ -169,13 +170,16 @@ export function useGeoJsonLayers(
     if (!map) return;
     const layerGroup = L.layerGroup().addTo(map);
     const featureId = (feature: Feature) => String(feature.properties?.__q2ws_id ?? feature.id ?? "");
+    const multiSelectedIds = new Set(selectedFeatureIds);
 
     renderLayers.forEach((layer) => {
       const clusterPoints = shouldClusterLayer(layer);
       const geoLayer = L.geoJSON(layer.geojson, {
         style: (feature) => {
           const baseStyle = styleForFeature(layer, feature as Feature);
-          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature.featureId === featureId(feature as Feature);
+          const currentFeatureId = featureId(feature as Feature);
+          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature.featureId === currentFeatureId;
+          const isMultiSelected = multiSelectedIds.has(currentFeatureId);
           return isSelected
             ? {
                 ...baseStyle,
@@ -183,21 +187,30 @@ export function useGeoJsonLayers(
                 color: "#ff7a18",
                 fillOpacity: typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.12, 1) : baseStyle.fillOpacity
               }
-            : baseStyle;
+            : isMultiSelected
+              ? {
+                  ...baseStyle,
+                  weight: Math.max((baseStyle.weight || layer.style.strokeWidth || 2) + 2, 3),
+                  color: "#7c3aed",
+                  fillOpacity: typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.18, 1) : baseStyle.fillOpacity
+                }
+              : baseStyle;
         },
         pointToLayer: (feature, latlng) => {
-          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature.featureId === featureId(feature as Feature);
+          const currentFeatureId = featureId(feature as Feature);
+          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature.featureId === currentFeatureId;
+          const isMultiSelected = multiSelectedIds.has(currentFeatureId);
           if (clusterPoints) {
             return L.marker(latlng, { icon: pointClusterIcon(layer, feature as Feature) });
           }
           const baseStyle = styleForFeature(layer, feature as Feature);
           return L.circleMarker(latlng, {
             ...baseStyle,
-            radius: isSelected ? layer.style.pointRadius + 4 : layer.style.pointRadius,
-            ...(isSelected
+            radius: isSelected || isMultiSelected ? layer.style.pointRadius + 4 : layer.style.pointRadius,
+            ...(isSelected || isMultiSelected
               ? {
                   weight: Math.max((baseStyle.weight || layer.style.strokeWidth || 2) + 2, 3),
-                  color: "#ff7a18",
+                  color: isSelected ? "#ff7a18" : "#7c3aed",
                   fillOpacity: typeof baseStyle.fillOpacity === "number" ? Math.min(baseStyle.fillOpacity + 0.12, 1) : baseStyle.fillOpacity
                 }
               : {})
@@ -250,7 +263,91 @@ export function useGeoJsonLayers(
     return () => {
       layerGroup.remove();
     };
-  }, [mapInstanceVersion, mapRef, onSelectedFeatureChange, renderLayers, selectedFeature, textAnnotations]);
+  }, [mapInstanceVersion, mapRef, onSelectedFeatureChange, renderLayers, selectedFeature, selectedFeatureIds, textAnnotations]);
+}
+
+export function useLassoSelection({
+  mapRef,
+  mapInstanceVersion,
+  drawMode,
+  geometryEditingDisabled,
+  preview,
+  onDrawStatusChange,
+  onLassoComplete
+}: {
+  mapRef: MutableRefObject<L.Map | null>;
+  mapInstanceVersion: number;
+  drawMode: DrawMode;
+  geometryEditingDisabled: boolean;
+  preview: boolean;
+  onDrawStatusChange: (status: string) => void;
+  onLassoComplete: (polygon: Polygon) => void;
+}) {
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || preview || geometryEditingDisabled || drawMode !== "lasso") return;
+
+    let drawing = false;
+    let points: L.LatLng[] = [];
+    let lassoLayer: L.Polygon | null = null;
+    const container = map.getContainer();
+
+    const finish = () => {
+      if (!drawing) return;
+      drawing = false;
+      container.classList.remove("q2ws-lasso-active");
+      map.dragging.enable();
+      lassoLayer?.remove();
+      lassoLayer = null;
+      if (points.length < 3) {
+        onDrawStatusChange("Lasso selection needs at least three points.");
+        points = [];
+        return;
+      }
+      const ring = points.map((point) => [point.lng, point.lat] as [number, number]);
+      ring.push(ring[0]);
+      points = [];
+      onLassoComplete({ type: "Polygon", coordinates: [ring] });
+    };
+
+    const start = (event: L.LeafletMouseEvent) => {
+      drawing = true;
+      points = [event.latlng];
+      container.classList.add("q2ws-lasso-active");
+      map.dragging.disable();
+      lassoLayer = L.polygon(points, {
+        color: "#7c3aed",
+        weight: 2,
+        dashArray: "6 4",
+        fillColor: "#7c3aed",
+        fillOpacity: 0.12,
+        interactive: false
+      }).addTo(map);
+      onDrawStatusChange("Drawing lasso selection...");
+    };
+
+    const move = (event: L.LeafletMouseEvent) => {
+      if (!drawing || !lassoLayer) return;
+      points.push(event.latlng);
+      lassoLayer.setLatLngs(points);
+    };
+
+    map.on("mousedown", start);
+    map.on("mousemove", move);
+    map.on("mouseup", finish);
+    map.on("mouseout", finish);
+    onDrawStatusChange("Drag on the map to lasso features in the selected layer.");
+
+    return () => {
+      map.off("mousedown", start);
+      map.off("mousemove", move);
+      map.off("mouseup", finish);
+      map.off("mouseout", finish);
+      container.classList.remove("q2ws-lasso-active");
+      map.dragging.enable();
+      lassoLayer?.remove();
+    };
+  }, [drawMode, geometryEditingDisabled, mapInstanceVersion, mapRef, onDrawStatusChange, onLassoComplete, preview]);
 }
 
 export function useAutoFit(
@@ -338,7 +435,8 @@ export function useTerraDrawEditor({
   preview,
   snapEnabled,
   onProjectChange,
-  onDrawStatusChange
+  onDrawStatusChange,
+  onLassoComplete
 }: {
   mapRef: MutableRefObject<L.Map | null>;
   mapInstanceVersion: number;
@@ -350,6 +448,7 @@ export function useTerraDrawEditor({
   snapEnabled: boolean;
   onProjectChange: (project: Qgis2webProject, options?: { label?: string; group?: string; coalesceMs?: number }) => void;
   onDrawStatusChange: (status: string) => void;
+  onLassoComplete?: (polygon: GeoJSON.Polygon) => void;
 }) {
   const drawRef = useRef<TerraDraw | null>(null);
 
@@ -417,8 +516,8 @@ export function useTerraDrawEditor({
 
     draw.start();
     debugLog("terradraw", "start", { layerId: selectedLayer.id, drawMode, mapInstanceVersion });
-    draw.setMode(drawMode === "delete" ? "select" : drawMode);
-    debugLog("terradraw", "set-mode", { drawMode: drawMode === "delete" ? "select" : drawMode });
+    draw.setMode(drawMode === "delete" || drawMode === "lasso" ? "select" : drawMode);
+    debugLog("terradraw", "set-mode", { drawMode: drawMode === "delete" || drawMode === "lasso" ? "select" : drawMode });
     const editableFeatures = toTerraDrawFeatures(selectedLayer);
     const unsupportedCount = selectedLayer.geojson.features.length - editableFeatures.length;
     if (editableFeatures.length > 0) {
@@ -466,7 +565,7 @@ export function useTerraDrawEditor({
   useEffect(() => {
     if (preview || geometryEditingDisabled) return;
     if (!drawRef.current) return;
-    drawRef.current.setMode(drawMode === "delete" ? "select" : drawMode);
-    onDrawStatusChange(drawMode === "delete" ? "Select a feature and press Delete." : `Geometry mode: ${drawMode}${snapEnabled ? " · snap on" : ""}`);
+    drawRef.current.setMode(drawMode === "delete" || drawMode === "lasso" ? "select" : drawMode);
+    onDrawStatusChange(drawMode === "delete" ? "Select a feature and press Delete." : drawMode === "lasso" ? "Drag on the map to lasso features in the selected layer." : `Geometry mode: ${drawMode}${snapEnabled ? " · snap on" : ""}`);
   }, [drawMode, geometryEditingDisabled, onDrawStatusChange, preview, snapEnabled]);
 }

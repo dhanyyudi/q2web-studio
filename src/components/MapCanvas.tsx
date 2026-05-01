@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import type { Polygon } from "geojson";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
 import type { DrawMode, LayerManifest, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
-import { useAutoFit, useBasemap, useGeoJsonLayers, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
+import { useAutoFit, useBasemap, useGeoJsonLayers, useLassoSelection, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
 
 type MapCanvasProps = {
   project: Qgis2webProject;
@@ -18,7 +19,9 @@ type MapCanvasProps = {
   onTileError?: (message: string) => void;
   onProjectChange: (project: Qgis2webProject, options?: { label?: string; group?: string; coalesceMs?: number }) => void;
   selectedFeature: SelectedFeatureRef | null;
+  selectedFeatureIds?: string[];
   onSelectedFeatureChange: (selection: SelectedFeatureRef | null) => void;
+  onLassoComplete?: (polygon: Polygon) => void;
 };
 
 export function MapCanvas({
@@ -34,7 +37,9 @@ export function MapCanvas({
   onTileError,
   onProjectChange,
   selectedFeature,
-  onSelectedFeatureChange
+  selectedFeatureIds = [],
+  onSelectedFeatureChange,
+  onLassoComplete
 }: MapCanvasProps) {
   const { containerRef, mapRef, mapZoom, mapInstanceVersion } = useLeafletMap();
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
@@ -85,7 +90,16 @@ export function MapCanvas({
   }, [project.legendSettings.collapsed]);
 
   useBasemap(mapRef, mapInstanceVersion, project.basemaps, project.mapSettings.basemap, onTileError);
-  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, selectedFeature, onSelectedFeatureChange);
+  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, selectedFeature, selectedFeatureIds, onSelectedFeatureChange);
+  useLassoSelection({
+    mapRef,
+    mapInstanceVersion,
+    drawMode,
+    geometryEditingDisabled,
+    preview,
+    onDrawStatusChange: setDrawStatus,
+    onLassoComplete: onLassoComplete || (() => undefined)
+  });
   useAutoFit(
     mapRef,
     renderLayers,
