@@ -261,6 +261,17 @@ test("applies simplify to selected line feature", async ({ page }) => {
 
   await page.getByRole("button", { name: /Simplify selected feature/i }).click();
 
+  await page.waitForFunction(
+    (previousGeometry) => {
+      const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+      const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai");
+      const feature = layer?.geojson.features[0];
+      return JSON.stringify(feature?.geometry || null) !== previousGeometry;
+    },
+    before,
+    { timeout: 15000 }
+  );
+
   const after = await page.evaluate(() => {
     const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
     const layer = project?.layers.find((candidate) => candidate.displayName === "Sungai");

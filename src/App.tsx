@@ -507,6 +507,10 @@ export function App() {
       toast.warning("Simplify is available for line and polygon features.");
       return;
     }
+    if (!feature.geometry) {
+      toast.warning("Selected feature has no geometry to simplify.");
+      return;
+    }
     const featureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "");
     const simplified = simplify(feature as Feature, { tolerance: 0.00008, highQuality: true, mutate: false }) as Feature;
     if (!simplified.geometry || JSON.stringify(simplified.geometry) === JSON.stringify(feature.geometry)) {
