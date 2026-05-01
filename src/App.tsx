@@ -34,9 +34,12 @@ import {
 import bbox from "@turf/bbox";
 import { buffer as turfBuffer } from "@turf/buffer";
 import convex from "@turf/convex";
+import { polygonToLine } from "@turf/polygon-to-line";
 import simplify from "@turf/simplify";
 import length from "@turf/length";
-import type { Feature, LineString, MultiLineString, Point } from "geojson";
+import union from "@turf/union";
+import { featureCollection } from "@turf/helpers";
+import type { Feature, LineString, MultiLineString, MultiPolygon, Point, Polygon } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
 import { MapCanvas } from "./components/MapCanvas";
@@ -605,6 +608,163 @@ export function App() {
     setSelectedFeature(null);
     setInspectorMode("layer");
     toast.success("Buffer layer created");
+  }
+
+  function mergeSelectedLayer() {
+    if (!project || !selectedLayer) return;
+    if (!selectedLayer.geometryType.includes("Polygon")) {
+      toast.warning("Merge is available for polygon layers.");
+      return;
+    }
+    const polygonFeatures = selectedLayer.geojson.features.filter(
+      (feature): feature is Feature<Polygon | MultiPolygon> =>
+        feature.geometry?.type === "Polygon" || feature.geometry?.type === "MultiPolygon"
+    );
+    if (polygonFeatures.length < 2) {
+      toast.warning("Merge requires at least two polygon features in the layer.");
+      return;
+    }
+    let merged: Feature<Polygon | MultiPolygon> | null = null;
+    for (const feature of polygonFeatures) {
+      if (!merged) {
+        merged = feature;
+        continue;
+      }
+      try {
+        if (new URLSearchParams(window.location.search).get("forceMergeUnionError") === "1") {
+          throw new Error("Forced merge union failure");
+        }
+        const candidate: Feature<Polygon | MultiPolygon> | null = union(featureCollection([merged, feature]));
+        if (candidate) merged = candidate;
+      } catch (error) {
+        console.warn("Merge failed while unioning polygon features", error);
+        toast.error("Merge failed. No output layer was created because at least one polygon could not be unioned.");
+        return;
+      }
+    }
+    if (!merged || !merged.geometry) {
+      toast.error("Merge produced no valid geometry.");
+      return;
+    }
+    const sourceLayer = selectedLayer;
+    const mergeId = `${sourceLayer.id}-merged-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+    const outputLayer: LayerManifest = {
+      ...sourceLayer,
+      id: mergeId,
+      displayName: `${sourceLayer.displayName} merge`,
+      sourcePath: `${project.name}/data/${mergeId}.js`,
+      dataVariable: `json_${mergeId}`,
+      layerVariable: `layer_${mergeId}`,
+      geometryType: merged.geometry.type,
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "feature_count", label: "feature_count", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: [{
+          ...merged,
+          id: `${mergeId}::merged`,
+          properties: {
+            ...(merged.properties || {}),
+            __q2ws_id: `${mergeId}::merged`,
+            source_layer: sourceLayer.displayName,
+            feature_count: polygonFeatures.length
+          }
+        }]
+      },
+      style: {
+        ...sourceLayer.style,
+        fillColor: "#ff7a18",
+        strokeColor: "#ff7a18",
+        fillOpacity: 0.25,
+        strokeOpacity: 0.95,
+        strokeWidth: 2,
+        dashArray: "",
+        symbolType: "polygon"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Merge ${sourceLayer.displayName}` });
+    setSelectedLayerId(outputLayer.id);
+    setSelectedFeature(null);
+    setInspectorMode("layer");
+    toast.success("Merge layer created");
+  }
+
+  function polygonToLineSelectedFeature() {
+    if (!project || !selectedFeatureData) return;
+    const { layer: sourceLayer, feature } = selectedFeatureData;
+    if (!feature.geometry) {
+      toast.warning("Selected feature has no geometry to convert.");
+      return;
+    }
+    if (feature.geometry.type !== "Polygon" && feature.geometry.type !== "MultiPolygon") {
+      toast.warning("Polygon to line is available for polygon features.");
+      return;
+    }
+    const lineOutput = polygonToLine(feature as Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+    const lineFeatures = lineOutput.type === "FeatureCollection" ? lineOutput.features : [lineOutput];
+    const outputGeometryType = lineFeatures[0]?.geometry?.type;
+    if (lineFeatures.length === 0 || !outputGeometryType) {
+      toast.error("Polygon to line output could not be created.");
+      return;
+    }
+    const sourceFeatureId = String(feature.properties?.__q2ws_id ?? feature.id ?? "feature");
+    const outputId = `${sourceLayer.id}-polygon-to-line-${Date.now()}`.replace(/[^A-Za-z0-9_]/g, "_");
+    const outputLayer: LayerManifest = {
+      ...sourceLayer,
+      id: outputId,
+      displayName: `${sourceLayer.displayName} polygon to line`,
+      sourcePath: `${project.name}/data/${outputId}.js`,
+      dataVariable: `json_${outputId}`,
+      layerVariable: `layer_${outputId}`,
+      geometryType: outputGeometryType,
+      visible: true,
+      showInLayerControl: true,
+      popupEnabled: true,
+      legendEnabled: true,
+      layerTreeGroup: "Analysis",
+      label: undefined,
+      popupFields: [
+        { key: "source_layer", label: "source_layer", visible: true, header: false },
+        { key: "source_feature", label: "source_feature", visible: true, header: false }
+      ],
+      popupTemplate: undefined,
+      geojson: {
+        type: "FeatureCollection",
+        features: lineFeatures.map((lineFeature, index) => ({
+          ...lineFeature,
+          id: `${outputId}::${sourceFeatureId}::${index}`,
+          properties: {
+            ...(lineFeature.properties || {}),
+            __q2ws_id: `${outputId}::${sourceFeatureId}::${index}`,
+            source_layer: sourceLayer.displayName,
+            source_feature: sourceFeatureId
+          }
+        }))
+      },
+      style: {
+        ...sourceLayer.style,
+        fillOpacity: 0,
+        strokeColor: "#ff7a18",
+        strokeOpacity: 0.95,
+        strokeWidth: 3,
+        dashArray: "6 4",
+        symbolType: "line"
+      }
+    };
+    updateProject({ ...project, layers: [...project.layers, outputLayer] }, { label: `Polygon to line ${sourceLayer.displayName}` });
+    setSelectedLayerId(outputLayer.id);
+    setSelectedFeature(null);
+    setInspectorMode("layer");
+    toast.success("Polygon to line layer created");
   }
 
   function convexHullSelectedFeature() {
@@ -1343,6 +1503,7 @@ export function App() {
                         <strong>{selectedFeatureData.feature.properties?.__q2ws_id || selectedFeatureData.feature.id}</strong>
                         <div className="dialog-actions">
                           <button type="button" className="btn compact" onClick={bufferSelectedFeature}>Buffer</button>
+                          <button type="button" className="btn compact" onClick={mergeSelectedLayer} disabled={selectedGeometryKind !== "polygon"}>Merge layer</button>
                           <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
                         </div>
                       </div>
@@ -1364,6 +1525,9 @@ export function App() {
                         <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add to feature</button>
                       </div>
                       <div className="selected-feature-actions">
+                        <button type="button" className="btn compact" onClick={polygonToLineSelectedFeature}>
+                          Polygon to line
+                        </button>
                         <button type="button" className="btn compact" onClick={convexHullSelectedFeature}>
                           Convex hull
                         </button>
