@@ -1139,6 +1139,32 @@ button:disabled {
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
 }
 
+.layer-toggle-preview.layer-toggle-top-left {
+  top: 14px;
+  right: auto;
+  left: 14px;
+}
+
+.layer-toggle-preview.layer-toggle-top-right {
+  top: 14px;
+  right: 14px;
+  left: auto;
+}
+
+.layer-toggle-preview.layer-toggle-bottom-left {
+  top: auto;
+  right: auto;
+  bottom: 14px;
+  left: 14px;
+}
+
+.layer-toggle-preview.layer-toggle-bottom-right {
+  top: auto;
+  right: 14px;
+  bottom: 14px;
+  left: auto;
+}
+
 .layer-toggle-preview.layer-toggle-collapsed {
   width: 220px;
 }
@@ -1173,14 +1199,19 @@ button:disabled {
 }
 
 
-.map-shell-header-top-full .layer-toggle-preview,
+.map-shell-header-top-full .layer-toggle-preview.layer-toggle-top-left,
+.map-shell-header-top-full .layer-toggle-preview.layer-toggle-top-right,
 .map-shell-header-top-full .legend-preview.legend-top-left,
 .map-shell-header-top-full .legend-preview.legend-top-right {
   top: 96px;
 }
 
-.map-shell-header-top-left-pill .layer-toggle-preview,
-.map-shell-header-top-right-pill .layer-toggle-preview,
+.map-shell-header-top-left-pill .layer-toggle-preview.layer-toggle-top-left,
+.map-shell-header-top-left-pill .layer-toggle-preview.layer-toggle-top-right,
+.map-shell-header-top-right-pill .layer-toggle-preview.layer-toggle-top-left,
+.map-shell-header-top-right-pill .layer-toggle-preview.layer-toggle-top-right,
+.map-shell-header-top-center-card .layer-toggle-preview.layer-toggle-top-left,
+.map-shell-header-top-center-card .layer-toggle-preview.layer-toggle-top-right,
 .map-shell-header-top-center-card .legend-preview.legend-top-left,
 .map-shell-header-top-right-pill .legend-preview.legend-top-right {
   top: 92px;

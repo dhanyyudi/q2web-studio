@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Layers3 } from "lucide-react";
+import { alphaColor, layerControlPositionClass, normalizeLayerControlSettings } from "../lib/layerControlStyle";
 import type { LegendGroup } from "../lib/style";
 import { renderMarkdownContent } from "../lib/sidebarMarkdown";
 import type { LayerManifest, LegendItem, Qgis2webProject } from "../types/project";
@@ -61,6 +62,7 @@ export function LayerControl({
   layers,
   layerVisibility,
   mode,
+  settings,
   legendGroups,
   showLegendInside,
   legendOpen,
@@ -70,6 +72,7 @@ export function LayerControl({
   layers: LayerManifest[];
   layerVisibility?: Record<string, boolean>;
   mode: Qgis2webProject["mapSettings"]["layerControlMode"];
+  settings?: Partial<Qgis2webProject["layerControlSettings"]>;
   legendGroups: LegendGroup[];
   showLegendInside: boolean;
   legendOpen: boolean;
@@ -86,15 +89,22 @@ export function LayerControl({
   }, new Map<string, LayerManifest[]>()).entries());
   const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>({});
   if (toggleableLayers.length === 0) return null;
-  const effectiveMode = mode === "collapsed" || mode === "tree" ? mode : "expanded";
+  const styleSettings = normalizeLayerControlSettings({ ...settings, mode: settings?.mode || mode });
+  const effectiveMode = styleSettings.mode === "collapsed" || styleSettings.mode === "tree" ? styleSettings.mode : "expanded";
+  const layerControlStyle = {
+    background: alphaColor(styleSettings.backgroundColor, styleSettings.backgroundOpacity),
+    color: styleSettings.textColor,
+    borderRadius: styleSettings.borderRadius,
+    fontSize: styleSettings.textSize
+  };
   return (
-    <aside className={`layer-toggle-preview layer-toggle-${effectiveMode}`}>
-      <h3>
+    <aside className={`layer-toggle-preview layer-toggle-${effectiveMode} ${layerControlPositionClass(styleSettings.position)}`} style={layerControlStyle}>
+      <h3 style={{ color: styleSettings.textColor, fontSize: styleSettings.textSize }}>
         <Layers3 size={15} /> Layers
       </h3>
       {effectiveMode === "tree" ? treeGroups.map(([group, groupLayers]) => (
         <div className="layer-tree-group" key={group}>
-          <button type="button" className="layer-tree-toggle" onClick={() => setTreeOpen((current) => ({ ...current, [group]: current[group] === false ? true : false }))} aria-expanded={treeOpen[group] !== false}>
+          <button type="button" className="layer-tree-toggle" style={{ color: styleSettings.textColor, fontSize: styleSettings.textSize }} onClick={() => setTreeOpen((current) => ({ ...current, [group]: current[group] === false ? true : false }))} aria-expanded={treeOpen[group] !== false}>
             {treeOpen[group] !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <span>{group}</span>
           </button>
@@ -103,7 +113,7 @@ export function LayerControl({
               {groupLayers.map((layer) => {
                 const checked = layerVisibility?.[layer.id] ?? layer.visible;
                 return (
-                  <label key={layer.id}>
+                  <label key={layer.id} style={{ color: styleSettings.textColor, fontSize: styleSettings.textSize }}>
                     <input
                       type="checkbox"
                       checked={checked}
@@ -119,7 +129,7 @@ export function LayerControl({
       )) : toggleableLayers.map((layer) => {
         const checked = layerVisibility?.[layer.id] ?? layer.visible;
         return (
-          <label key={layer.id}>
+          <label key={layer.id} style={{ color: styleSettings.textColor, fontSize: styleSettings.textSize }}>
             <input
               type="checkbox"
               checked={checked}

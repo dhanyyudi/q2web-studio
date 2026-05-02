@@ -33,7 +33,7 @@ export function MapCanvas({
   geometryEditingDisabled = false,
   lassoSelectionEnabled = false,
   preview = false,
-  showLayerControl = false,
+  showLayerControl = true,
   layerVisibility,
   onLayerVisibilityChange,
   onTileError,
@@ -141,7 +141,8 @@ export function MapCanvas({
         <LayerControl
           layers={previewLayers}
           layerVisibility={layerVisibility}
-          mode={project.mapSettings.layerControlMode}
+          mode={project.layerControlSettings.mode || project.mapSettings.layerControlMode}
+          settings={project.layerControlSettings}
           legendGroups={legendGroups}
           showLegendInside={project.legendSettings.enabled && project.legendSettings.placement === "inside-control"}
           legendOpen={legendOpen}
@@ -150,7 +151,7 @@ export function MapCanvas({
         />
       )}
       {project.legendSettings.enabled && project.legendSettings.placement !== "hidden" && project.legendSettings.placement !== "inside-control" && legendGroups.some((group) => group.items.length > 0) && (
-        <LegendPanel groups={legendGroups} open={legendOpen} position={project.legendSettings.position} onOpenChange={setLegendOpen} />
+        <LegendPanel groups={legendGroups} open={legendOpen} position={project.legendSettings.placement.replace("floating-", "") as Qgis2webProject["legendSettings"]["position"]} onOpenChange={setLegendOpen} />
       )}
       {!preview && <div className="draw-status">{drawStatus}</div>}
       <MapFooter project={project} />
