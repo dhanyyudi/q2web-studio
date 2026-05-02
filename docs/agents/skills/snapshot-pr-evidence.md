@@ -179,6 +179,14 @@ Template:
 - <file 1>: <ringkasan perubahan>
 - <file 2>: ...
 
+### Parity sweep
+- Default parity: PASS
+- Legacy migration parity: PASS
+- Export serialization parity: PASS
+- Editor versus runtime visual parity: PASS
+- Collision parity: PASS
+- Deferred gaps: none
+
 ### Evidence
 - Build: see `docs/screenshots/phase-<id>/build-<ts>.txt` (PASS)
 - Smoke: see `docs/screenshots/phase-<id>/smoke-<ts>.txt` (PASS)
