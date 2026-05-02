@@ -219,8 +219,10 @@ export type LegendSettings = {
   groupByLayer: boolean;
 };
 
+export type PopupStyle = "card" | "compact" | "minimal" | "original";
+
 export type PopupSettings = {
-  style: "compact" | "card" | "minimal";
+  style: PopupStyle;
   accentColor: string;
   backgroundColor: string;
   textColor: string;

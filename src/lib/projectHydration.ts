@@ -17,6 +17,11 @@ function migrateLayerControlMode(value: unknown): "collapsed" | "expanded" | "tr
   return defaultLayerControlSettings.mode;
 }
 
+function normalizePopupStyle(value: unknown): "card" | "compact" | "minimal" | "original" {
+  if (value === "card" || value === "compact" || value === "minimal" || value === "original") return value;
+  return defaultPopupSettings.style;
+}
+
 export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
   const migrated = migrateProject(project);
   const branding = migrated.branding || {
@@ -58,7 +63,11 @@ export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
     basemaps: normalizeBasemaps(migrated.basemaps),
     runtime: { ...defaultRuntimeSettings, ...(migrated.runtime || {}) },
     legendSettings: { ...defaultLegendSettings, ...(migrated.legendSettings || {}) },
-    popupSettings: { ...defaultPopupSettings, ...(migrated.popupSettings || {}) },
+    popupSettings: {
+      ...defaultPopupSettings,
+      ...(migrated.popupSettings || {}),
+      style: normalizePopupStyle(migrated.popupSettings?.style)
+    },
     sidebar: { ...defaultSidebarSettings, ...(migrated.sidebar || {}) },
     diagnostics: migrated.diagnostics || [],
     theme: { ...theme, headerHeight: theme.headerHeight ?? 48 },
@@ -95,7 +104,13 @@ export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
         },
         layerTreeGroup: layer.layerTreeGroup || "Layers",
         popupTemplate: layer.popupTemplate ? { ...layer.popupTemplate, fields: layer.popupTemplate.fields || layer.popupFields || [] } : undefined,
-        popupSettings: layer.popupSettings ? { ...defaultPopupSettings, ...layer.popupSettings } : undefined,
+        popupSettings: layer.popupSettings
+          ? {
+              ...defaultPopupSettings,
+              ...layer.popupSettings,
+              style: normalizePopupStyle(layer.popupSettings.style)
+            }
+          : undefined,
         style: {
           ...layer.style,
           symbolType: layer.style?.symbolType || (layer.geometryType.includes("Line") ? "line" : layer.geometryType.includes("Point") ? "point" : "polygon"),

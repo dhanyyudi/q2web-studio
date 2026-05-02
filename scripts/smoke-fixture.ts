@@ -148,6 +148,10 @@ if (project.mapSettings.layerControlMode !== "collapsed") {
   throw new Error(`Expected fresh imports to default to collapsed qgis2web parity layer control. Got: ${project.mapSettings.layerControlMode}`);
 }
 
+if (project.popupSettings?.style !== "card") {
+  throw new Error(`Expected new imports to default popup style to card. Got: ${project.popupSettings?.style}`);
+}
+
 if (project.legendSettings.enabled || project.legendSettings.placement !== "hidden") {
   throw new Error(`Expected fresh imports to keep legend hidden by default. Got: enabled=${project.legendSettings.enabled}, placement=${project.legendSettings.placement}`);
 }
