@@ -1473,3 +1473,10 @@ test("phase 4 layer control and legend stay in parity between editor and runtime
   await expect(frame.locator("#q2ws-layer-control")).toHaveClass(/q2ws-layer-control-collapsed/);
   await expect(frame.locator("#q2ws-legend")).toHaveClass(/q2ws-legend-top-left/);
 });
+
+test("phase 4 runtime legend reserves top-right layer control space conditionally", async () => {
+  const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+  expect(runtimeSource).toContain("#q2ws-legend.q2ws-legend-top-right {\n  top: 76px;\n  right: 14px;");
+  expect(runtimeSource).toContain("#q2ws-layer-control.q2ws-layer-control-top-right ~ #q2ws-legend.q2ws-legend-top-right");
+  expect(runtimeSource).toContain("right: 248px;");
+});

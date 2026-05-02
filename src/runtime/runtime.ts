@@ -938,6 +938,10 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
 
 #q2ws-legend.q2ws-legend-top-right {
   top: 76px;
+  right: 14px;
+}
+
+#q2ws-layer-control.q2ws-layer-control-top-right ~ #q2ws-legend.q2ws-legend-top-right {
   right: 248px;
 }
 
