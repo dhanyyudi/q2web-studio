@@ -14,7 +14,7 @@ import { migrateProject } from "./projectUpdates";
 function migrateLayerControlMode(value: unknown): "collapsed" | "expanded" | "tree" {
   if (value === "collapsed" || value === "expanded" || value === "tree") return value;
   if (value === "compact") return "collapsed";
-  return "expanded";
+  return defaultLayerControlSettings.mode;
 }
 
 export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
