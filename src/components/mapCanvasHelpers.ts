@@ -3,7 +3,7 @@ import bbox from "@turf/bbox";
 import type { Feature, FeatureCollection } from "geojson";
 import type { TerraDraw } from "terra-draw";
 import type { GeoJSONStoreFeatures } from "terra-draw";
-import { renderStudioPopupHtml } from "../lib/popupRendering";
+import { renderLayerPopupHtml } from "../lib/popupRendering";
 import { styleForFeature } from "../lib/style";
 import type { BasemapConfig, LayerManifest, PopupSettings, Qgis2webProject } from "../types/project";
 
@@ -63,10 +63,7 @@ export function labelCss(layers: LayerManifest[]): string {
 
 export function buildPopup(layer: LayerManifest, feature: Feature, projectPopupSettings: PopupSettings): string {
   const settings = layer.popupSettings || projectPopupSettings;
-  if (layer.popupTemplate?.mode === "custom") {
-    return renderPopupTemplate(layer.popupTemplate.html, feature);
-  }
-  return renderStudioPopupHtml({ layer, feature, settings, template: layer.popupTemplate });
+  return renderLayerPopupHtml({ layer, feature, settings });
 }
 
 export function popupCss(project: Qgis2webProject): string {
@@ -174,12 +171,6 @@ export function escapeHtml(value: unknown): string {
     const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
     return entities[char];
   });
-}
-
-function renderPopupTemplate(template: string, feature: Feature): string {
-  return sanitizePopupHtml(
-    template.replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, (_match, key: string) => escapeHtml(feature.properties?.[key] ?? ""))
-  );
 }
 
 function sanitizeLabelHtml(html: string): string {

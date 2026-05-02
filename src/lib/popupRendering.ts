@@ -35,6 +35,27 @@ export function visiblePopupRows(fields: PopupField[], properties: Record<string
     }));
 }
 
+export function renderPopupTemplateHtml(templateHtml: string, feature: Feature): string {
+  return sanitizePopupHtml(
+    templateHtml.replace(popupTokenPattern, (_match, key: string) => escapeHtml((feature.properties as Record<string, unknown> | null)?.[key] ?? ""))
+  );
+}
+
+export function renderLayerPopupHtml({
+  layer,
+  feature,
+  settings
+}: {
+  layer: LayerManifest;
+  feature: Feature;
+  settings: PopupSettings;
+}): string {
+  if (layer.popupTemplate?.mode === "custom") {
+    return renderPopupTemplateHtml(layer.popupTemplate.html, feature);
+  }
+  return renderStudioPopupHtml({ layer, feature, settings, template: layer.popupTemplate });
+}
+
 export function renderStudioPopupHtml({
   layer,
   feature,
@@ -47,9 +68,7 @@ export function renderStudioPopupHtml({
   template?: PopupTemplate;
 }): string {
   if (settings.style === "original" && template?.html) {
-    return sanitizePopupHtml(
-      template.html.replace(popupTokenPattern, (_match, key: string) => escapeHtml((feature.properties as Record<string, unknown> | null)?.[key] ?? ""))
-    );
+    return renderPopupTemplateHtml(template.html, feature);
   }
 
   const properties = (feature.properties || {}) as Record<string, unknown>;

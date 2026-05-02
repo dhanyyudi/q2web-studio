@@ -96,7 +96,7 @@ export function ProjectMapTab(props: ProjectMapTabProps) {
         ))}
       </div>
       <PanelTitle title="Popup Style" />
-      <SelectField label="Popup style" value={project.popupSettings.style} onChange={(value) => props.setPopupSetting("style", value as Qgis2webProject["popupSettings"]["style"])} options={[{ value: "card", label: "Card" }, { value: "compact", label: "Compact" }, { value: "minimal", label: "Minimal" }]} />
+      <SelectField label="Popup style" value={project.popupSettings.style} onChange={(value) => props.setPopupSetting("style", value as Qgis2webProject["popupSettings"]["style"])} options={[{ value: "card", label: "Card" }, { value: "compact", label: "Compact" }, { value: "minimal", label: "Minimal" }, { value: "original", label: "Original" }]} />
       <ColorInput label="Accent" value={project.popupSettings.accentColor} onChange={(value) => props.setPopupSetting("accentColor", value)} />
       <ColorInput label="Background" value={project.popupSettings.backgroundColor} onChange={(value) => props.setPopupSetting("backgroundColor", value)} />
       <ColorInput label="Text" value={project.popupSettings.textColor} onChange={(value) => props.setPopupSetting("textColor", value)} />
