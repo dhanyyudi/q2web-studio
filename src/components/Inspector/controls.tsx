@@ -16,12 +16,20 @@ export function SelectField({ label, value, options, onChange }: { label: string
   return <label className="field"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
+export function TextAreaInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="field"><span>{label}</span><textarea className="popup-custom-textarea" value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+export function SegmentedControl(props: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+  return <div className="field"><span>{props.label}</span><div className="segmented">{props.options.map((option) => <button key={option.value} type="button" className={props.value === option.value ? "active" : ""} onClick={() => props.onChange(option.value)}>{option.label}</button>)}</div></div>;
+}
+
 export function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <ColorField label={label} value={value} onChange={onChange} />;
 }
 
-export function SwitchLabel({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return <label><Switch checked={checked} onCheckedChange={onCheckedChange} /><span>{label}</span></label>;
+export function SwitchLabel({ label, checked, onCheckedChange, testId }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void; testId?: string }) {
+  return <label><Switch data-testid={testId} checked={checked} onCheckedChange={onCheckedChange} /><span>{label}</span></label>;
 }
 
 export function RangeInput(props: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
