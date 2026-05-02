@@ -247,6 +247,19 @@ export function useProjectState({
     );
   }
 
+  function setLayerControlSetting<K extends keyof Qgis2webProject["layerControlSettings"]>(key: K, value: Qgis2webProject["layerControlSettings"][K]) {
+    if (!project) return;
+    const layerControlSettings = { ...project.layerControlSettings, [key]: value };
+    updateProject({
+      ...project,
+      layerControlSettings,
+      mapSettings: {
+        ...project.mapSettings,
+        layerControlMode: key === "mode" ? (value as Qgis2webProject["mapSettings"]["layerControlMode"]) : project.mapSettings.layerControlMode
+      }
+    });
+  }
+
   function setPopupSetting<K extends keyof Qgis2webProject["popupSettings"]>(key: K, value: Qgis2webProject["popupSettings"][K]) {
     if (!project) return;
     updateProject({ ...project, popupSettings: { ...project.popupSettings, [key]: value } });
@@ -989,6 +1002,7 @@ export function useProjectState({
     ensureLayerLabel,
     ensurePopupTemplate,
     setMapSetting,
+    setLayerControlSetting,
     setPopupSetting,
     setLegendSetting,
     toggleRuntimeWidget,
