@@ -233,7 +233,18 @@ export function useProjectState({
 
   function setMapSetting<K extends keyof Qgis2webProject["mapSettings"]>(key: K, value: Qgis2webProject["mapSettings"][K]) {
     if (!project) return;
-    updateProject({ ...project, mapSettings: { ...project.mapSettings, [key]: value } });
+    const nextProject = { ...project, mapSettings: { ...project.mapSettings, [key]: value } };
+    updateProject(
+      key === "layerControlMode"
+        ? {
+            ...nextProject,
+            layerControlSettings: {
+              ...nextProject.layerControlSettings,
+              mode: value as Qgis2webProject["layerControlSettings"]["mode"]
+            }
+          }
+        : nextProject
+    );
   }
 
   function setPopupSetting<K extends keyof Qgis2webProject["popupSettings"]>(key: K, value: Qgis2webProject["popupSettings"][K]) {

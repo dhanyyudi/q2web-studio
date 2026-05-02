@@ -1,6 +1,7 @@
 import {
   defaultBasemaps,
   defaultBranding,
+  defaultLayerControlSettings,
   defaultLegendSettings,
   defaultMapSettings,
   defaultPopupSettings,
@@ -118,12 +119,18 @@ function deserializeProject(value: unknown): Qgis2webProject {
     },
     mapSettings: {
       ...defaultMapSettings,
-      ...(project.mapSettings || {})
+      ...(project.mapSettings || {}),
+      layerControlMode: hydrateLayerControlMode(project.layerControlSettings?.mode || project.mapSettings?.layerControlMode)
     },
     basemaps: normalizeBasemaps(project.basemaps),
     runtime: {
       ...defaultRuntimeSettings,
       ...(project.runtime || {})
+    },
+    layerControlSettings: {
+      ...defaultLayerControlSettings,
+      ...(project.layerControlSettings || {}),
+      mode: hydrateLayerControlMode(project.layerControlSettings?.mode || project.mapSettings?.layerControlMode)
     },
     legendSettings: {
       ...defaultLegendSettings,
@@ -147,6 +154,12 @@ function deserializeProject(value: unknown): Qgis2webProject {
 function normalizeBasemaps(basemaps: Qgis2webProject["basemaps"] | undefined): Qgis2webProject["basemaps"] {
   if (basemaps?.length) return basemaps;
   return defaultBasemaps;
+}
+
+function hydrateLayerControlMode(value: unknown): Qgis2webProject["layerControlSettings"]["mode"] {
+  if (value === "compact") return "collapsed";
+  if (value === "collapsed" || value === "expanded" || value === "tree") return value;
+  return defaultLayerControlSettings.mode;
 }
 
 function hydrateLayer(layer: LayerManifest): LayerManifest {

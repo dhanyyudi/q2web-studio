@@ -1139,7 +1139,7 @@ button:disabled {
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
 }
 
-.layer-toggle-preview.layer-toggle-compact {
+.layer-toggle-preview.layer-toggle-collapsed {
   width: 220px;
 }
 
