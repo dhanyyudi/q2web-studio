@@ -144,8 +144,8 @@ if (project.layers.some((layer) => layer.showInLayerControl === false)) {
   throw new Error(`Expected imported fixture layers to stay available in layer control. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.showInLayerControl}`).join(", ")}`);
 }
 
-if (project.mapSettings.layerControlMode !== "expanded") {
-  throw new Error(`Expected fresh imports to default to expanded Studio layer control. Got: ${project.mapSettings.layerControlMode}`);
+if (project.mapSettings.layerControlMode !== "collapsed") {
+  throw new Error(`Expected fresh imports to default to collapsed qgis2web parity layer control. Got: ${project.mapSettings.layerControlMode}`);
 }
 
 if (project.legendSettings.enabled || project.legendSettings.placement !== "hidden") {

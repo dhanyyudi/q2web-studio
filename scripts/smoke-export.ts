@@ -142,8 +142,8 @@ if (!enabledConfig.layers?.some((layer: { displayName: string; popupTemplate?: {
   throw new Error("Expected q2ws-config.json to preserve imported popup template HTML.");
 }
 
-if (enabledConfig.mapSettings?.layerControlMode !== "expanded") {
-  throw new Error(`Expected exported config to default to expanded Studio layer control. Got: ${enabledConfig.mapSettings?.layerControlMode}`);
+if (enabledConfig.mapSettings?.layerControlMode !== "collapsed") {
+  throw new Error(`Expected exported config to default to collapsed qgis2web parity layer control. Got: ${enabledConfig.mapSettings?.layerControlMode}`);
 }
 
 if (enabledConfig.legendSettings?.enabled || enabledConfig.legendSettings?.placement !== "hidden") {
@@ -198,7 +198,7 @@ if (!floatingLegendConfig.legendSettings?.enabled || floatingLegendConfig.legend
   throw new Error(`Expected q2ws-config.json to preserve floating top-left legend placement. Got: ${JSON.stringify(floatingLegendConfig.legendSettings)}`);
 }
 const runtimeSourceForLegend = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
-for (const expectedLegendCode of ["q2ws-legend-top-left", "q2ws-legend-top-right", "q2ws-legend-bottom-left", "q2ws-legend-bottom-right", "settings.placement.replace(\"floating-\", \"\")"]) {
+for (const expectedLegendCode of ["q2ws-legend-top-left", "q2ws-legend-top-right", "q2ws-legend-bottom-left", "q2ws-legend-bottom-right", "function runtimeLegendPositionClass"]) {
   if (!runtimeSourceForLegend.includes(expectedLegendCode)) {
     throw new Error(`Expected runtime floating legend support to include: ${expectedLegendCode}`);
   }
