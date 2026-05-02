@@ -259,6 +259,18 @@ test("phase 1 shell persists left panel collapse state", async ({ page }) => {
   await expect(page.locator('[data-testid="left-panel-expand"]')).toBeVisible();
   await page.getByTestId("left-panel-expand").click();
   await expect(page.getByRole("button", { name: /Collapse side panel/i })).toBeVisible();
+  await page.evaluate(() => {
+    localStorage.setItem("react-resizable-panels:q2ws-workspace-layout:left-panel:main-stage:right-panel", JSON.stringify({ "left-panel": 24, "main-stage": 50, "right-panel": 26 }));
+    localStorage.setItem("q2ws-left-panel-collapsed", "false");
+  });
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Collapse side panel/i })).toBeVisible();
+  const storedLayout = await page.evaluate(() => localStorage.getItem("react-resizable-panels:q2ws-workspace-layout:left-panel:main-stage:right-panel"));
+  if (!storedLayout) throw new Error("Expected stored workspace layout.");
+  const leftPanelWidth = await page.locator('[data-testid="left-panel"]').boundingBox();
+  const workspaceWidth = await page.locator('[data-testid="workspace-panels"]').boundingBox();
+  if (!leftPanelWidth || !workspaceWidth) throw new Error("Expected workspace panel bounds.");
+  expect(leftPanelWidth.width / workspaceWidth.width).toBeGreaterThan(0.21);
 });
 
 test("lasso selects multiple features in the selected layer", async ({ page }) => {

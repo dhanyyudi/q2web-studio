@@ -4,31 +4,18 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef, type GroupImperativeHandle } from "react-resizable-panels";
 import { Toaster, toast } from "sonner";
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Circle,
-  Download,
-  Eye,
-  EyeOff,
-  FolderOpen,
-  Layers3,
   Lasso,
-  Monitor,
-  Moon,
   MousePointer2,
   Paintbrush,
   PenLine,
   Plus,
-  Redo2,
-  Save,
   Settings2,
   Square,
-  Sun,
-  Heart,
   Trash2,
   Type,
-  Undo2,
   Wand2,
   XCircle
 } from "lucide-react";
@@ -44,10 +31,13 @@ import { featureCollection } from "@turf/helpers";
 import type { Feature, Geometry, LineString, MultiLineString, MultiPolygon, Point, Polygon } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
 import { ColorField } from "./components/ColorField";
+import { EmptyState } from "./components/EmptyState";
 import { MapCanvas } from "./components/MapCanvas";
 import { PreviewOverlay } from "./components/PreviewOverlay";
 import { ProjectInspector } from "./components/ProjectInspector";
+import { SidePanel } from "./components/SidePanel";
 import { ToolbarButton } from "./components/ToolbarButton";
+import { Topbar, type AppThemeMode } from "./components/Topbar";
 import { Button } from "./components/ui/button";
 import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
 import { downloadBlob, exportProjectZip } from "./lib/exportProject";
@@ -73,7 +63,6 @@ import type {
 
 type InspectorMode = "project" | "layer";
 type GeometryKind = "point" | "line" | "polygon" | "unknown";
-type AppThemeMode = "light" | "dark" | "system";
 type HistoryEntry = { project: Qgis2webProject; label: string; group?: string; updatedAt: number };
 type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
 
@@ -211,10 +200,6 @@ export function App() {
 
   useEffect(() => {
     localStorage.setItem(LEFT_PANEL_COLLAPSED_STORAGE_KEY, String(leftPanelCollapsed));
-    if (!workspaceGroupRef.current) return;
-    workspaceGroupRef.current.setLayout(leftPanelCollapsed
-      ? { "left-panel": 0, "main-stage": 74, "right-panel": 26 }
-      : { "left-panel": 18, "main-stage": 56, "right-panel": 26 });
   }, [leftPanelCollapsed]);
 
   useEffect(() => {
@@ -1309,6 +1294,22 @@ export function App() {
     updateProject({ ...project, textAnnotations: [...project.textAnnotations, annotation] });
   }
 
+  function setWorkspaceLeftPanelCollapsed(collapsed: boolean) {
+    setLeftPanelCollapsed(collapsed);
+    if (!workspaceGroupRef.current) return;
+    const currentLayout = workspaceGroupRef.current.getLayout();
+    const currentMain = currentLayout["main-stage"] ?? 56;
+    const currentRight = currentLayout["right-panel"] ?? 26;
+    const available = Math.max(0, 100 - currentRight);
+    const nextLeft = collapsed ? 0 : Math.min(30, Math.max(12, 100 - currentMain - currentRight || 18));
+    const nextMain = Math.max(35, available - nextLeft);
+    workspaceGroupRef.current.setLayout({
+      "left-panel": nextLeft,
+      "main-stage": nextMain,
+      "right-panel": Math.min(45, Math.max(20, currentRight))
+    });
+  }
+
   function setDrawModeWithGuard(nextMode: DrawMode) {
     if (nextMode === "lasso") {
       if (!selectedLayer) return;
@@ -1348,84 +1349,33 @@ export function App() {
   return (
     <main className="app">
       <Toaster richColors position="top-right" />
-      <header className="topbar">
-        <div className="brand-lockup">
-          <div className="brand-mark">q2</div>
-          <div>
-            <h1>q2webstudio</h1>
-            <p>Local-first low-code editor for qgis2web Leaflet exports.</p>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <input
-            ref={inputRef}
-            className="hidden-input"
-            type="file"
-            multiple
-            aria-hidden="true"
-            tabIndex={-1}
-            onChange={(event) => importFiles(event.target.files)}
-            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
-          />
-          <input
-            ref={zipInputRef}
-            className="hidden-input"
-            type="file"
-            accept=".zip,application/zip,application/x-zip-compressed"
-            aria-hidden="true"
-            tabIndex={-1}
-            onChange={(event) => importZip(event.target.files)}
-          />
-          <Button type="button" disabled={busy} onClick={startZipImport}>
-            <FolderOpen size={16} /> Import ZIP
-          </Button>
-          <Button type="button" variant="outline" disabled={busy} onClick={startImport}>
-            <FolderOpen size={16} /> Import Folder
-          </Button>
-          <Button type="button" variant="outline" disabled={!project || busy || history.past.length === 0} onClick={undoProject}>
-            <Undo2 size={16} /> Undo {history.past[history.past.length - 1] ? `(${history.past[history.past.length - 1]?.label})` : ""}
-          </Button>
-          <Button type="button" variant="outline" disabled={!project || busy || history.future.length === 0} onClick={redoProject}>
-            <Redo2 size={16} /> Redo {history.future[0] ? `(${history.future[0]?.label})` : ""}
-          </Button>
-          <div className="theme-toggle" aria-label="App theme">
-            <button type="button" className={appTheme === "light" ? "active" : ""} title="Light theme" onClick={() => setAppTheme("light")}>
-              <Sun size={15} />
-            </button>
-            <button type="button" className={appTheme === "dark" ? "active" : ""} title="Dark theme" onClick={() => setAppTheme("dark")}>
-              <Moon size={15} />
-            </button>
-            <button type="button" className={appTheme === "system" ? "active" : ""} title="Use system theme" onClick={() => setAppTheme("system")}>
-              <Monitor size={15} />
-            </button>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!project || busy}
-            onClick={() =>
-              project &&
-              persistProject(project, "Project saved locally").then((saved) => {
-                if (saved) setStatus("Project saved to browser cache.");
-              })
-            }
-          >
-            <Save size={16} /> Save Local
-          </Button>
-          <Button type="button" variant="outline" disabled={!project || busy} onClick={closeProject}>
-            <XCircle size={16} /> Close Project
-          </Button>
-          <a data-testid="support-link" className="support-fab" href="https://tiptap.gg/dhanypedia" target="_blank" rel="noreferrer" aria-label="Support this project" title="Support this project">
-            <Heart size={16} />
-          </a>
-          <Button data-testid="open-preview" type="button" variant="outline" disabled={!project || busy} onClick={() => setPreviewOpen(true)}>
-            <Eye size={16} /> Preview
-          </Button>
-          <Button type="button" variant="outline" disabled={!project || busy} onClick={exportZip}>
-            <Download size={16} /> Export ZIP
-          </Button>
-        </div>
-      </header>
+      <Topbar
+        inputRef={inputRef}
+        zipInputRef={zipInputRef}
+        project={project}
+        busy={busy}
+        appTheme={appTheme}
+        historyPastLabel={history.past[history.past.length - 1]?.label || ""}
+        historyFutureLabel={history.future[0]?.label || ""}
+        canUndo={history.past.length > 0}
+        canRedo={history.future.length > 0}
+        onFolderInputChange={importFiles}
+        onZipInputChange={importZip}
+        onStartZipImport={startZipImport}
+        onStartFolderImport={startImport}
+        onUndo={undoProject}
+        onRedo={redoProject}
+        onThemeChange={setAppTheme}
+        onSaveLocal={() => {
+          if (!project) return;
+          persistProject(project, "Project saved locally").then((saved) => {
+            if (saved) setStatus("Project saved to browser cache.");
+          });
+        }}
+        onCloseProject={closeProject}
+        onOpenPreview={() => setPreviewOpen(true)}
+        onExportZip={exportZip}
+      />
 
       <section
         className="workspace"
@@ -1453,94 +1403,32 @@ export function App() {
       >
         <Group
           id="workspace-panels"
+          data-testid="workspace-panels"
           groupRef={workspaceGroupRef}
           defaultLayout={defaultWorkspaceLayout || { "left-panel": leftPanelCollapsed ? 0 : 18, "main-stage": leftPanelCollapsed ? 74 : 56, "right-panel": 26 }}
           onLayoutChanged={onWorkspaceLayoutChanged}
           className="workspace-panels"
           orientation="horizontal"
         >
-          <Panel id="left-panel" defaultSize={leftPanelCollapsed ? "0%" : "18%"} minSize="12%" maxSize="30%" collapsible collapsedSize="0%" panelRef={sidePanelRef}>
-            <aside className="side-panel">
-              <button type="button" className="panel-collapse-button" aria-label="Collapse side panel" onClick={() => setLeftPanelCollapsed(true)}>
-                <span>☰</span>
-              </button>
-              <PanelTitle icon={<Wand2 size={16} />} title="Project" />
-              <div className="status-box">{busy ? "Working..." : status}</div>
-
-              {project && (
-                <>
-              <button
-                type="button"
-                className={inspectorMode === "project" ? "project-settings-button active" : "project-settings-button"}
-                onClick={() => setInspectorMode("project")}
-              >
-                <Settings2 size={16} /> Project Settings
-              </button>
-
-              <PanelTitle icon={<Settings2 size={16} />} title="Map View" />
-              {project.basemaps.length > 0 && (
-                <div className="sidebar-basemap-grid">
-                  {project.basemaps.map((basemap) => {
-                    const active = project.mapSettings.basemap === basemap.id || basemap.default;
-                    return (
-                      <button key={basemap.id} type="button" className={`basemap-card compact ${active ? "active" : ""} ${basemap.enabled ? "" : "disabled"}`} onClick={() => setDefaultBasemap(basemap.id)}>
-                        <span className="basemap-card-preview" style={{ backgroundImage: `url(${basemapPreviewUrl(basemap.url)})` }} />
-                        <strong>{basemap.label}</strong>
-                        <small>{basemap.source}{basemap.enabled ? "" : " · disabled"}</small>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <SegmentedControl
-                label="Layer display"
-                value={project.mapSettings.viewMode}
-                options={[
-                  { value: "all", label: "All layers" },
-                  { value: "selected", label: "Selected layer" }
-                ]}
-                onChange={(value) => setMapSetting("viewMode", value as MapViewMode)}
-              />
-
-              <PanelTitle icon={<Layers3 size={16} />} title="Layers" />
-              <div className="layer-list">
-                {project.layers.map((layer) => (
-                  <div key={layer.id} className={layer.id === selectedLayer?.id ? "layer-row selected" : "layer-row"}>
-                    <button type="button" className="layer-main" onClick={() => {
-                      setSelectedLayerId(layer.id);
-                      setSelectedFeature(null);
-                      setInspectorMode("layer");
-                    }}>
-                      <span>{layer.displayName}</span>
-                      <small>{layer.geometryType}</small>
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={layer.visible ? "Hide layer" : "Show layer"}
-                      onClick={() => updateProject(updateLayer(project, layer.id, { visible: !layer.visible }))}
-                    >
-                      {layer.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {project.diagnostics.length > 0 && (
-                <>
-                  <PanelTitle icon={<AlertTriangle size={16} />} title="Diagnostics" />
-                  <div className="diagnostics-panel">
-                    {project.diagnostics.map((item, index) => (
-                      <div className="diagnostic-row" key={`${index}-${item}`}>
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </aside>
-      </Panel>
+          <Panel id="left-panel" data-testid="left-panel" defaultSize={leftPanelCollapsed ? "0%" : "18%"} minSize="12%" maxSize="30%" collapsible collapsedSize="0%" panelRef={sidePanelRef}>
+            <SidePanel
+              project={project}
+              busy={busy}
+              status={status}
+              inspectorMode={inspectorMode}
+              selectedLayer={selectedLayer}
+              onCollapse={() => setWorkspaceLeftPanelCollapsed(true)}
+              onProjectSettings={() => setInspectorMode("project")}
+              onDefaultBasemap={setDefaultBasemap}
+              onMapViewModeChange={(value) => setMapSetting("viewMode", value)}
+              onSelectLayer={(layerId) => {
+                setSelectedLayerId(layerId);
+                setSelectedFeature(null);
+                setInspectorMode("layer");
+              }}
+              onUpdateLayer={(layer) => project && updateProject(updateLayer(project, layer.id, { visible: layer.visible }))}
+            />
+          </Panel>
       <Separator className="workspace-resize-handle" />
       <Panel id="main-stage" defaultSize={leftPanelCollapsed ? "74%" : "56%"} minSize="35%">
         <section className="main-stage">
@@ -1633,22 +1521,7 @@ export function App() {
               </Group>
             </>
           ) : (
-            <div className="empty-state">
-              <div className="drop-card">
-                <FolderOpen size={42} />
-                <h2>Import qgis2web export</h2>
-                <p>Visual editor untuk hasil export qgis2web</p>
-                <small>Recommended: ZIP export for the cleanest browser import. Use Import Folder if drag and drop is blocked by the browser.</small>
-              </div>
-              <div className="empty-actions">
-                <Button type="button" disabled={busy} onClick={startZipImport}>
-                  <FolderOpen size={16} /> Import ZIP
-                </Button>
-                <Button type="button" variant="outline" disabled={busy} onClick={startImport}>
-                  <FolderOpen size={16} /> Import Folder
-                </Button>
-              </div>
-            </div>
+            <EmptyState busy={busy} onImportZip={startZipImport} onImportFolder={startImport} />
           )}
         </section>
       </Panel>
@@ -1931,7 +1804,7 @@ export function App() {
         </Panel>
       </Group>
       {leftPanelCollapsed && (
-        <button data-testid="left-panel-expand" type="button" className="left-panel-expand" aria-label="Expand side panel" onClick={() => setLeftPanelCollapsed(false)}>
+        <button data-testid="left-panel-expand" type="button" className="left-panel-expand" aria-label="Expand side panel" onClick={() => setWorkspaceLeftPanelCollapsed(false)}>
           <span>☰</span>
         </button>
       )}
@@ -2046,7 +1919,6 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
   if (stored === "false") return false;
   return fallback;
 }
-
 
 function applyAppTheme(theme: AppThemeMode): void {
   const resolved = theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : theme === "system" ? "light" : theme;
