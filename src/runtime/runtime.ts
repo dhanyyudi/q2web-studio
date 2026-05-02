@@ -171,7 +171,7 @@ export const q2wsRuntime = String.raw`(function () {
   function renderPopup(layerConfig, feature, settings) {
     var properties = feature.properties || {};
     var template = layerConfig.popupTemplate;
-    if (template && template.mode === "custom") {
+    if (template && (template.mode === "custom" || template.mode === "original")) {
       return interpolatePopupTemplate(template.html, properties);
     }
     return renderStyledPopup(layerConfig, properties, settings);

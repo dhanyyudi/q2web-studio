@@ -50,7 +50,7 @@ export function renderLayerPopupHtml({
   feature: Feature;
   settings: PopupSettings;
 }): string {
-  if (layer.popupTemplate?.mode === "custom") {
+  if (layer.popupTemplate?.mode === "custom" || layer.popupTemplate?.mode === "original") {
     return renderPopupTemplateHtml(layer.popupTemplate.html, feature);
   }
   return renderStudioPopupHtml({ layer, feature, settings, template: layer.popupTemplate });

@@ -1496,6 +1496,7 @@ test("phase 5 popup styles and labels stay in parity between editor and runtime 
 
   await page.getByRole("button", { name: /Batas Desa/i }).click();
   await page.getByRole("tab", { name: /Popup/i }).click();
+  await page.locator('label:has-text("Template mode") select').selectOption("field-grid");
   await page.getByText(/Use Nama/i).first().click();
 
   const popupPreview = page.getByLabel("Popup live preview");
@@ -1534,6 +1535,54 @@ test("phase 5 popup styles and labels stay in parity between editor and runtime 
   const runtimePopup = frame.locator(".leaflet-popup .q2ws-popup");
   await expect(runtimePopup).toHaveClass(/q2ws-popup-compact/);
   await expect(runtimePopup).toContainText("Nama");
+});
+
+test("phase 5 original popup template mode stays original despite project card default", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.locator('label:has-text("Popup style") select').selectOption("card");
+
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  await page.getByRole("tab", { name: /Popup/i }).click();
+  await page.locator('label:has-text("Template mode") select').selectOption("original");
+
+  const popupPreview = page.getByLabel("Popup live preview");
+  await expect(popupPreview.locator("table")).toBeVisible();
+  await expect(popupPreview.locator(".q2ws-popup")).toHaveCount(0);
+
+  const targetNama = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; geojson: GeoJSON.FeatureCollection }> } }).__q2ws_project;
+    const layer = project?.layers.find((item) => /Batas Desa/i.test(item.displayName));
+    const value = layer?.geojson.features.find((feature) => feature.properties?.NAMOBJ)?.properties?.NAMOBJ;
+    if (!value) throw new Error("Expected Batas Desa feature with NAMOBJ.");
+    return String(value);
+  });
+
+  await page.getByTestId("open-preview").click();
+  const iframeOriginal = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframeOriginal).toBeVisible({ timeout: 15000 });
+  const runtimeFrameOriginal = await (await iframeOriginal.elementHandle())?.contentFrame();
+  if (!runtimeFrameOriginal) throw new Error("Expected runtime preview frame.");
+  await runtimeFrameOriginal.waitForSelector(".leaflet-container", { timeout: 15000 });
+  await runtimeFrameOriginal.evaluate((expectedNama) => {
+    const runtimeWindow = window as Window & { map?: { eachLayer: (callback: (layer: { feature?: GeoJSON.Feature; fire?: (type: string) => void }) => void) => void } };
+    let clicked = false;
+    runtimeWindow.map?.eachLayer((layer) => {
+      if (!clicked && layer.feature?.properties?.NAMOBJ === expectedNama && typeof layer.fire === "function") {
+        layer.fire("click");
+        clicked = true;
+      }
+    });
+    if (!clicked) throw new Error(`Expected a clickable Batas Desa runtime feature for ${expectedNama}.`);
+  }, targetNama);
+
+  const runtimeFrameLocator = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(runtimeFrameLocator.locator(".leaflet-popup table")).toBeVisible();
+  await expect(runtimeFrameLocator.locator(".leaflet-popup .q2ws-popup")).toHaveCount(0);
 });
 
 test("phase 4 runtime legend reserves top-right layer control space conditionally", async ({ page }) => {
