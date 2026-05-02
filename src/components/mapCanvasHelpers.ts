@@ -3,8 +3,9 @@ import bbox from "@turf/bbox";
 import type { Feature, FeatureCollection } from "geojson";
 import type { TerraDraw } from "terra-draw";
 import type { GeoJSONStoreFeatures } from "terra-draw";
+import { renderStudioPopupHtml } from "../lib/popupRendering";
 import { styleForFeature } from "../lib/style";
-import type { BasemapConfig, LayerManifest, Qgis2webProject } from "../types/project";
+import type { BasemapConfig, LayerManifest, PopupSettings, Qgis2webProject } from "../types/project";
 
 export function createBasemap(basemaps: BasemapConfig[], activeBasemapId: string): L.TileLayer | null {
   if (activeBasemapId === "none") return null;
@@ -60,20 +61,12 @@ export function labelCss(layers: LayerManifest[]): string {
     .join("\n");
 }
 
-export function buildPopup(layer: LayerManifest, feature: Feature): string {
-  if (layer.popupTemplate?.mode === "original" || layer.popupTemplate?.mode === "custom") {
+export function buildPopup(layer: LayerManifest, feature: Feature, projectPopupSettings: PopupSettings): string {
+  const settings = layer.popupSettings || projectPopupSettings;
+  if (layer.popupTemplate?.mode === "custom") {
     return renderPopupTemplate(layer.popupTemplate.html, feature);
   }
-  const rows = layer.popupFields
-    .filter((field) => field.visible)
-    .map((field) => {
-      const value = feature.properties?.[field.key] ?? "";
-      return field.header
-        ? `<tr><td colspan="2"><strong>${escapeHtml(field.label)}</strong><br>${escapeHtml(value)}</td></tr>`
-        : `<tr><th>${escapeHtml(field.label)}</th><td>${escapeHtml(value)}</td></tr>`;
-    })
-    .join("");
-  return `<table class="studio-popup">${rows}</table>`;
+  return renderStudioPopupHtml({ layer, feature, settings, template: layer.popupTemplate });
 }
 
 export function popupCss(project: Qgis2webProject): string {
