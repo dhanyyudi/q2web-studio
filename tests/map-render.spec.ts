@@ -6,6 +6,8 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 
+const debugUrl = (path = "/") => `${path}${path.includes("?") ? "&" : "?"}debug=1`;
+
 const fixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659.zip");
 
 async function importFixture(page: import("@playwright/test").Page) {
@@ -1351,7 +1353,7 @@ test("phase 3 project sliders have synced numeric inputs with units", async ({ p
 });
 
 test("phase 3 dash array field supports presets and custom values", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(debugUrl("/"));
   await importFixture(page);
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
@@ -1367,7 +1369,7 @@ test("phase 3 dash array field supports presets and custom values", async ({ pag
     const project = (window as Window & {
       __q2ws_project?: { layers: Array<{ displayName: string; style?: { dashArray?: string | null } }> };
     }).__q2ws_project;
-    const layer = project?.layers.find((candidate) => candidate.displayName === "Batas Desa");
+    const layer = project?.layers.find((candidate) => /Batas Desa/i.test(candidate.displayName));
     return layer?.style?.dashArray ?? "";
   });
 
@@ -1376,13 +1378,13 @@ test("phase 3 dash array field supports presets and custom values", async ({ pag
   await page.getByRole("button", { name: /^Custom$/i }).click();
   await customInput.fill("6 x 4");
   await customInput.blur();
-  await expect(dashArrayField.getByText(/Invalid dash array|Dash array must|Use numbers and spaces/i)).toBeVisible();
-  await expect.poll(appliedDashArray).toBe("10 4 2 4 2 4");
+  await expect(dashArrayField.getByRole("alert")).toBeVisible();
+  await expect(appliedDashArray()).resolves.toBe("10 4 2 4 2 4");
 
   await customInput.fill("6 4");
   await customInput.blur();
   await expect(customInput).toHaveValue("6 4");
-  await expect(dashArrayField.getByText(/Invalid dash array|Dash array must|Use numbers and spaces/i)).toHaveCount(0);
+  await expect(dashArrayField.getByRole("alert")).toHaveCount(0);
   await expect.poll(appliedDashArray).toBe("6 4");
 });
 
