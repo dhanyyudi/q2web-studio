@@ -1126,6 +1126,10 @@ button:disabled {
   right: 14px;
 }
 
+.layer-toggle-preview.layer-toggle-top-right ~ .legend-preview.legend-top-right {
+  right: 248px;
+}
+
 .legend-preview.legend-top-left {
   top: 82px;
   left: 14px;

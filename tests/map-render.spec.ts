@@ -1489,6 +1489,26 @@ test("phase 4 runtime legend reserves top-right layer control space conditionall
   await page.getByTestId("legend-placement").selectOption("floating-top-right");
   await page.locator('label:has-text("Layer control") select').selectOption("expanded");
 
+  const editorOffsets = await page.locator(".legend-preview.legend-top-right").evaluate((legend) => {
+    const readOffsets = () => {
+      const style = window.getComputedStyle(legend as HTMLElement);
+      return {
+        top: style.top,
+        right: style.right
+      };
+    };
+
+    const withControl = readOffsets();
+    const control = document.querySelector(".layer-toggle-preview.layer-toggle-top-right");
+    control?.parentElement?.removeChild(control);
+    const withoutControl = readOffsets();
+    return { withControl, withoutControl };
+  });
+
+  expect(editorOffsets.withControl.top).toBe(editorOffsets.withoutControl.top);
+  expect(editorOffsets.withControl.right).toBe("248px");
+  expect(editorOffsets.withoutControl.right).toBe("14px");
+
   await page.getByTestId("open-preview").click();
   const iframe = page.locator('[data-testid="runtime-preview-frame"]');
   await expect(iframe).toBeVisible({ timeout: 15000 });
