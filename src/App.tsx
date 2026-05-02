@@ -111,6 +111,7 @@ export function App() {
   const mapPanelRef = usePanelRef();
   const tablePanelRef = usePanelRef();
   const projectSelectionIdentityRef = useRef("");
+  const lastExpandedLeftPanelWidthRef = useRef(18);
   const [project, setProject] = useState<Qgis2webProject | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeatureRef | null>(null);
@@ -1298,10 +1299,14 @@ export function App() {
     setLeftPanelCollapsed(collapsed);
     if (!workspaceGroupRef.current) return;
     const currentLayout = workspaceGroupRef.current.getLayout();
+    const currentLeft = currentLayout["left-panel"] ?? 18;
     const currentMain = currentLayout["main-stage"] ?? 56;
     const currentRight = currentLayout["right-panel"] ?? 26;
+    if (currentLeft > 0) {
+      lastExpandedLeftPanelWidthRef.current = Math.min(30, Math.max(12, currentLeft));
+    }
     const available = Math.max(0, 100 - currentRight);
-    const nextLeft = collapsed ? 0 : Math.min(30, Math.max(12, 100 - currentMain - currentRight || 18));
+    const nextLeft = collapsed ? 0 : Math.min(30, Math.max(12, lastExpandedLeftPanelWidthRef.current));
     const nextMain = Math.max(35, available - nextLeft);
     workspaceGroupRef.current.setLayout({
       "left-panel": nextLeft,

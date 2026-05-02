@@ -265,6 +265,10 @@ test("phase 1 shell persists left panel collapse state", async ({ page }) => {
   });
   await page.reload();
   await expect(page.getByRole("button", { name: /Collapse side panel/i })).toBeVisible();
+  await page.getByRole("button", { name: /Collapse side panel/i }).click();
+  await expect(page.locator('[data-testid="left-panel-expand"]')).toBeVisible();
+  await page.getByTestId("left-panel-expand").click();
+  await expect(page.getByRole("button", { name: /Collapse side panel/i })).toBeVisible();
   const storedLayout = await page.evaluate(() => localStorage.getItem("react-resizable-panels:q2ws-workspace-layout:left-panel:main-stage:right-panel"));
   if (!storedLayout) throw new Error("Expected stored workspace layout.");
   const leftPanelWidth = await page.locator('[data-testid="left-panel"]').boundingBox();
