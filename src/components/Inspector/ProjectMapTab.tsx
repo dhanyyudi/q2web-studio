@@ -7,7 +7,8 @@ import type {
   MapViewMode,
   Qgis2webProject
 } from "../../types/project";
-import { ColorInput, PanelTitle, RangeInput, SegmentedControl, SelectField, SwitchLabel } from "./controls";
+import { RangeNumberField } from "../forms/RangeNumberField";
+import { ColorInput, PanelTitle, SegmentedControl, SelectField, SwitchLabel } from "./controls";
 
 export type ProjectMapTabProps = {
   project: Qgis2webProject;
@@ -70,7 +71,7 @@ export function ProjectMapTab(props: ProjectMapTabProps) {
       <SegmentedControl label="Layer display" value={project.mapSettings.viewMode} options={[{ value: "all", label: "All layers" }, { value: "selected", label: "Selected layer" }]} onChange={(value) => props.setMapSetting("viewMode", value as MapViewMode)} />
       <SelectField label="Layer control" value={project.mapSettings.layerControlMode} onChange={(value) => props.setMapSetting("layerControlMode", value as LayerControlMode)} options={[{ value: "compact", label: "Compact" }, { value: "expanded", label: "Expanded" }, { value: "tree", label: "Tree" }]} />
       <SelectField label="Initial zoom" value={project.mapSettings.initialZoomMode} onChange={(value) => props.setMapSetting("initialZoomMode", value as InitialZoomMode)} options={[{ value: "fit", label: "Fit visible layers" }, { value: "fixed", label: "Use fixed zoom level" }]} />
-      <RangeInput label="Zoom level" value={project.mapSettings.initialZoom} min={5} max={20} step={1} onChange={(value) => props.setMapSetting("initialZoom", value)} />
+      <RangeNumberField label="Zoom level" value={project.mapSettings.initialZoom} min={5} max={20} step={1} onChange={(value) => props.setMapSetting("initialZoom", value)} />
       {project.runtime.widgets.length > 0 && <><PanelTitle icon={<Settings2 size={16} />} title="Original Widgets" /><div className="widget-list">{project.runtime.widgets.map((widget) => <label key={widget.id} className="widget-row"><input type="checkbox" checked={widget.enabled} onChange={(event) => props.toggleRuntimeWidget(widget.id, event.target.checked)} /><span>{widget.label}</span><small>{widget.assetPaths.length ? `${widget.assetPaths.length} assets` : "detected"}</small></label>)}</div></>}
       <PanelTitle icon={<Wand2 size={16} />} title="Legend" />
       <div className="toggle-grid"><SwitchLabel label="Show legend" checked={project.legendSettings.enabled} onCheckedChange={(checked) => props.setLegendSetting("enabled", checked)} testId="legend-enabled" /></div>
@@ -93,8 +94,8 @@ export function ProjectMapTab(props: ProjectMapTabProps) {
       <ColorInput label="Background" value={project.popupSettings.backgroundColor} onChange={(value) => props.setPopupSetting("backgroundColor", value)} />
       <ColorInput label="Text" value={project.popupSettings.textColor} onChange={(value) => props.setPopupSetting("textColor", value)} />
       <ColorInput label="Label" value={project.popupSettings.labelColor} onChange={(value) => props.setPopupSetting("labelColor", value)} />
-      <RangeInput label="Radius" value={project.popupSettings.radius} min={0} max={22} step={1} onChange={(value) => props.setPopupSetting("radius", value)} />
-      <RangeInput label="Shadow" value={project.popupSettings.shadow} min={0} max={42} step={1} onChange={(value) => props.setPopupSetting("shadow", value)} />
+      <RangeNumberField label="Radius" value={project.popupSettings.radius} min={0} max={22} step={1} unit="px" onChange={(value) => props.setPopupSetting("radius", value)} />
+      <RangeNumberField label="Shadow" value={project.popupSettings.shadow} min={0} max={42} step={1} unit="px" onChange={(value) => props.setPopupSetting("shadow", value)} />
     </>
   );
 }
