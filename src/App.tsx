@@ -1571,7 +1571,6 @@ export function App() {
             ensureLayerLabel={ensureLayerLabel}
             ensurePopupTemplate={ensurePopupTemplate}
             renameSelectedPopupField={renameSelectedPopupField}
-            addManualLegend={addManualLegend}
           />
           ) : <div className="inspector inspector-empty" aria-hidden="true" />}
         </Panel>

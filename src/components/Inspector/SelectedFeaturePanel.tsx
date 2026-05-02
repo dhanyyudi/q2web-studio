@@ -73,13 +73,6 @@ export function SelectedFeaturePanel(props: SelectedFeaturePanelProps) {
         <TextInput label="Value" value={newFeaturePropertyValue} onChange={setNewFeaturePropertyValue} />
         <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add to feature</button>
       </div>
-      <div className="selected-feature-actions">
-        <button type="button" className="btn compact" onClick={polygonToLineSelectedFeature}>Polygon to line</button>
-        <button type="button" className="btn compact" onClick={convexHullSelectedFeature}>Convex hull</button>
-        <button type="button" className="btn compact" onClick={splitLineSelectedFeature} disabled={!selectedFeatureData.layer.geometryType.includes("Line")}>Split line</button>
-        <button type="button" className="btn compact" onClick={divideLineSelectedFeature} disabled={!selectedFeatureData.layer.geometryType.includes("Line")}>Divide line</button>
-        <button type="button" className="btn compact" onClick={simplifySelectedFeature}>Simplify selected feature</button>
-      </div>
     </div>
   );
 }
