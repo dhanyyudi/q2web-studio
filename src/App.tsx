@@ -1539,6 +1539,8 @@ export function App() {
             setMapSetting={setMapSetting}
             toggleRuntimeWidget={toggleRuntimeWidget}
             setLegendSetting={setLegendSetting}
+            updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })}
+            addManualLegendItem={addManualLegend}
             setPopupSetting={setPopupSetting}
             selectedFeatureData={selectedFeatureData}
             selectedGeometryKind={selectedGeometryKind}
@@ -1569,7 +1571,6 @@ export function App() {
             ensureLayerLabel={ensureLayerLabel}
             ensurePopupTemplate={ensurePopupTemplate}
             renameSelectedPopupField={renameSelectedPopupField}
-            addManualLegend={addManualLegend}
           />
           ) : <div className="inspector inspector-empty" aria-hidden="true" />}
         </Panel>

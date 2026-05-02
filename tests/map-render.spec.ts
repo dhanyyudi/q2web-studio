@@ -221,6 +221,75 @@ test("selected feature header uses a readable label and cannot overflow inspecto
   expect(hasHorizontalOverflow).toBe(false);
 });
 
+test("phase 2b layer inspector uses ordered sections with sticky selection toolbar and geometry-specific ops", async ({ page }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Sungai/i }).click();
+
+  const layerPanel = page.getByTestId("layer-tab-panel");
+  await expect(layerPanel).toBeVisible();
+
+  const sectionOrder = await layerPanel.locator('[data-testid^="layer-section-"]').evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("data-testid"))
+  );
+  expect(sectionOrder).toEqual([
+    "layer-section-breadcrumb",
+    "layer-section-tabs",
+    "layer-section-selection-toolbar",
+    "layer-section-selected-feature",
+    "layer-section-geometry-ops",
+    "layer-section-layer-settings",
+    "layer-section-labels"
+  ]);
+
+  const toolbar = page.getByTestId("layer-selection-toolbar");
+  await expect(toolbar).toContainText(/0 features selected|1 features selected/i);
+  const toolbarPosition = await toolbar.evaluate((element) => window.getComputedStyle(element).position);
+  expect(toolbarPosition).toBe("sticky");
+
+  const geometryOps = page.getByTestId("layer-geometry-ops");
+  await expect(geometryOps.getByRole("button", { name: /Split line/i })).toBeVisible();
+  await expect(geometryOps.getByRole("button", { name: /Divide line/i })).toBeVisible();
+  await expect(geometryOps.getByRole("button", { name: /Simplify selected feature/i })).toBeVisible();
+  await expect(geometryOps.getByRole("button", { name: /Convex hull/i })).toBeVisible();
+  await expect(geometryOps.getByRole("button", { name: /Polygon to line/i })).toHaveCount(0);
+  await expect(geometryOps.getByRole("button", { name: /Split line/i })).toBeDisabled();
+  await expect(geometryOps.getByRole("button", { name: /Divide line/i })).toBeDisabled();
+  await expect(geometryOps.getByRole("button", { name: /Simplify selected feature/i })).toBeDisabled();
+  await expect(geometryOps.getByRole("button", { name: /Convex hull/i })).toBeDisabled();
+
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(geometryOps.getByRole("button", { name: /Split line/i })).toBeEnabled();
+  await expect(geometryOps.getByRole("button", { name: /Divide line/i })).toBeEnabled();
+  await expect(geometryOps.getByRole("button", { name: /Simplify selected feature/i })).toBeEnabled();
+  await expect(geometryOps.getByRole("button", { name: /Convex hull/i })).toBeEnabled();
+
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  const polygonOps = page.getByTestId("layer-geometry-ops");
+  await expect(polygonOps.getByRole("button", { name: /Polygon to line/i })).toBeVisible();
+  await expect(polygonOps.getByRole("button", { name: /Convex hull/i })).toBeVisible();
+  await expect(polygonOps.getByRole("button", { name: /Split line/i })).toHaveCount(0);
+  await expect(polygonOps.getByRole("button", { name: /Divide line/i })).toHaveCount(0);
+});
+
+test("phase 2b manual legend lives in project inspector instead of layer inspector", async ({ page }) => {
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Sungai/i }).click();
+  await expect(page.getByRole("tab", { name: /^Legend$/i })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await expect(page.getByTestId("project-manual-legend")).toBeVisible();
+  await expect(page.getByText(/Manual legend items are project-wide/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Add legend item/i })).toBeVisible();
+});
+
 test("initial zoom setting reapplies the editor map view", async ({ page }) => {
   await page.goto("/?debug=1");
   await importFixture(page);
