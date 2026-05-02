@@ -43,6 +43,7 @@ const TABLE_LAYOUT_STORAGE_KEY = "q2ws-table-layout";
 const APP_THEME_STORAGE_KEY = "q2ws-app-theme";
 const WORKSPACE_LAYOUT_STORAGE_KEY = "q2ws-workspace-layout";
 const LEFT_PANEL_COLLAPSED_STORAGE_KEY = "q2ws-left-panel-collapsed";
+// Phase 2a split note: buffer guard moved to useProjectState and still checks selectedFeatureData.feature.geometry before Turf.
 const BASEMAP_PRESET_GROUPS: { name: string; items: BasemapConfig[] }[] = [
   {
     name: "OpenStreetMap",
