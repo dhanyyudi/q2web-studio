@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import JSZip from "jszip";
 import { createServer } from "node:http";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 
@@ -196,6 +197,26 @@ test("imports fixture and renders map", async ({ page }) => {
     return events.filter((entry) => entry.source === "autofit").map((entry) => entry.event);
   });
   expect(autoFitEvents).not.toContain("apply");
+});
+
+test("audit v4 phase 2a keeps App thin and project state extracted", async () => {
+  const appSource = await readFile(join(process.cwd(), "src", "App.tsx"), "utf8");
+  const appLines = appSource.split(/\r?\n/).length;
+  expect(appLines).toBeLessThanOrEqual(700);
+
+  const requiredFiles = [
+    join(process.cwd(), "src", "hooks", "useProjectState.ts"),
+    join(process.cwd(), "src", "lib", "projectHydration.ts"),
+    join(process.cwd(), "src", "lib", "geometryTransforms.ts"),
+    join(process.cwd(), "src", "lib", "appHelpers.ts")
+  ];
+  for (const filePath of requiredFiles) {
+    expect(existsSync(filePath), `${filePath} should exist`).toBe(true);
+  }
+
+  expect(appSource).not.toContain("function hydrateProject");
+  expect(appSource).not.toContain("function translateGeometry");
+  expect(appSource).not.toContain("function selectedFeatureTitle");
 });
 
 test("production headers allow temporary blob runtime preview", async ({ page }) => {
