@@ -419,6 +419,59 @@ button:disabled {
   padding: 2px;
 }
 
+.range-number-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.range-number-field-row input[type="range"] {
+  padding: 0;
+  height: auto;
+}
+
+.range-number-field-input {
+  text-align: right;
+}
+
+.range-number-field-unit {
+  color: #7b8790;
+  white-space: nowrap;
+}
+
+.dash-array-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dash-array-presets button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 92px;
+  padding: 8px 10px;
+}
+
+.dash-array-presets button svg {
+  overflow: visible;
+}
+
+.dash-array-presets button.active {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-weight: 700;
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.editor-note.error {
+  color: var(--danger);
+}
+
 .color-field {
   grid-template-columns: 1fr;
 }
@@ -1812,6 +1865,16 @@ tbody tr:hover {
   border-color: #6a5425;
   background: #2d2512;
   color: #f7d88b;
+}
+
+:root[data-theme="dark"] .editor-note.error {
+  color: var(--danger);
+}
+
+:root[data-theme="dark"] .dash-array-presets button.active {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--accent-foreground));
 }
 
 :root[data-theme="dark"] .tabs-list button[data-state="active"],

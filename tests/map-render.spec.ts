@@ -6,6 +6,8 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 
+const debugUrl = (path = "/") => `${path}${path.includes("?") ? "&" : "?"}debug=1`;
+
 const fixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659.zip");
 
 async function importFixture(page: import("@playwright/test").Page) {
@@ -321,7 +323,7 @@ test("initial zoom setting reapplies the editor map view", async ({ page }) => {
   await page.getByRole("button", { name: /Project Settings/i }).click();
   await page.getByRole("tab", { name: /Map/i }).click();
   await page.locator('label:has-text("Initial zoom") select').selectOption("fixed");
-  const zoomSlider = page.locator('label:has-text("Zoom level") input[type="range"]');
+  const zoomSlider = page.locator('.range-number-field:has-text("Zoom level") input[type="range"]');
   await zoomSlider.fill("9");
   await expect.poll(() => page.evaluate(() => (window as Window & { __q2ws_map?: { getZoom: () => number } }).__q2ws_map?.getZoom())).toBe(9);
 });
@@ -1329,4 +1331,78 @@ test("exports ZIP and rendered runtime stays healthy", async ({ page, browser },
     body: Buffer.from(download.suggestedFilename() || "unknown", "utf8"),
     contentType: "text/plain"
   });
+});
+
+test("phase 3 project sliders have synced numeric inputs with units", async ({ page }) => {
+  await page.goto("/");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Branding/i }).click();
+
+  const sidebarWidthField = page.locator(".range-number-field", { hasText: /Sidebar width/i });
+  const sidebarWidthNumber = sidebarWidthField.locator('input[type="number"]');
+  await sidebarWidthNumber.fill("360");
+  await sidebarWidthNumber.blur();
+  await expect(sidebarWidthNumber).toHaveValue("360");
+
+  const sidebarWidthSlider = sidebarWidthField.locator('input[type="range"]');
+  await expect(sidebarWidthSlider).toHaveValue("360");
+  await expect(sidebarWidthField.getByText("px")).toBeVisible();
+});
+
+test("phase 3 dash array field supports presets and custom values", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  await page.getByRole("tab", { name: /^Style$/i }).click();
+
+  await page.getByRole("button", { name: /Dash-dot-dot/i }).click();
+  const customInput = page.getByLabel(/Dash array custom/i);
+  await expect(customInput).toHaveValue("10 4 2 4 2 4");
+  const dashArrayField = customInput.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' dash-array-field ')][1]");
+
+  const appliedDashArray = async () => page.evaluate(() => {
+    const project = (window as Window & {
+      __q2ws_project?: { layers: Array<{ displayName: string; style?: { dashArray?: string | null } }> };
+    }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => /Batas Desa/i.test(candidate.displayName));
+    return layer?.style?.dashArray ?? "";
+  });
+
+  await expect.poll(appliedDashArray).toBe("10 4 2 4 2 4");
+
+  await page.getByRole("button", { name: /^Custom$/i }).click();
+  await customInput.fill("6 x 4");
+  await customInput.blur();
+  await expect(dashArrayField.getByRole("alert")).toBeVisible();
+  await expect(appliedDashArray()).resolves.toBe("10 4 2 4 2 4");
+
+  await customInput.fill("6 4");
+  await customInput.blur();
+  await expect(customInput).toHaveValue("6 4");
+  await expect(dashArrayField.getByRole("alert")).toHaveCount(0);
+  await expect.poll(appliedDashArray).toBe("6 4");
+});
+
+test("phase 3 add property form clears key and value after submit", async ({ page }) => {
+  await page.goto("/");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(page.locator(".selected-feature-panel")).toBeVisible();
+
+  const keyInput = page.getByLabel(/Property key/i);
+  const valueInput = page.getByLabel(/Property value/i);
+  await keyInput.fill("catatan");
+  await valueInput.fill("uji phase 3");
+  await page.getByRole("button", { name: /Add property/i }).click();
+
+  await expect(keyInput).toHaveValue("");
+  await expect(valueInput).toHaveValue("");
 });

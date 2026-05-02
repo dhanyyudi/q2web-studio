@@ -1,6 +1,7 @@
 import { Paintbrush, Plus } from "lucide-react";
 import type { Qgis2webProject } from "../../types/project";
-import { ColorInput, PanelTitle, RangeInput, SegmentedControl, SelectField, TextAreaInput, TextInput } from "./controls";
+import { RangeNumberField } from "../forms/RangeNumberField";
+import { ColorInput, PanelTitle, SegmentedControl, SelectField, TextAreaInput, TextInput } from "./controls";
 
 type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
 
@@ -73,15 +74,15 @@ export function BrandingTab({ project, logoInputRef, updateProject, importLogo }
         <label><input type="checkbox" checked={project.sidebar.enabled} onChange={(event) => updateProject({ ...project, sidebar: { ...project.sidebar, enabled: event.target.checked } })} />Enabled</label>
       </div>
       <SegmentedControl label="Sidebar side" value={project.sidebar.side} options={[{ value: "left", label: "Left" }, { value: "right", label: "Right" }]} onChange={(side) => updateProject({ ...project, sidebar: { ...project.sidebar, side: side as Qgis2webProject["sidebar"]["side"] } })} />
-      <RangeInput label="Sidebar width" value={project.sidebar.width} min={260} max={520} step={10} onChange={(width) => updateProject({ ...project, sidebar: { ...project.sidebar, width } })} />
+      <RangeNumberField label="Sidebar width" value={project.sidebar.width} min={260} max={520} step={10} unit="px" onChange={(width) => updateProject({ ...project, sidebar: { ...project.sidebar, width } })} />
       <TextAreaInput label="Sidebar markdown" value={project.sidebar.content} onChange={(content) => updateProject({ ...project, sidebar: { ...project.sidebar, content } })} />
       <ColorInput label="Accent" value={project.theme.accent} onChange={(accent) => updateProject({ ...project, theme: { ...project.theme, accent } })} />
       <ColorInput label="Surface" value={project.theme.surface} onChange={(surface) => updateProject({ ...project, theme: { ...project.theme, surface } })} />
       <ColorInput label="Text" value={project.theme.text} onChange={(text) => updateProject({ ...project, theme: { ...project.theme, text } })} />
       <ColorInput label="Muted" value={project.theme.muted} onChange={(muted) => updateProject({ ...project, theme: { ...project.theme, muted } })} />
-      <RangeInput label="Radius" value={project.theme.radius} min={0} max={18} step={1} onChange={(radius) => updateProject({ ...project, theme: { ...project.theme, radius } })} />
-      <RangeInput label="Shadow" value={project.theme.shadow} min={0} max={40} step={1} onChange={(shadow) => updateProject({ ...project, theme: { ...project.theme, shadow } })} />
-      <RangeInput label="Header height" value={project.theme.headerHeight} min={36} max={92} step={2} onChange={(headerHeight) => updateProject({ ...project, theme: { ...project.theme, headerHeight } })} />
+      <RangeNumberField label="Radius" value={project.theme.radius} min={0} max={18} step={1} unit="px" onChange={(radius) => updateProject({ ...project, theme: { ...project.theme, radius } })} />
+      <RangeNumberField label="Shadow" value={project.theme.shadow} min={0} max={40} step={1} unit="px" onChange={(shadow) => updateProject({ ...project, theme: { ...project.theme, shadow } })} />
+      <RangeNumberField label="Header height" value={project.theme.headerHeight} min={36} max={92} step={2} unit="px" onChange={(headerHeight) => updateProject({ ...project, theme: { ...project.theme, headerHeight } })} />
     </>
   );
 }

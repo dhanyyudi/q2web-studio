@@ -1,8 +1,9 @@
 import { Switch } from "../ui/switch";
 import type { LayerManifest } from "../../types/project";
 import { fieldNames } from "../../lib/style";
+import { RangeNumberField } from "../forms/RangeNumberField";
 import { GeometryOpsPanel } from "./GeometryOpsPanel";
-import { PanelTitle, RangeInput, SelectField, SwitchLabel, TextInput } from "./controls";
+import { PanelTitle, SelectField, SwitchLabel, TextInput } from "./controls";
 import { SelectedFeaturePanel, type SelectedFeaturePanelProps } from "./SelectedFeaturePanel";
 import { SelectionToolbar, type SelectionToolbarProps } from "./SelectionToolbar";
 
@@ -54,8 +55,8 @@ export function LayerTab(props: LayerTabProps) {
           <SwitchLabel label="Permanent" checked={layerLabel.permanent} onCheckedChange={(checked) => patchSelectedLayer({ label: { ...layerLabel, permanent: checked } })} />
         </div>
         <SelectField label="Label field" value={layerLabel.field} onChange={(field) => patchSelectedLayer({ label: { ...layerLabel, field, htmlTemplate: `{{${field}}}` } })} options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))} />
-        <RangeInput label="Label offset X" value={layerLabel.offset[0]} min={-40} max={40} step={1} onChange={(offsetX) => patchSelectedLayer({ label: { ...layerLabel, offset: [offsetX, layerLabel.offset[1]] } })} />
-        <RangeInput label="Label offset Y" value={layerLabel.offset[1]} min={-40} max={40} step={1} onChange={(offsetY) => patchSelectedLayer({ label: { ...layerLabel, offset: [layerLabel.offset[0], offsetY] } })} />
+        <RangeNumberField label="Label offset X" value={layerLabel.offset[0]} min={-40} max={40} step={1} unit="px" onChange={(offsetX) => patchSelectedLayer({ label: { ...layerLabel, offset: [offsetX, layerLabel.offset[1]] } })} />
+        <RangeNumberField label="Label offset Y" value={layerLabel.offset[1]} min={-40} max={40} step={1} unit="px" onChange={(offsetY) => patchSelectedLayer({ label: { ...layerLabel, offset: [layerLabel.offset[0], offsetY] } })} />
       </section>
     </>
   );

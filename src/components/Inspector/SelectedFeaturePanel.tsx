@@ -69,9 +69,16 @@ export function SelectedFeaturePanel(props: SelectedFeaturePanelProps) {
         ))}
       </div>
       <div className="feature-property-add">
-        <TextInput label="New property key" value={newFeaturePropertyKey} onChange={setNewFeaturePropertyKey} />
-        <TextInput label="Value" value={newFeaturePropertyValue} onChange={setNewFeaturePropertyValue} />
-        <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add to feature</button>
+        <label className="field">
+          <span>Property key</span>
+          <input value={newFeaturePropertyKey} onChange={(event) => setNewFeaturePropertyKey(event.target.value)} aria-describedby="selected-feature-add-property-note" />
+        </label>
+        <label className="field">
+          <span>Property value</span>
+          <input value={newFeaturePropertyValue} onChange={(event) => setNewFeaturePropertyValue(event.target.value)} aria-describedby="selected-feature-add-property-note" />
+        </label>
+        <p id="selected-feature-add-property-note" className="editor-note">Add a new property to the selected feature.</p>
+        <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add property</button>
       </div>
     </div>
   );
