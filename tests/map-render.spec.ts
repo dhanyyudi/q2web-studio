@@ -235,7 +235,6 @@ test("phase 2b layer inspector uses ordered sections with sticky selection toolb
     elements.map((element) => element.getAttribute("data-testid"))
   );
   expect(sectionOrder).toEqual([
-    "layer-section-breadcrumb",
     "layer-section-tabs",
     "layer-section-selection-toolbar",
     "layer-section-selected-feature",
@@ -243,6 +242,10 @@ test("phase 2b layer inspector uses ordered sections with sticky selection toolb
     "layer-section-layer-settings",
     "layer-section-labels"
   ]);
+
+  const inspectorScopes = page.locator(".inspector > .inspector-scope");
+  await expect(inspectorScopes).toHaveCount(1);
+  await expect(inspectorScopes.first()).toContainText(/Project\s*\/\s*Sungai/i);
 
   const toolbar = page.getByTestId("layer-selection-toolbar");
   await expect(toolbar).toContainText(/0 features selected|1 features selected/i);

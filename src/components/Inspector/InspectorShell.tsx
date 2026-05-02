@@ -70,9 +70,6 @@ export function InspectorShell(props: InspectorShellProps) {
       ) : selectedLayer ? (
         <div className="tabs-root" data-testid="layer-tab-panel">
           <Tabs.Root defaultValue="layer">
-            <div className="inspector-scope" data-testid="layer-section-breadcrumb">
-              <span>Project</span><span>/</span><strong>{selectedLayer.displayName}</strong>
-            </div>
             <Tabs.List className="tabs-list three" aria-label="Layer editor" data-testid="layer-section-tabs">
               <Tabs.Trigger value="layer">Layer</Tabs.Trigger>
               <Tabs.Trigger value="style">Style</Tabs.Trigger>
