@@ -1,0 +1,20 @@
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[debug] [q2ws-debug] {at: 1777752109647, source: autofit, event: apply, autoFitKey: 0::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13, mode: fit}
+[debug] [q2ws-debug] {at: 1777752109662, source: autofit, event: apply, autoFitKey: 0::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13, mode: fit}
+[debug] [q2ws-debug] {at: 1777752109671, source: autofit, event: fit-bounds, bounds: 108.44751622866258,-6.805748138062593,108.49537824483647,-6.753659885020784}
+[debug] [q2ws-debug] {at: 1777752109672, source: map, event: zoomstart, center: LatLng, zoom: 4}
+[debug] [q2ws-debug] {at: 1777752109672, source: map, event: movestart, center: LatLng, zoom: 4}
+[debug] [q2ws-debug] {at: 1777752109673, source: map, event: zoomend, center: LatLng, zoom: 13}
+[debug] [q2ws-debug] {at: 1777752109675, source: map, event: moveend, center: LatLng, zoom: 13}
+[debug] [q2ws-debug] {at: 1777752109703, source: autofit, event: apply, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13, mode: fit}
+[debug] [q2ws-debug] {at: 1777752109705, source: autofit, event: fit-bounds, bounds: 108.44751622866258,-6.805748138062593,108.49537824483647,-6.753659885020784}
+[debug] [q2ws-debug] {at: 1777752109705, source: map, event: moveend, center: LatLng, zoom: 13}
+[debug] [q2ws-debug] {at: 1777752109901, source: autofit, event: skip-same-key, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13}
+[debug] [q2ws-debug] {at: 1777752110038, source: autofit, event: skip-same-key, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13}
+[warning] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+[warning] Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. Error
+    at et.extend (blob:http://127.0.0.1:5173/1af69183-2d63-4435-9ea8-32dbcbb8ccf1:5:3233)
+    at blob:http://127.0.0.1:5173/98983452-9947-4863-9e11-ed95882dc466:6:34
+    at blob:http://127.0.0.1:5173/98983452-9947-4863-9e11-ed95882dc466:6:7077

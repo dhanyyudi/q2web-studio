@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:224:1 › audit v4 phase 2 debt keeps App shell below 400 lines (3ms)
+
+  1 passed (770ms)
