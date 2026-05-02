@@ -187,6 +187,14 @@ export const q2wsRuntime = String.raw`(function () {
     window.map.fitBounds(bounds, { padding: [28, 28] });
   }
 
+  function runtimeLegendPositionClass(placement) {
+    if (placement === "floating-top-left") return "q2ws-legend-top-left";
+    if (placement === "floating-top-right") return "q2ws-legend-top-right";
+    if (placement === "floating-bottom-left") return "q2ws-legend-bottom-left";
+    if (placement === "floating-bottom-right") return "q2ws-legend-bottom-right";
+    return "";
+  }
+
   function normalizeLayerControlSettings(config) {
     var legacySettings = config.mapSettings || {};
     var settings = config.layerControlSettings || {};
@@ -594,11 +602,12 @@ export const q2wsRuntime = String.raw`(function () {
 
   function applyLegend(config) {
     var settings = config.legendSettings || {};
-    if (!settings.placement || settings.placement === "inside-control" || settings.placement === "hidden") return;
+    var positionClass = runtimeLegendPositionClass(settings.placement);
+    if (!positionClass) return;
     var legend = buildLegendSection(config);
     if (!legend) return;
     legend.id = "q2ws-legend";
-    legend.classList.add("q2ws-legend-" + settings.placement.replace("floating-", ""));
+    legend.classList.add(positionClass);
     document.body.appendChild(legend);
   }
 
@@ -924,6 +933,16 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.22);
   font: 13px Inter, Segoe UI, Arial, sans-serif;
   color: var(--q2ws-text);
+}
+
+#q2ws-legend.q2ws-legend-bottom-right,
+#q2ws-legend.q2ws-legend-bottom-left,
+#q2ws-legend.q2ws-legend-top-right,
+#q2ws-legend.q2ws-legend-top-left {
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
 }
 
 #q2ws-legend.q2ws-legend-bottom-right {

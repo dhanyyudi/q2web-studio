@@ -148,6 +148,20 @@ export function LayerControl({
   );
 }
 
+function legendPositionClass(position: Qgis2webProject["legendSettings"]["position"]): string {
+  switch (position) {
+    case "top-left":
+      return "legend-top-left";
+    case "top-right":
+      return "legend-top-right";
+    case "bottom-left":
+      return "legend-bottom-left";
+    case "bottom-right":
+    default:
+      return "legend-bottom-right";
+  }
+}
+
 export function LegendPanel({
   groups,
   open,
@@ -162,7 +176,7 @@ export function LegendPanel({
   embedded?: boolean;
 }) {
   return (
-    <aside className={`legend-preview ${embedded ? "legend-embedded" : `legend-${position}`} ${open ? "" : "collapsed"}`}>
+    <aside className={`legend-preview ${embedded ? "legend-embedded" : legendPositionClass(position)} ${open ? "" : "collapsed"}`}>
       <button type="button" className="legend-toggle" onClick={() => onOpenChange(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
         <span>Legenda</span>
