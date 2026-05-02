@@ -50,7 +50,7 @@ export const defaultMapSettings: MapSettings = {
   viewMode: "all",
   initialZoomMode: "fit",
   initialZoom: 13,
-  layerControlMode: "expanded"
+  layerControlMode: "collapsed"
 };
 
 export const defaultLayerControlSettings: LayerControlSettings = {

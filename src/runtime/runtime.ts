@@ -190,8 +190,9 @@ export const q2wsRuntime = String.raw`(function () {
   function applyLayerToggle(config) {
     if (!window.map) return;
     var settings = config.mapSettings || {};
-    var mode = settings.layerControlMode || "expanded";
-    if (["compact", "expanded", "tree"].indexOf(mode) === -1) mode = "expanded";
+    var mode = settings.layerControlMode || "collapsed";
+    if (mode === "compact") mode = "collapsed";
+    if (["collapsed", "expanded", "tree"].indexOf(mode) === -1) mode = "collapsed";
     var layers = (config.layers || []).filter(function (layerConfig) {
       return layerConfig.showInLayerControl !== false && window[layerConfig.layerVariable];
     });
@@ -201,7 +202,7 @@ export const q2wsRuntime = String.raw`(function () {
       originalControl.style.display = "none";
     }
     var control = createEl("aside", { id: "q2ws-layer-control", class: "q2ws-layer-control-" + mode });
-    var header = createEl("button", { type: "button", class: "q2ws-layer-control-header", "aria-expanded": mode === "compact" ? "false" : "true" });
+    var header = createEl("button", { type: "button", class: "q2ws-layer-control-header", "aria-expanded": mode === "collapsed" ? "false" : "true" });
     header.appendChild(createEl("strong", {}, "Layers"));
     control.appendChild(header);
     var content = createEl("div", { class: "q2ws-layer-control-content" });
@@ -251,7 +252,7 @@ export const q2wsRuntime = String.raw`(function () {
     if (legendSection && (config.legendSettings || {}).placement === "inside-control") {
       content.appendChild(legendSection);
     }
-    if (mode === "compact") {
+    if (mode === "collapsed") {
       content.hidden = true;
       header.onclick = function () {
         content.hidden = !content.hidden;
@@ -929,7 +930,7 @@ body.q2ws-has-header-top-right-pill #q2ws-layer-control {
   color: var(--q2ws-text);
 }
 
-#q2ws-layer-control.q2ws-layer-control-compact {
+#q2ws-layer-control.q2ws-layer-control-collapsed {
   width: auto;
   min-width: 150px;
 }
