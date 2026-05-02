@@ -419,6 +419,27 @@ button:disabled {
   padding: 2px;
 }
 
+.range-number-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.range-number-field-row input[type="range"] {
+  padding: 0;
+  height: auto;
+}
+
+.range-number-field-input {
+  text-align: right;
+}
+
+.range-number-field-unit {
+  color: #7b8790;
+  white-space: nowrap;
+}
+
 .color-field {
   grid-template-columns: 1fr;
 }
