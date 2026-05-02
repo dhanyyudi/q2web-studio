@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ColorField } from "../ColorField";
+import { Switch } from "../ui/switch";
 
 export type GeometryKind = "point" | "line" | "polygon" | "unknown";
 
@@ -17,6 +18,10 @@ export function SelectField({ label, value, options, onChange }: { label: string
 
 export function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <ColorField label={label} value={value} onChange={onChange} />;
+}
+
+export function SwitchLabel({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return <label><Switch checked={checked} onCheckedChange={onCheckedChange} /><span>{label}</span></label>;
 }
 
 export function RangeInput(props: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {

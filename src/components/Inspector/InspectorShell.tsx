@@ -1,10 +1,9 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { ProjectInspector } from "../ProjectInspector";
 import { LayerTab, type LayerTabProps } from "./LayerTab";
-import { LegendTab, type LegendTabProps } from "./LegendTab";
 import { PopupTab, type PopupTabProps } from "./PopupTab";
 import { StyleTab, type StyleTabProps } from "./StyleTab";
-import type { BasemapConfig, LayerManifest, Qgis2webProject } from "../../types/project";
+import type { BasemapConfig, LayerManifest, LegendItem, Qgis2webProject } from "../../types/project";
 import type { GeometryKind } from "./controls";
 
 type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
@@ -26,10 +25,12 @@ type ProjectInspectorProps = {
   setMapSetting: <K extends keyof Qgis2webProject["mapSettings"]>(key: K, value: Qgis2webProject["mapSettings"][K]) => void;
   toggleRuntimeWidget: (widgetId: string, enabled: boolean) => void;
   setLegendSetting: <K extends keyof Qgis2webProject["legendSettings"]>(key: K, value: Qgis2webProject["legendSettings"][K]) => void;
+  updateManualLegendItems: (items: LegendItem[]) => void;
+  addManualLegendItem: () => void;
   setPopupSetting: <K extends keyof Qgis2webProject["popupSettings"]>(key: K, value: Qgis2webProject["popupSettings"][K]) => void;
 };
 
-export type InspectorShellProps = ProjectInspectorProps & Omit<LayerTabProps, "selectedLayer"> & Omit<StyleTabProps, "selectedLayer"> & Omit<PopupTabProps, "selectedLayer"> & LegendTabProps & {
+export type InspectorShellProps = ProjectInspectorProps & Omit<LayerTabProps, "selectedLayer"> & Omit<StyleTabProps, "selectedLayer"> & Omit<PopupTabProps, "selectedLayer"> & {
   selectedLayer: LayerManifest | undefined;
   inspectorMode: "project" | "layer";
   selectedGeometryKind: GeometryKind;
@@ -62,21 +63,26 @@ export function InspectorShell(props: InspectorShellProps) {
           setMapSetting={props.setMapSetting}
           toggleRuntimeWidget={props.toggleRuntimeWidget}
           setLegendSetting={props.setLegendSetting}
+          updateManualLegendItems={props.updateManualLegendItems}
+          addManualLegendItem={props.addManualLegendItem}
           setPopupSetting={props.setPopupSetting}
         />
       ) : selectedLayer ? (
-        <Tabs.Root defaultValue="layer" className="tabs-root">
-          <Tabs.List className="tabs-list four" aria-label="Layer editor">
-            <Tabs.Trigger value="layer">Layer</Tabs.Trigger>
-            <Tabs.Trigger value="style">Style</Tabs.Trigger>
-            <Tabs.Trigger value="popup">Popup</Tabs.Trigger>
-            <Tabs.Trigger value="legend">Legend</Tabs.Trigger>
-          </Tabs.List>
-          <Tabs.Content value="layer" className="tabs-content"><LayerTab {...props} selectedLayer={selectedLayer} /></Tabs.Content>
-          <Tabs.Content value="style" className="tabs-content"><StyleTab {...props} selectedLayer={selectedLayer} /></Tabs.Content>
-          <Tabs.Content value="popup" className="tabs-content"><PopupTab {...props} selectedLayer={selectedLayer} /></Tabs.Content>
-          <Tabs.Content value="legend" className="tabs-content"><LegendTab project={project} updateProject={props.updateProject} addManualLegend={props.addManualLegend} /></Tabs.Content>
-        </Tabs.Root>
+        <div className="tabs-root" data-testid="layer-tab-panel">
+          <Tabs.Root defaultValue="layer">
+            <div className="inspector-scope" data-testid="layer-section-breadcrumb">
+              <span>Project</span><span>/</span><strong>{selectedLayer.displayName}</strong>
+            </div>
+            <Tabs.List className="tabs-list three" aria-label="Layer editor" data-testid="layer-section-tabs">
+              <Tabs.Trigger value="layer">Layer</Tabs.Trigger>
+              <Tabs.Trigger value="style">Style</Tabs.Trigger>
+              <Tabs.Trigger value="popup">Popup</Tabs.Trigger>
+            </Tabs.List>
+            <Tabs.Content value="layer" className="tabs-content"><LayerTab {...props} selectedLayer={selectedLayer} /></Tabs.Content>
+            <Tabs.Content value="style" className="tabs-content"><StyleTab {...props} selectedLayer={selectedLayer} /></Tabs.Content>
+            <Tabs.Content value="popup" className="tabs-content"><PopupTab {...props} selectedLayer={selectedLayer} /></Tabs.Content>
+          </Tabs.Root>
+        </div>
       ) : null}
     </aside>
   );

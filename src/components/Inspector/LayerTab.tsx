@@ -1,7 +1,8 @@
+import { Switch } from "../ui/switch";
 import type { LayerManifest } from "../../types/project";
 import { fieldNames } from "../../lib/style";
-import { PanelTitle, RangeInput, SelectField, TextInput } from "./controls";
 import { GeometryOpsPanel } from "./GeometryOpsPanel";
+import { PanelTitle, RangeInput, SelectField, SwitchLabel, TextInput } from "./controls";
 import { SelectedFeaturePanel, type SelectedFeaturePanelProps } from "./SelectedFeaturePanel";
 import { SelectionToolbar, type SelectionToolbarProps } from "./SelectionToolbar";
 
@@ -18,26 +19,44 @@ export function LayerTab(props: LayerTabProps) {
 
   return (
     <>
-      <PanelTitle title="Layer Editor" />
-      <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
-      <PanelTitle title="Selected Feature" />
-      <SelectedFeaturePanel {...props} />
       <SelectionToolbar {...props} />
-      <GeometryOpsPanel selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry} />
-      <div className="toggle-grid">
-        <label><input type="checkbox" checked={selectedLayer.visible} onChange={(event) => patchSelectedLayer({ visible: event.target.checked })} />Visible</label>
-        <label><input type="checkbox" checked={selectedLayer.popupEnabled} onChange={(event) => patchSelectedLayer({ popupEnabled: event.target.checked })} />Popup</label>
-        <label><input type="checkbox" checked={selectedLayer.legendEnabled} onChange={(event) => patchSelectedLayer({ legendEnabled: event.target.checked })} />Legend</label>
-        <label><input type="checkbox" checked={selectedLayer.showInLayerControl} onChange={(event) => patchSelectedLayer({ showInLayerControl: event.target.checked })} />Layer toggle</label>
-      </div>
-      <PanelTitle title="Labels" />
-      <div className="toggle-grid">
-        <label><input type="checkbox" checked={layerLabel.enabled} onChange={(event) => patchSelectedLayer({ label: { ...layerLabel, enabled: event.target.checked } })} />Show labels</label>
-        <label><input type="checkbox" checked={layerLabel.permanent} onChange={(event) => patchSelectedLayer({ label: { ...layerLabel, permanent: event.target.checked } })} />Permanent</label>
-      </div>
-      <SelectField label="Label field" value={layerLabel.field} onChange={(field) => patchSelectedLayer({ label: { ...layerLabel, field, htmlTemplate: `{{${field}}}` } })} options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))} />
-      <RangeInput label="Label offset X" value={layerLabel.offset[0]} min={-40} max={40} step={1} onChange={(offsetX) => patchSelectedLayer({ label: { ...layerLabel, offset: [offsetX, layerLabel.offset[1]] } })} />
-      <RangeInput label="Label offset Y" value={layerLabel.offset[1]} min={-40} max={40} step={1} onChange={(offsetY) => patchSelectedLayer({ label: { ...layerLabel, offset: [layerLabel.offset[0], offsetY] } })} />
+      <section data-testid="layer-section-selected-feature">
+        <PanelTitle title="Selected Feature" />
+        <SelectedFeaturePanel {...props} />
+      </section>
+      <section data-testid="layer-section-geometry-ops">
+        <PanelTitle title="Geometry Ops" />
+        <GeometryOpsPanel
+          selectedFeatureData={props.selectedFeatureData}
+          selectedGeometryKind={props.selectedGeometryKind}
+          selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry}
+          polygonToLineSelectedFeature={props.polygonToLineSelectedFeature}
+          convexHullSelectedFeature={props.convexHullSelectedFeature}
+          splitLineSelectedFeature={props.splitLineSelectedFeature}
+          divideLineSelectedFeature={props.divideLineSelectedFeature}
+          simplifySelectedFeature={props.simplifySelectedFeature}
+        />
+      </section>
+      <section data-testid="layer-section-layer-settings">
+        <PanelTitle title="Layer Settings" />
+        <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
+        <div className="toggle-grid">
+          <SwitchLabel label="Visible" checked={selectedLayer.visible} onCheckedChange={(checked) => patchSelectedLayer({ visible: checked })} />
+          <SwitchLabel label="Popup" checked={selectedLayer.popupEnabled} onCheckedChange={(checked) => patchSelectedLayer({ popupEnabled: checked })} />
+          <SwitchLabel label="Legend" checked={selectedLayer.legendEnabled} onCheckedChange={(checked) => patchSelectedLayer({ legendEnabled: checked })} />
+          <SwitchLabel label="Layer toggle" checked={selectedLayer.showInLayerControl} onCheckedChange={(checked) => patchSelectedLayer({ showInLayerControl: checked })} />
+        </div>
+      </section>
+      <section data-testid="layer-section-labels">
+        <PanelTitle title="Labels" />
+        <div className="toggle-grid">
+          <SwitchLabel label="Show labels" checked={layerLabel.enabled} onCheckedChange={(checked) => patchSelectedLayer({ label: { ...layerLabel, enabled: checked } })} />
+          <SwitchLabel label="Permanent" checked={layerLabel.permanent} onCheckedChange={(checked) => patchSelectedLayer({ label: { ...layerLabel, permanent: checked } })} />
+        </div>
+        <SelectField label="Label field" value={layerLabel.field} onChange={(field) => patchSelectedLayer({ label: { ...layerLabel, field, htmlTemplate: `{{${field}}}` } })} options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))} />
+        <RangeInput label="Label offset X" value={layerLabel.offset[0]} min={-40} max={40} step={1} onChange={(offsetX) => patchSelectedLayer({ label: { ...layerLabel, offset: [offsetX, layerLabel.offset[1]] } })} />
+        <RangeInput label="Label offset Y" value={layerLabel.offset[1]} min={-40} max={40} step={1} onChange={(offsetY) => patchSelectedLayer({ label: { ...layerLabel, offset: [layerLabel.offset[0], offsetY] } })} />
+      </section>
     </>
   );
 }

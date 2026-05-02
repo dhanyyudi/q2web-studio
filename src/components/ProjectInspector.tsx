@@ -1,10 +1,12 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { ArrowDown, ArrowUp, Layers3, Paintbrush, Plus, Settings2, Trash2, Wand2 } from "lucide-react";
 import { ColorField } from "./ColorField";
+import { Switch } from "./ui/switch";
 import type {
   BasemapConfig,
   InitialZoomMode,
   LayerControlMode,
+  LegendItem,
   MapViewMode,
   Qgis2webProject
 } from "../types/project";
@@ -26,6 +28,8 @@ export type ProjectInspectorProps = {
   setMapSetting: <K extends keyof Qgis2webProject["mapSettings"]>(key: K, value: Qgis2webProject["mapSettings"][K]) => void;
   toggleRuntimeWidget: (widgetId: string, enabled: boolean) => void;
   setLegendSetting: <K extends keyof Qgis2webProject["legendSettings"]>(key: K, value: Qgis2webProject["legendSettings"][K]) => void;
+  updateManualLegendItems: (items: LegendItem[]) => void;
+  addManualLegendItem: () => void;
   setPopupSetting: <K extends keyof Qgis2webProject["popupSettings"]>(key: K, value: Qgis2webProject["popupSettings"][K]) => void;
 };
 
@@ -150,9 +154,20 @@ export function ProjectInspector(props: ProjectInspectorProps) {
         <RangeInput label="Zoom level" value={project.mapSettings.initialZoom} min={5} max={20} step={1} onChange={(value) => props.setMapSetting("initialZoom", value)} />
         {project.runtime.widgets.length > 0 && <><PanelTitle icon={<Settings2 size={16} />} title="Original Widgets" /><div className="widget-list">{project.runtime.widgets.map((widget) => <label key={widget.id} className="widget-row"><input type="checkbox" checked={widget.enabled} onChange={(event) => props.toggleRuntimeWidget(widget.id, event.target.checked)} /><span>{widget.label}</span><small>{widget.assetPaths.length ? `${widget.assetPaths.length} assets` : "detected"}</small></label>)}</div></>}
         <PanelTitle icon={<Wand2 size={16} />} title="Legend" />
-        <div className="toggle-grid"><label><input data-testid="legend-enabled" type="checkbox" checked={project.legendSettings.enabled} onChange={(event) => props.setLegendSetting("enabled", event.target.checked)} />Show legend</label></div>
+        <div className="toggle-grid"><SwitchField label="Show legend" checked={project.legendSettings.enabled} onCheckedChange={(checked) => props.setLegendSetting("enabled", checked)} testId="legend-enabled" /></div>
         <label className="field" data-testid="legend-placement-field"><span>Legend placement</span><select data-testid="legend-placement" value={project.legendSettings.placement} onChange={(event) => props.setLegendSetting("placement", event.target.value as Qgis2webProject["legendSettings"]["placement"])}><option value="hidden">Hidden</option><option value="inside-control">Inside layer control</option><option value="floating-bottom-right">Floating bottom right</option><option value="floating-bottom-left">Floating bottom left</option><option value="floating-top-right">Floating top right</option><option value="floating-top-left">Floating top left</option></select></label>
-        <div className="toggle-grid"><label><input type="checkbox" checked={project.legendSettings.groupByLayer} onChange={(event) => props.setLegendSetting("groupByLayer", event.target.checked)} />Group by layer</label><label><input type="checkbox" checked={project.legendSettings.collapsed} onChange={(event) => props.setLegendSetting("collapsed", event.target.checked)} />Start collapsed</label></div>
+        <div className="toggle-grid"><SwitchField label="Group by layer" checked={project.legendSettings.groupByLayer} onCheckedChange={(checked) => props.setLegendSetting("groupByLayer", checked)} /><SwitchField label="Start collapsed" checked={project.legendSettings.collapsed} onCheckedChange={(checked) => props.setLegendSetting("collapsed", checked)} /></div>
+        <div className="manual-legend-panel" data-testid="project-manual-legend">
+          <PanelTitle title="Manual Legend" />
+          <p className="editor-note">Manual legend items are project-wide. Use them for symbols or notes that do not come from a single layer style.</p>
+          <button type="button" className="btn full" onClick={props.addManualLegendItem}><Plus size={15} /> Add legend item</button>
+          {project.manualLegendItems.map((item) => (
+            <div className="category-row" key={item.id}>
+              <input value={item.label} onChange={(event) => props.updateManualLegendItems(project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, label: event.target.value } : legend))} />
+              <input type="color" value={item.fillColor} onChange={(event) => props.updateManualLegendItems(project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, fillColor: event.target.value } : legend))} />
+            </div>
+          ))}
+        </div>
         <PanelTitle title="Popup Style" />
         <SelectField label="Popup style" value={project.popupSettings.style} onChange={(value) => props.setPopupSetting("style", value as Qgis2webProject["popupSettings"]["style"])} options={[{ value: "card", label: "Card" }, { value: "compact", label: "Compact" }, { value: "minimal", label: "Minimal" }]} />
         <ColorInput label="Accent" value={project.popupSettings.accentColor} onChange={(value) => props.setPopupSetting("accentColor", value)} />
@@ -168,6 +183,10 @@ export function ProjectInspector(props: ProjectInspectorProps) {
 
 function PanelTitle({ title, icon }: { title: string; icon?: React.ReactNode }) {
   return <h2 className="panel-title">{icon}{title}</h2>;
+}
+
+function SwitchField({ label, checked, onCheckedChange, testId }: { label: string; checked: boolean; onCheckedChange: (checked: boolean) => void; testId?: string }) {
+  return <label><Switch data-testid={testId} checked={checked} onCheckedChange={onCheckedChange} /><span>{label}</span></label>;
 }
 
 function TextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {

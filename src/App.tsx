@@ -1539,6 +1539,8 @@ export function App() {
             setMapSetting={setMapSetting}
             toggleRuntimeWidget={toggleRuntimeWidget}
             setLegendSetting={setLegendSetting}
+            updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })}
+            addManualLegendItem={addManualLegend}
             setPopupSetting={setPopupSetting}
             selectedFeatureData={selectedFeatureData}
             selectedGeometryKind={selectedGeometryKind}
