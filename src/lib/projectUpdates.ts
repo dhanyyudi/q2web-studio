@@ -1,4 +1,5 @@
 import type { FeatureCollection } from "geojson";
+import { defaultLayerControlSettings } from "./defaults";
 import type { LayerControlMode, LayerManifest, Qgis2webProject } from "../types/project";
 
 function featureMatchesId(feature: FeatureCollection["features"][number], featureId: string): boolean {
@@ -31,7 +32,7 @@ export function migrateProject(project: Qgis2webProject): Qgis2webProject {
 function normalizeLayerControlMode(mode: LayerControlMode | "compact" | undefined): LayerControlMode {
   if (mode === "compact") return "collapsed";
   if (mode && phaseCLayerControlModes.includes(mode)) return mode;
-  return "expanded";
+  return defaultLayerControlSettings.mode;
 }
 
 export function updateLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {
