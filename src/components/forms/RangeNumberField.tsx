@@ -63,8 +63,8 @@ export function RangeNumberField({
   };
 
   return (
-    <label className="field range-number-field" htmlFor={`${id}-range`}>
-      <span>{label}</span>
+    <div className="field range-number-field">
+      <span id={`${id}-label`}>{label}</span>
       {helpText ? (
         <small id={helpTextId} className="editor-note">
           {helpText}
@@ -73,7 +73,7 @@ export function RangeNumberField({
       <div className="range-number-field-row">
         <input
           id={`${id}-range`}
-          aria-label={label}
+          aria-labelledby={`${id}-label`}
           type="range"
           min={min}
           max={max}
@@ -112,6 +112,6 @@ export function RangeNumberField({
         />
         {unit ? <span className="range-number-field-unit">{unit}</span> : null}
       </div>
-    </label>
+    </div>
   );
 }

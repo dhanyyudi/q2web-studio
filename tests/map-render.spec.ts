@@ -323,7 +323,7 @@ test("initial zoom setting reapplies the editor map view", async ({ page }) => {
   await page.getByRole("button", { name: /Project Settings/i }).click();
   await page.getByRole("tab", { name: /Map/i }).click();
   await page.locator('label:has-text("Initial zoom") select').selectOption("fixed");
-  const zoomSlider = page.locator('label:has-text("Zoom level") input[type="range"]');
+  const zoomSlider = page.locator('.range-number-field:has-text("Zoom level") input[type="range"]');
   await zoomSlider.fill("9");
   await expect.poll(() => page.evaluate(() => (window as Window & { __q2ws_map?: { getZoom: () => number } }).__q2ws_map?.getZoom())).toBe(9);
 });
@@ -1341,7 +1341,7 @@ test("phase 3 project sliders have synced numeric inputs with units", async ({ p
   await page.getByRole("button", { name: /Project Settings/i }).click();
   await page.getByRole("tab", { name: /Branding/i }).click();
 
-  const sidebarWidthField = page.locator("label", { hasText: /Sidebar width/i });
+  const sidebarWidthField = page.locator(".range-number-field", { hasText: /Sidebar width/i });
   const sidebarWidthNumber = sidebarWidthField.locator('input[type="number"]');
   await sidebarWidthNumber.fill("360");
   await sidebarWidthNumber.blur();
@@ -1363,7 +1363,7 @@ test("phase 3 dash array field supports presets and custom values", async ({ pag
   await page.getByRole("button", { name: /Dash-dot-dot/i }).click();
   const customInput = page.getByLabel(/Dash array custom/i);
   await expect(customInput).toHaveValue("10 4 2 4 2 4");
-  const dashArrayField = customInput.locator("xpath=ancestor::label[1]");
+  const dashArrayField = customInput.locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' dash-array-field ')][1]");
 
   const appliedDashArray = async () => page.evaluate(() => {
     const project = (window as Window & {

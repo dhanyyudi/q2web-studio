@@ -42,8 +42,8 @@ export function DashArrayField({ label, value, onChange, disabled = false }: Das
   };
 
   return (
-    <label className="field dash-array-field" htmlFor={customInputId}>
-      <span>{label}</span>
+    <div className="field dash-array-field">
+      <span id={`${id}-label`}>{label}</span>
       <div className="dash-array-presets" role="group" aria-label={`${label} presets`}>
         {DASH_ARRAY_PRESETS.map((preset) => {
           const selected = preset.key === activePreset;
@@ -104,6 +104,6 @@ export function DashArrayField({ label, value, onChange, disabled = false }: Das
       ) : (
         <small id={noteId} className="editor-note">Use presets or enter positive numbers separated by spaces.</small>
       )}
-    </label>
+    </div>
   );
 }
