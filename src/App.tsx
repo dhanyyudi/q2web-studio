@@ -1,22 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import * as Tabs from "@radix-ui/react-tabs";
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef, type GroupImperativeHandle } from "react-resizable-panels";
 import { Toaster, toast } from "sonner";
 import {
-  ArrowDown,
-  ArrowUp,
   Circle,
   Lasso,
   MousePointer2,
-  Paintbrush,
   PenLine,
-  Plus,
-  Settings2,
   Square,
   Trash2,
   Type,
-  Wand2,
   XCircle
 } from "lucide-react";
 import bbox from "@turf/bbox";
@@ -30,11 +22,10 @@ import union from "@turf/union";
 import { featureCollection } from "@turf/helpers";
 import type { Feature, Geometry, LineString, MultiLineString, MultiPolygon, Point, Polygon } from "geojson";
 import { AttributeTable, type TableMode } from "./components/AttributeTable";
-import { ColorField } from "./components/ColorField";
 import { EmptyState } from "./components/EmptyState";
 import { MapCanvas } from "./components/MapCanvas";
 import { PreviewOverlay } from "./components/PreviewOverlay";
-import { ProjectInspector } from "./components/ProjectInspector";
+import { InspectorShell } from "./components/Inspector/InspectorShell";
 import { SidePanel } from "./components/SidePanel";
 import { ToolbarButton } from "./components/ToolbarButton";
 import { Topbar, type AppThemeMode } from "./components/Topbar";
@@ -50,12 +41,7 @@ import { defaultBasemaps, defaultLegendSettings, defaultMapSettings, defaultPopu
 import type {
   BasemapConfig,
   DrawMode,
-  InitialZoomMode,
-  LayerControlMode,
   LayerManifest,
-  LegendPosition,
-  MapViewMode,
-  PopupTemplateMode,
   Qgis2webProject,
   SelectedFeatureRef,
   TextAnnotation
@@ -1534,277 +1520,57 @@ export function App() {
 
         <Panel id="right-panel" defaultSize="26%" minSize="20%" maxSize="45%" collapsible collapsedSize="0%" panelRef={inspectorPanelRef}>
           {project ? (
-          <aside className="inspector">
-            <div className="inspector-scope">
-              <span>Project</span>
-              {inspectorMode === "layer" && selectedLayer && <><span>/</span><strong>{selectedLayer.displayName}</strong></>}
-            </div>
-
-            {inspectorMode === "project" ? (
-              <ProjectInspector
-                project={project}
-                logoInputRef={logoInputRef}
-                presetBasemapProvider={presetBasemapProvider}
-                setPresetBasemapProvider={setPresetBasemapProvider}
-                baseMapPresetGroups={BASEMAP_PRESET_GROUPS}
-                updateProject={updateProject}
-                importLogo={importLogo}
-                updateBasemapField={updateBasemapField}
-                moveBasemap={moveBasemap}
-                removeBasemap={removeBasemap}
-                setDefaultBasemap={setDefaultBasemap}
-                addPresetBasemap={addPresetBasemap}
-                addCustomBasemap={addCustomBasemap}
-                setMapSetting={setMapSetting}
-                toggleRuntimeWidget={toggleRuntimeWidget}
-                setLegendSetting={setLegendSetting}
-                setPopupSetting={setPopupSetting}
-              />
-            ) : selectedLayer ? (
-              <Tabs.Root defaultValue="layer" className="tabs-root">
-                <Tabs.List className="tabs-list four" aria-label="Layer editor">
-                  <Tabs.Trigger value="layer">Layer</Tabs.Trigger>
-                  <Tabs.Trigger value="style">Style</Tabs.Trigger>
-                  <Tabs.Trigger value="popup">Popup</Tabs.Trigger>
-                  <Tabs.Trigger value="legend">Legend</Tabs.Trigger>
-                </Tabs.List>
-
-                <Tabs.Content value="layer" className="tabs-content">
-                  <PanelTitle title="Layer Editor" />
-                  <TextInput label="Layer label" value={selectedLayer.displayName} onChange={(displayName) => patchSelectedLayer({ displayName })} />
-                  <PanelTitle title="Selected Feature" />
-                  {selectedFeatureData && selectedFeatureData.layer.id === selectedLayer.id ? (
-                    <div className="selected-feature-panel">
-                      <div className="selected-feature-meta">
-                        <strong data-testid="selected-feature-title" title={selectedFeatureTitle(selectedFeatureData.layer, selectedFeatureData.feature)}>{selectedFeatureTitle(selectedFeatureData.layer, selectedFeatureData.feature)}</strong>
-                        <div className="dialog-actions">
-                          <button type="button" className="btn compact" onClick={bufferSelectedFeature}>Buffer</button>
-                          <button type="button" className="btn compact" onClick={mergeSelectedLayer} disabled={selectedGeometryKind !== "polygon"}>Merge layer</button>
-                          <button type="button" className="btn compact" onClick={() => setSelectedFeature(null)}>Clear</button>
-                        </div>
-                      </div>
-                      <div className="feature-property-list">
-                        {Object.keys(selectedFeatureData.feature.properties || {}).filter((field) => field !== "__q2ws_id").map((field) => (
-                          <div className="feature-property-row" key={field}>
-                            <TextInput
-                              label={field}
-                              value={String(selectedFeatureData.feature.properties?.[field] ?? "")}
-                              onChange={(value) => updateSelectedFeatureField(field, value)}
-                            />
-                            <button type="button" className="btn compact danger" onClick={() => removeSelectedFeatureProperty(field)}>Delete</button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="feature-property-add">
-                        <TextInput label="New property key" value={newFeaturePropertyKey} onChange={setNewFeaturePropertyKey} />
-                        <TextInput label="Value" value={newFeaturePropertyValue} onChange={setNewFeaturePropertyValue} />
-                        <button type="button" className="btn compact" onClick={addSelectedFeatureProperty}>Add to feature</button>
-                      </div>
-                      <div className="selected-feature-actions">
-                        <button type="button" className="btn compact" onClick={polygonToLineSelectedFeature}>
-                          Polygon to line
-                        </button>
-                        <button type="button" className="btn compact" onClick={convexHullSelectedFeature}>
-                          Convex hull
-                        </button>
-                        <button type="button" className="btn compact" onClick={splitLineSelectedFeature} disabled={!selectedFeatureData?.layer.geometryType.includes("Line")}>
-                          Split line
-                        </button>
-                        <button type="button" className="btn compact" onClick={divideLineSelectedFeature} disabled={!selectedFeatureData?.layer.geometryType.includes("Line")}>
-                          Divide line
-                        </button>
-                        <button type="button" className="btn compact" onClick={simplifySelectedFeature}>
-                          Simplify selected feature
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="editor-note">Select a feature from the map or attribute table to edit its properties.</div>
-                  )}
-                  <div className="multi-select-actions" data-testid="multi-select-panel">
-                    <span>{selectedFeatureIds.length} features selected</span>
-                    <button type="button" className="btn compact" onClick={selectAllFeatures}>Select all</button>
-                    <button type="button" className="btn compact" onClick={translateSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Translate selected</button>
-                    <button type="button" className="btn compact" onClick={rotateSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Rotate selected</button>
-                    <button type="button" className="btn compact" onClick={scaleSelectedFeatures} disabled={selectedFeatureIds.length === 0}>Scale selected</button>
-                    <button type="button" className="btn compact" onClick={clearSelection} disabled={selectedFeatureIds.length === 0}>Clear selection</button>
-                  </div>
-                  {selectedLayerHasMultiGeometry && (
-                    <div className="editor-note">This layer contains multi-geometry features. Style, popup, legend, and attributes remain editable, but vertex editing is disabled to keep the data safe.</div>
-                  )}
-                  <div className="toggle-grid">
-                    <label><input type="checkbox" checked={selectedLayer.visible} onChange={(event) => patchSelectedLayer({ visible: event.target.checked })} />Visible</label>
-                    <label><input type="checkbox" checked={selectedLayer.popupEnabled} onChange={(event) => patchSelectedLayer({ popupEnabled: event.target.checked })} />Popup</label>
-                    <label><input type="checkbox" checked={selectedLayer.legendEnabled} onChange={(event) => patchSelectedLayer({ legendEnabled: event.target.checked })} />Legend</label>
-                    <label><input type="checkbox" checked={selectedLayer.showInLayerControl} onChange={(event) => patchSelectedLayer({ showInLayerControl: event.target.checked })} />Layer toggle</label>
-                  </div>
-                  {(() => {
-                    const layerLabel = ensureLayerLabel(selectedLayer);
-                    return (
-                      <>
-                        <PanelTitle title="Labels" />
-                        <div className="toggle-grid">
-                          <label><input type="checkbox" checked={layerLabel.enabled} onChange={(event) => patchSelectedLayer({ label: { ...layerLabel, enabled: event.target.checked } })} />Show labels</label>
-                          <label><input type="checkbox" checked={layerLabel.permanent} onChange={(event) => patchSelectedLayer({ label: { ...layerLabel, permanent: event.target.checked } })} />Permanent</label>
-                        </div>
-                        <SelectField
-                          label="Label field"
-                          value={layerLabel.field}
-                          onChange={(field) => patchSelectedLayer({ label: { ...layerLabel, field, htmlTemplate: `{{${field}}}` } })}
-                          options={fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))}
-                        />
-                        <RangeInput label="Label offset X" value={layerLabel.offset[0]} min={-40} max={40} step={1} onChange={(offsetX) => patchSelectedLayer({ label: { ...layerLabel, offset: [offsetX, layerLabel.offset[1]] } })} />
-                        <RangeInput label="Label offset Y" value={layerLabel.offset[1]} min={-40} max={40} step={1} onChange={(offsetY) => patchSelectedLayer({ label: { ...layerLabel, offset: [layerLabel.offset[0], offsetY] } })} />
-                      </>
-                    );
-                  })()}
-                </Tabs.Content>
-
-                <Tabs.Content value="style" className="tabs-content">
-                  <PanelTitle title="Spatial Style" />
-                  {(selectedGeometryKind === "point" || selectedGeometryKind === "polygon") && (
-                    <>
-                      <ColorInput label="Fill" value={selectedLayer.style.fillColor} onChange={(fillColor) => patchSelectedLayer({ style: { ...selectedLayer.style, fillColor } })} />
-                      <RangeInput label="Fill opacity" value={selectedLayer.style.fillOpacity} min={0} max={1} step={0.05} onChange={(fillOpacity) => patchSelectedLayer({ style: { ...selectedLayer.style, fillOpacity } })} />
-                    </>
-                  )}
-                  <ColorInput label="Stroke" value={selectedLayer.style.strokeColor} onChange={(strokeColor) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeColor } })} />
-                  <RangeInput label="Stroke opacity" value={selectedLayer.style.strokeOpacity} min={0} max={1} step={0.05} onChange={(strokeOpacity) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeOpacity } })} />
-                  <RangeInput label="Stroke width" value={selectedLayer.style.strokeWidth} min={0} max={12} step={0.5} onChange={(strokeWidth) => patchSelectedLayer({ style: { ...selectedLayer.style, strokeWidth } })} />
-                  {selectedGeometryKind === "point" && (
-                    <RangeInput label="Point radius" value={selectedLayer.style.pointRadius} min={2} max={24} step={1} onChange={(pointRadius) => patchSelectedLayer({ style: { ...selectedLayer.style, pointRadius } })} />
-                  )}
-                  {(selectedGeometryKind === "line" || selectedGeometryKind === "polygon") && (
-                    <TextInput label="Dash array" value={selectedLayer.style.dashArray} onChange={(dashArray) => patchSelectedLayer({ style: { ...selectedLayer.style, dashArray } })} />
-                  )}
-                  <PanelTitle title="Categorized Style" />
-                  <SelectField
-                    label="Field"
-                    value={selectedLayer.style.categoryField}
-                    onChange={(categoryField) => patchSelectedLayer({ style: { ...selectedLayer.style, categoryField } })}
-                    options={[{ value: "", label: "No category field" }, ...fieldNames(selectedLayer).map((field) => ({ value: field, label: field }))]}
-                  />
-                  {selectedLayer.style.categories.map((category, index) => (
-                    <div className="category-row" key={category.value}>
-                      <input value={category.label} onChange={(event) => {
-                        const categories = selectedLayer.style.categories.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item);
-                        patchSelectedLayer({ style: { ...selectedLayer.style, categories } });
-                      }} />
-                      <input type="color" value={category.fillColor} onChange={(event) => {
-                        const categories = selectedLayer.style.categories.map((item, itemIndex) => itemIndex === index ? { ...item, fillColor: event.target.value } : item);
-                        patchSelectedLayer({ style: { ...selectedLayer.style, categories } });
-                      }} />
-                    </div>
-                  ))}
-                </Tabs.Content>
-
-                <Tabs.Content value="popup" className="tabs-content">
-                  {(() => {
-                    const popupTemplate = ensurePopupTemplate(selectedLayer);
-                    return (
-                      <>
-                        <PanelTitle title="Popup Template" />
-                        <SelectField
-                          label="Template mode"
-                          value={popupTemplate.mode}
-                          onChange={(mode) => patchSelectedLayer({ popupTemplate: { ...popupTemplate, mode: mode as PopupTemplateMode, fields: selectedLayer.popupFields } })}
-                          options={[
-                            { value: "original", label: "Original HTML" },
-                            { value: "field-grid", label: "Field grid" },
-                            { value: "custom", label: "Custom HTML" }
-                          ]}
-                        />
-                      </>
-                    );
-                  })()}
-                  {ensurePopupTemplate(selectedLayer).mode === "custom" && (
-                    <>
-                      <PanelTitle title="Custom Popup HTML" />
-                        <textarea
-                          className="popup-custom-textarea"
-                          rows={6}
-                          value={ensurePopupTemplate(selectedLayer).html || ""}
-                          placeholder="<table><tr><th>Field</th><td>{{FIELDNAME}}</td></tr></table>"
-                          onChange={(event) => patchSelectedLayer({ popupTemplate: { ...ensurePopupTemplate(selectedLayer), html: event.target.value, fields: selectedLayer.popupFields } })}
-                        />
-
-                      <small className="popup-custom-hint">Use {"{{FIELDNAME}}"} for dynamic values. Allowed tags: table, tr, th, td, strong, br, span, div, p, b, i, em.</small>
-                    </>
-                  )}
-                  <PanelTitle title="Popup Style" />
-                  <div className="toggle-grid">
-                    <label>
-                      <input type="checkbox" checked={Boolean(selectedLayer.popupSettings)} onChange={(event) => patchSelectedLayer({ popupSettings: event.target.checked ? { ...project.popupSettings } : undefined })} />
-                      Override project style
-                    </label>
-                  </div>
-                  {selectedLayer.popupSettings && (
-                    <>
-                      <ColorInput label="Accent" value={selectedLayer.popupSettings.accentColor} onChange={(accentColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, accentColor } })} />
-                      <ColorInput label="Background" value={selectedLayer.popupSettings.backgroundColor} onChange={(backgroundColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, backgroundColor } })} />
-                      <ColorInput label="Text" value={selectedLayer.popupSettings.textColor} onChange={(textColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, textColor } })} />
-                      <ColorInput label="Label" value={selectedLayer.popupSettings.labelColor} onChange={(labelColor) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, labelColor } })} />
-                      <RangeInput label="Radius" value={selectedLayer.popupSettings.radius} min={0} max={22} step={1} onChange={(radius) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, radius } })} />
-                      <RangeInput label="Shadow" value={selectedLayer.popupSettings.shadow} min={0} max={42} step={1} onChange={(shadow) => patchSelectedLayer({ popupSettings: { ...selectedLayer.popupSettings!, shadow } })} />
-                    </>
-                  )}
-                  <PanelTitle title="Popup Fields" />
-                  <div className="popup-fields">
-                    {selectedLayer.popupFields.map((field) => (
-                      <div className="popup-field-row" key={field.key}>
-                        <label className="popup-field-toggle">
-                          <input
-                            type="checkbox"
-                            checked={field.visible}
-                            onChange={(event) => {
-                              const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item);
-                              patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
-                            }}
-                          />
-                          Visible
-                        </label>
-                        <input
-                          className="popup-field-key-input"
-                          value={field.key}
-                          onChange={(event) => renameSelectedPopupField(field.key, event.target.value)}
-                        />
-                        <input
-                          className="popup-field-label-input"
-                          value={field.label}
-                          onChange={(event) => {
-                            const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, label: event.target.value } : item);
-                            patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
-                          }}
-                        />
-                        <label className="popup-field-toggle">
-                          <input
-                            type="checkbox"
-                            checked={field.header}
-                            onChange={(event) => {
-                              const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, header: event.target.checked } : item);
-                              patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
-                            }}
-                          />
-                          Header
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </Tabs.Content>
-
-                <Tabs.Content value="legend" className="tabs-content">
-                  <PanelTitle title="Manual Legend" />
-                  <button type="button" className="btn full" onClick={addManualLegend}><Plus size={15} /> Add legend item</button>
-                  {project.manualLegendItems.map((item) => (
-                    <div className="category-row" key={item.id}>
-                      <input value={item.label} onChange={(event) => updateProject({ ...project, manualLegendItems: project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, label: event.target.value } : legend) })} />
-                      <input type="color" value={item.fillColor} onChange={(event) => updateProject({ ...project, manualLegendItems: project.manualLegendItems.map((legend) => legend.id === item.id ? { ...legend, fillColor: event.target.value } : legend) })} />
-                    </div>
-                  ))}
-                </Tabs.Content>
-              </Tabs.Root>
-            ) : null}
-          </aside>
+          <InspectorShell
+            project={project}
+            selectedLayer={selectedLayer}
+            inspectorMode={inspectorMode}
+            logoInputRef={logoInputRef}
+            presetBasemapProvider={presetBasemapProvider}
+            setPresetBasemapProvider={setPresetBasemapProvider}
+            baseMapPresetGroups={BASEMAP_PRESET_GROUPS}
+            updateProject={updateProject}
+            importLogo={importLogo}
+            updateBasemapField={updateBasemapField}
+            moveBasemap={moveBasemap}
+            removeBasemap={removeBasemap}
+            setDefaultBasemap={setDefaultBasemap}
+            addPresetBasemap={addPresetBasemap}
+            addCustomBasemap={addCustomBasemap}
+            setMapSetting={setMapSetting}
+            toggleRuntimeWidget={toggleRuntimeWidget}
+            setLegendSetting={setLegendSetting}
+            setPopupSetting={setPopupSetting}
+            selectedFeatureData={selectedFeatureData}
+            selectedGeometryKind={selectedGeometryKind}
+            selectedFeatureIds={selectedFeatureIds}
+            selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry}
+            patchSelectedLayer={patchSelectedLayer}
+            selectedFeatureTitle={selectedFeatureTitle}
+            bufferSelectedFeature={bufferSelectedFeature}
+            mergeSelectedLayer={mergeSelectedLayer}
+            clearSelectedFeature={() => setSelectedFeature(null)}
+            updateSelectedFeatureField={updateSelectedFeatureField}
+            removeSelectedFeatureProperty={removeSelectedFeatureProperty}
+            newFeaturePropertyKey={newFeaturePropertyKey}
+            setNewFeaturePropertyKey={setNewFeaturePropertyKey}
+            newFeaturePropertyValue={newFeaturePropertyValue}
+            setNewFeaturePropertyValue={setNewFeaturePropertyValue}
+            addSelectedFeatureProperty={addSelectedFeatureProperty}
+            polygonToLineSelectedFeature={polygonToLineSelectedFeature}
+            convexHullSelectedFeature={convexHullSelectedFeature}
+            splitLineSelectedFeature={splitLineSelectedFeature}
+            divideLineSelectedFeature={divideLineSelectedFeature}
+            simplifySelectedFeature={simplifySelectedFeature}
+            selectAllFeatures={selectAllFeatures}
+            translateSelectedFeatures={translateSelectedFeatures}
+            rotateSelectedFeatures={rotateSelectedFeatures}
+            scaleSelectedFeatures={scaleSelectedFeatures}
+            clearSelection={clearSelection}
+            ensureLayerLabel={ensureLayerLabel}
+            ensurePopupTemplate={ensurePopupTemplate}
+            renameSelectedPopupField={renameSelectedPopupField}
+            addManualLegend={addManualLegend}
+          />
           ) : <div className="inspector inspector-empty" aria-hidden="true" />}
         </Panel>
       </Group>
@@ -1847,67 +1613,6 @@ export function App() {
         </div>
       )}
     </main>
-  );
-}
-
-function PanelTitle({ title, icon }: { title: string; icon?: ReactNode }) {
-  return <h2 className="panel-title">{icon}{title}</h2>;
-}
-
-function TextInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="field"><span>{label}</span><input value={value} onChange={(event) => onChange(event.target.value)} /></label>;
-}
-
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function TextAreaInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <textarea className="popup-custom-textarea" value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function SegmentedControl(props: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
-  return (
-    <div className="field">
-      <span>{props.label}</span>
-      <div className="segmented">
-        {props.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={props.value === option.value ? "active" : ""}
-            onClick={() => props.onChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <ColorField label={label} value={value} onChange={onChange} />;
-}
-
-function RangeInput(props: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
-  return (
-    <label className="field">
-      <span>{props.label}: {props.value}</span>
-      <input type="range" min={props.min} max={props.max} step={props.step} value={props.value} onChange={(event) => props.onChange(Number(event.target.value))} />
-    </label>
   );
 }
 
