@@ -30,14 +30,13 @@ import { SidePanel } from "./components/SidePanel";
 import { ToolbarButton } from "./components/ToolbarButton";
 import { Topbar, type AppThemeMode } from "./components/Topbar";
 import { Button } from "./components/ui/button";
-import { filesFromDataTransferItems, filesFromFileList, filesFromZipFile } from "./lib/fileImport";
-import { downloadBlob, exportProjectZip } from "./lib/exportProject";
+import { filesFromDataTransferItems } from "./lib/fileImport";
 import { logoFileToDataUrl } from "./lib/logo";
 import { addFeatureProperty, deleteFeatureProperty, migrateProject, renameField, updateFeatureProperty, updateLayer, updateLayerGeojson } from "./lib/projectUpdates";
 import { clearProjectFromOpfs, loadProjectFromOpfs, opfsErrorMessage, saveProjectToOpfs } from "./lib/opfs";
-import { parseProjectInWorker } from "./lib/workerClient";
 import { fieldNames } from "./lib/style";
 import { defaultBasemaps, defaultLegendSettings, defaultMapSettings, defaultPopupSettings, defaultRuntimeSettings, defaultSidebarSettings } from "./lib/defaults";
+import { useImportExport } from "./hooks/useImportExport";
 import type {
   BasemapConfig,
   DrawMode,
@@ -299,132 +298,33 @@ export function App() {
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [canEditGeometry, history.future, history.past, previewOpen, project, selectedGeometryKind, selectedLayer, showShortcutDialog]);
 
-  async function importFiles(fileList: FileList | null) {
-    if (!fileList?.length) return;
-    setBusy(true);
-    setStatus("Parsing qgis2web folder in a worker...");
-    const toastId = toast.loading("Importing qgis2web folder");
-    try {
-      const files = await filesFromFileList(fileList);
-      const parsed = hydrateProject(await parseProjectInWorker(files));
-      setProject(parsed);
-      setSelectedLayerId(parsed.layers[0]?.id || "");
-      setHistory({ past: [], future: [] });
-      warnAboutLargeDatasets(parsed);
-      await persistProject(parsed);
-      const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
-      setStatus(message);
-      toast.success(message, { id: toastId });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Import failed.";
-      setStatus(message);
-      toast.error(message, { id: toastId });
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  async function importZip(fileList: FileList | null) {
-    const file = fileList?.[0];
-    if (!file) return;
-    await importZipFile(file);
-    if (zipInputRef.current) zipInputRef.current.value = "";
-  }
-
-  async function importZipFile(file: File) {
-    setBusy(true);
-    setStatus("Reading qgis2web ZIP locally...");
-    const toastId = toast.loading("Importing qgis2web ZIP");
-    try {
-      const files = await filesFromZipFile(file);
-      const parsed = hydrateProject(await parseProjectInWorker(files));
-      setProject(parsed);
-      setSelectedLayerId(parsed.layers[0]?.id || "");
-      setHistory({ past: [], future: [] });
-      warnAboutLargeDatasets(parsed);
-      await persistProject(parsed);
-      const message = `Imported ${parsed.layers.length} layers from ${file.name}.`;
-      setStatus(message);
-      toast.success(message, { id: toastId });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "ZIP import failed.";
-      setStatus(message);
-      toast.error(message, { id: toastId });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function importVirtualFiles(files: Awaited<ReturnType<typeof filesFromDataTransferItems>>, source: string) {
-    if (files.length === 0) return;
-    setBusy(true);
-    setStatus(`Parsing qgis2web folder from ${source}...`);
-    const toastId = toast.loading("Importing qgis2web folder");
-    try {
-      const parsed = hydrateProject(await parseProjectInWorker(files));
-      setProject(parsed);
-      setSelectedLayerId(parsed.layers[0]?.id || "");
-      setHistory({ past: [], future: [] });
-      warnAboutLargeDatasets(parsed);
-      await persistProject(parsed);
-      const message = `Imported ${parsed.layers.length} layers from ${parsed.name}.`;
-      setStatus(message);
-      toast.success(message, { id: toastId });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Import failed.";
-      setStatus(message);
-      toast.error(message, { id: toastId });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function startImport() {
-    inputRef.current?.click();
-  }
-
-  function startZipImport() {
-    zipInputRef.current?.click();
-  }
-
-  async function closeProject() {
-    setProject(null);
-    setSelectedLayerId("");
-    setSelectedFeature(null);
-    setInspectorMode("project");
-    setDrawMode("select");
-    setPreviewOpen(false);
-    setAttributeFilter("");
-    setHistory({ past: [], future: [] });
-    setStatus("Project closed. Import a qgis2web export to start editing.");
-    try {
-      await clearProjectFromOpfs();
-      toast.success("Project closed");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Project cache could not be cleared.";
-      toast.warning(message);
-    }
-  }
-
-  async function exportZip() {
-    if (!project) return;
-    setBusy(true);
-    setStatus("Building static qgis2web ZIP with Studio runtime...");
-    const toastId = toast.loading("Exporting ZIP");
-    try {
-      const blob = await exportProjectZip(project);
-      downloadBlob(blob, `${project.name}-studio.zip`);
-      setStatus("Export complete.");
-      toast.success("Export ZIP complete", { id: toastId });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Export failed.";
-      setStatus(message);
-      toast.error(message, { id: toastId });
-    } finally {
-      setBusy(false);
-    }
-  }
+  const {
+    closeProject,
+    exportZip,
+    importFiles,
+    importVirtualFiles,
+    importZip,
+    importZipFile,
+    persistProject,
+    startImport,
+    startZipImport
+  } = useImportExport({
+    project,
+    inputRef,
+    zipInputRef,
+    setProject,
+    setSelectedLayerId,
+    setSelectedFeature,
+    setInspectorMode,
+    setDrawMode,
+    setPreviewOpen,
+    setAttributeFilter,
+    setHistory,
+    setBusy,
+    setStatus,
+    hydrateProject,
+    warnAboutLargeDatasets
+  });
 
   function updateProject(next: Qgis2webProject, options: UpdateProjectOptions = {}) {
     const hydrated = hydrateProject(next);
@@ -440,14 +340,14 @@ export function App() {
       }));
     }
     setProject(hydrated);
-    void saveProjectToOpfs(hydrated).then(showOpfsWarning).catch(() => undefined);
+    void saveProjectToOpfs(hydrated).then(warnIfOpfsFallback).catch(() => undefined);
   }
 
   function restoreProject(next: Qgis2webProject) {
     const hydrated = hydrateProject(next);
     setProject(hydrated);
     setSelectedLayerId((current) => (hydrated.layers.some((layer) => layer.id === current) ? current : hydrated.layers[0]?.id || ""));
-    void saveProjectToOpfs(hydrated).then(showOpfsWarning).catch(() => undefined);
+    void saveProjectToOpfs(hydrated).then(warnIfOpfsFallback).catch(() => undefined);
   }
 
   function undoProject() {
@@ -474,22 +374,7 @@ export function App() {
     toast.info(`Redid ${next.label}`);
   }
 
-  async function persistProject(next: Qgis2webProject, successMessage?: string): Promise<boolean> {
-    try {
-      const result = await saveProjectToOpfs(next);
-      showOpfsWarning(result);
-      if (successMessage) {
-        toast.success(successMessage);
-      }
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Project could not be saved to browser cache.";
-      toast.error(message);
-      return false;
-    }
-  }
-
-  function showOpfsWarning(result: { warning?: string }) {
+  function warnIfOpfsFallback(result: { warning?: string }) {
     if (result.warning) {
       toast.warning(result.warning, { duration: 9000 });
     }
@@ -1539,6 +1424,8 @@ export function App() {
             setMapSetting={setMapSetting}
             toggleRuntimeWidget={toggleRuntimeWidget}
             setLegendSetting={setLegendSetting}
+            updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })}
+            addManualLegendItem={addManualLegend}
             setPopupSetting={setPopupSetting}
             selectedFeatureData={selectedFeatureData}
             selectedGeometryKind={selectedGeometryKind}
@@ -1569,7 +1456,6 @@ export function App() {
             ensureLayerLabel={ensureLayerLabel}
             ensurePopupTemplate={ensurePopupTemplate}
             renameSelectedPopupField={renameSelectedPopupField}
-            addManualLegend={addManualLegend}
           />
           ) : <div className="inspector inspector-empty" aria-hidden="true" />}
         </Panel>

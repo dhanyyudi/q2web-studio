@@ -1495,8 +1495,33 @@ tbody tr:hover {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.tabs-list.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .tabs-list.four {
   grid-template-columns: repeat(4, 1fr);
+}
+
+.sticky-selection-toolbar,
+.layer-selection-toolbar-content {
+  position: sticky;
+  top: 42px;
+  z-index: 3;
+  background: var(--panel-bg);
+}
+
+.layer-selection-toolbar-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.manual-legend-panel {
+  display: grid;
+  gap: 8px;
 }
 
 .tabs-list button {
