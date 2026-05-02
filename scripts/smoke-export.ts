@@ -142,6 +142,10 @@ if (!enabledConfig.layers?.some((layer: { displayName: string; popupTemplate?: {
   throw new Error("Expected q2ws-config.json to preserve imported popup template HTML.");
 }
 
+if (enabledConfig.popupSettings?.style !== "card") {
+  throw new Error(`Expected exported config to preserve default card popup style. Got: ${enabledConfig.popupSettings?.style}`);
+}
+
 if (enabledConfig.mapSettings?.layerControlMode !== "collapsed") {
   throw new Error(`Expected exported config to default to collapsed qgis2web parity layer control. Got: ${enabledConfig.mapSettings?.layerControlMode}`);
 }
@@ -173,6 +177,7 @@ popupOverrideProject.layers = popupOverrideProject.layers.map((layer) =>
         ...layer,
         popupSettings: {
           ...popupOverrideProject.popupSettings,
+          style: "compact",
           accentColor: "#1976d2",
           backgroundColor: "#eff6ff",
           textColor: "#0f172a",
@@ -185,9 +190,12 @@ popupOverrideProject.layers = popupOverrideProject.layers.map((layer) =>
 );
 const popupOverrideZip = await exportZip(popupOverrideProject);
 const popupOverrideConfig = JSON.parse(await zipText(popupOverrideZip, `${root}q2ws-config.json`));
-const popupOverrideLayer = popupOverrideConfig.layers?.find((layer: { displayName: string; popupSettings?: { accentColor?: string; shadow?: number } }) => layer.displayName === "Batas Desa");
+const popupOverrideLayer = popupOverrideConfig.layers?.find((layer: { displayName: string; popupSettings?: { style?: string; accentColor?: string; shadow?: number } }) => layer.displayName === "Batas Desa");
 if (!popupOverrideLayer?.popupSettings || popupOverrideLayer.popupSettings.accentColor !== "#1976d2" || popupOverrideLayer.popupSettings.shadow !== 34) {
   throw new Error("Expected q2ws-config.json to preserve per-layer popup style overrides.");
+}
+if (popupOverrideLayer.popupSettings.style !== "compact") {
+  throw new Error(`Expected per-layer popup style override to survive export. Got: ${popupOverrideLayer.popupSettings.style}`);
 }
 const floatingLegendProject = cloneProject(project);
 floatingLegendProject.legendSettings = {
