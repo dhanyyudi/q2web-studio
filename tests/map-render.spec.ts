@@ -1474,9 +1474,41 @@ test("phase 4 layer control and legend stay in parity between editor and runtime
   await expect(frame.locator("#q2ws-legend")).toHaveClass(/q2ws-legend-top-left/);
 });
 
-test("phase 4 runtime legend reserves top-right layer control space conditionally", async () => {
-  const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
-  expect(runtimeSource).toContain("#q2ws-legend.q2ws-legend-top-right {\n  top: 76px;\n  right: 14px;");
-  expect(runtimeSource).toContain("#q2ws-layer-control.q2ws-layer-control-top-right ~ #q2ws-legend.q2ws-legend-top-right");
-  expect(runtimeSource).toContain("right: 248px;");
+test("phase 4 runtime legend reserves top-right layer control space conditionally", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.getByTestId("legend-enabled").click();
+  await page.getByTestId("legend-placement").selectOption("floating-top-right");
+  await page.locator('label:has-text("Layer control") select').selectOption("expanded");
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toBeVisible({ timeout: 15000 });
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator("#q2ws-layer-control")).toHaveClass(/q2ws-layer-control-top-right/);
+  await expect(frame.locator("#q2ws-legend")).toHaveClass(/q2ws-legend-top-right/);
+
+  const offsets = await frame.locator("#q2ws-legend").evaluate((legend) => {
+    const readOffsets = () => {
+      const style = window.getComputedStyle(legend as HTMLElement);
+      return {
+        top: style.top,
+        right: style.right
+      };
+    };
+
+    const withControl = readOffsets();
+    const control = document.querySelector("#q2ws-layer-control");
+    control?.parentElement?.removeChild(control);
+    const withoutControl = readOffsets();
+    return { withControl, withoutControl };
+  });
+
+  expect(offsets.withControl.top).toBe(offsets.withoutControl.top);
+  expect(offsets.withControl.right).toBe("248px");
+  expect(offsets.withoutControl.right).toBe("14px");
 });
