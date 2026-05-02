@@ -106,7 +106,7 @@ export function LayerControl({
         <div className="layer-tree-group" key={group}>
           <button type="button" className="layer-tree-toggle" style={{ color: styleSettings.textColor, fontSize: styleSettings.textSize }} onClick={() => setTreeOpen((current) => ({ ...current, [group]: current[group] === false ? true : false }))} aria-expanded={treeOpen[group] !== false}>
             {treeOpen[group] !== false ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <span>{group}</span>
+            <span style={{ fontSize: styleSettings.textSize }}>{group}</span>
           </button>
           {treeOpen[group] !== false && (
             <div className="layer-tree-items">
@@ -119,7 +119,7 @@ export function LayerControl({
                       checked={checked}
                       onChange={(event) => onLayerVisibilityChange?.(layer.id, event.target.checked)}
                     />
-                    <span>{layer.displayName}</span>
+                    <span style={{ fontSize: styleSettings.textSize }}>{layer.displayName}</span>
                   </label>
                 );
               })}
@@ -135,7 +135,7 @@ export function LayerControl({
               checked={checked}
               onChange={(event) => onLayerVisibilityChange?.(layer.id, event.target.checked)}
             />
-            <span>{layer.displayName}</span>
+            <span style={{ fontSize: styleSettings.textSize }}>{layer.displayName}</span>
           </label>
         );
       })}

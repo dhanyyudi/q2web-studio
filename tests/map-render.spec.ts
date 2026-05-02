@@ -1460,11 +1460,14 @@ test("phase 4 layer control and legend stay in parity between editor and runtime
   await page.getByTestId("legend-enabled").click();
   await page.getByTestId("legend-placement").selectOption("floating-top-left");
   await page.locator('label:has-text("Layer control") select').selectOption("collapsed");
+  await page.getByLabel("Control text size value").fill("18");
+  await page.getByLabel("Control text size value").blur();
 
   const editorControl = page.locator(".layer-toggle-preview");
   const editorLegend = page.locator(".legend-preview.legend-top-left");
   await expect(editorControl).toBeVisible();
   await expect(editorLegend).toBeVisible();
+  await expect(editorControl.locator("label span").first()).toHaveCSS("font-size", "18px");
 
   await page.getByTestId("open-preview").click();
   const iframe = page.locator('[data-testid="runtime-preview-frame"]');
@@ -1472,6 +1475,7 @@ test("phase 4 layer control and legend stay in parity between editor and runtime
   const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
   await expect(frame.locator("#q2ws-layer-control")).toHaveClass(/q2ws-layer-control-collapsed/);
   await expect(frame.locator("#q2ws-legend")).toHaveClass(/q2ws-legend-top-left/);
+  await expect(frame.locator("#q2ws-layer-control label span").first()).toHaveCSS("font-size", "18px");
 });
 
 test("phase 4 runtime legend reserves top-right layer control space conditionally", async ({ page }) => {
