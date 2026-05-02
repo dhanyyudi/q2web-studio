@@ -1,0 +1,9 @@
+$ npx playwright test tests/map-render.spec.ts -g "phase 3"
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:1336:1 › phase 3 project sliders have synced numeric inputs with units (790ms)
+  ✓  2 tests/map-render.spec.ts:1355:1 › phase 3 dash array field supports presets and custom values (840ms)
+  ✓  3 tests/map-render.spec.ts:1391:1 › phase 3 add property form clears key and value after submit (787ms)
+
+  3 passed (3.4s)
