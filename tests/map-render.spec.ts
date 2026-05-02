@@ -227,7 +227,6 @@ test("phase 2b layer inspector uses ordered sections with sticky selection toolb
   await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
 
   await page.getByRole("button", { name: /Sungai/i }).click();
-  await page.locator(".attribute-panel tbody tr").first().click();
 
   const layerPanel = page.getByTestId("layer-tab-panel");
   await expect(layerPanel).toBeVisible();
@@ -256,6 +255,16 @@ test("phase 2b layer inspector uses ordered sections with sticky selection toolb
   await expect(geometryOps.getByRole("button", { name: /Simplify selected feature/i })).toBeVisible();
   await expect(geometryOps.getByRole("button", { name: /Convex hull/i })).toBeVisible();
   await expect(geometryOps.getByRole("button", { name: /Polygon to line/i })).toHaveCount(0);
+  await expect(geometryOps.getByRole("button", { name: /Split line/i })).toBeDisabled();
+  await expect(geometryOps.getByRole("button", { name: /Divide line/i })).toBeDisabled();
+  await expect(geometryOps.getByRole("button", { name: /Simplify selected feature/i })).toBeDisabled();
+  await expect(geometryOps.getByRole("button", { name: /Convex hull/i })).toBeDisabled();
+
+  await page.locator(".attribute-panel tbody tr").first().click();
+  await expect(geometryOps.getByRole("button", { name: /Split line/i })).toBeEnabled();
+  await expect(geometryOps.getByRole("button", { name: /Divide line/i })).toBeEnabled();
+  await expect(geometryOps.getByRole("button", { name: /Simplify selected feature/i })).toBeEnabled();
+  await expect(geometryOps.getByRole("button", { name: /Convex hull/i })).toBeEnabled();
 
   await page.getByRole("button", { name: /Batas Desa/i }).click();
   await page.locator(".attribute-panel tbody tr").first().click();
