@@ -221,6 +221,13 @@ test("audit v4 phase 2a keeps App thin and project state extracted", async () =>
   expect(appSource).not.toContain("function selectedFeatureTitle");
 });
 
+test("audit v4 phase 2 debt keeps App shell below 400 lines", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const appSource = await readFile("src/App.tsx", "utf8");
+  const lines = appSource.trimEnd().split("\n");
+  expect(lines.length).toBeLessThanOrEqual(400);
+});
+
 test("production headers allow temporary blob runtime preview", async ({ page }) => {
   const response = await page.goto("/_headers");
   expect(response?.ok()).toBe(true);
