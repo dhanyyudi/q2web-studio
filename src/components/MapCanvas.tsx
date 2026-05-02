@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Polygon } from "geojson";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
-import type { DrawMode, LayerManifest, Qgis2webProject, SelectedFeatureRef } from "../types/project";
+import type { DrawMode, LayerManifest, LegendPlacement, LegendPosition, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
 import { useAutoFit, useBasemap, useGeoJsonLayers, useLassoSelection, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
+
+function legendPlacementToPosition(placement: LegendPlacement): LegendPosition {
+  switch (placement) {
+    case "floating-top-left":
+      return "top-left";
+    case "floating-top-right":
+      return "top-right";
+    case "floating-bottom-left":
+      return "bottom-left";
+    case "floating-bottom-right":
+    case "inside-control":
+    case "hidden":
+    default:
+      return "bottom-right";
+  }
+}
 
 type MapCanvasProps = {
   project: Qgis2webProject;
@@ -151,7 +167,7 @@ export function MapCanvas({
         />
       )}
       {project.legendSettings.enabled && project.legendSettings.placement !== "hidden" && project.legendSettings.placement !== "inside-control" && legendGroups.some((group) => group.items.length > 0) && (
-        <LegendPanel groups={legendGroups} open={legendOpen} position={project.legendSettings.placement.replace("floating-", "") as Qgis2webProject["legendSettings"]["position"]} onOpenChange={setLegendOpen} />
+        <LegendPanel groups={legendGroups} open={legendOpen} position={legendPlacementToPosition(project.legendSettings.placement)} onOpenChange={setLegendOpen} />
       )}
       {!preview && <div className="draw-status">{drawStatus}</div>}
       <MapFooter project={project} />
