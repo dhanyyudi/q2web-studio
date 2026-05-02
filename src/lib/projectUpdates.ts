@@ -1,11 +1,12 @@
 import type { FeatureCollection } from "geojson";
+import { defaultLayerControlSettings } from "./defaults";
 import type { LayerControlMode, LayerManifest, Qgis2webProject } from "../types/project";
 
 function featureMatchesId(feature: FeatureCollection["features"][number], featureId: string): boolean {
   return String(feature.properties?.__q2ws_id ?? feature.id ?? "") === featureId;
 }
 
-const phaseCLayerControlModes: LayerControlMode[] = ["compact", "expanded", "tree"];
+const phaseCLayerControlModes: LayerControlMode[] = ["collapsed", "expanded", "tree"];
 
 export function migrateProject(project: Qgis2webProject): Qgis2webProject {
   const legacyLayerControlMode = project.mapSettings?.layerControlMode;
@@ -28,9 +29,10 @@ export function migrateProject(project: Qgis2webProject): Qgis2webProject {
   };
 }
 
-function normalizeLayerControlMode(mode: LayerControlMode | undefined): LayerControlMode {
+function normalizeLayerControlMode(mode: LayerControlMode | "compact" | undefined): LayerControlMode {
+  if (mode === "compact") return "collapsed";
   if (mode && phaseCLayerControlModes.includes(mode)) return mode;
-  return "expanded";
+  return defaultLayerControlSettings.mode;
 }
 
 export function updateLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {

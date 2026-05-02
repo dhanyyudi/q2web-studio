@@ -1,0 +1,507 @@
+[
+  {
+    "context": "editor",
+    "url": "https://a.basemaps.cartocdn.com/rastertiles/voyager/6/52/32.png",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/6/32/52",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/7/12",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/7/13",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/8/12",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/8/13",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/6/12",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/6/13",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/7/11",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/7/14",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/8/11",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/8/14",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/9/12",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/9/13",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/6/11",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/6/14",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/9/11",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/4/9/14",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://a.tile.openstreetmap.org/4/12/7.png",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13128",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13127",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13127",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13128",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13129",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13129",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13127",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13129",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13128",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13126",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13130",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13128",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13127",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13129",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13126",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13130",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13126",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13130",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13127",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13129",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13126",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13130",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13126",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13130",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13125",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13131",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13125",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13131",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13125",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13131",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13125",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13131",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13125",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13131",
+    "failed": "net::ERR_ABORTED"
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13128",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6566",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6564",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6563",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6566",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6565",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6561",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6562",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6567",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6567",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4248/6567",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6561",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6567",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6561",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6561",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6561",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6567",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4247/6566",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6566",
+    "status": 200
+  },
+  {
+    "context": "editor",
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6566",
+    "status": 200
+  }
+]

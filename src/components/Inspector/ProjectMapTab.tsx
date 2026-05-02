@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, Layers3, Plus, Settings2, Trash2, Wand2 } from "luc
 import type {
   BasemapConfig,
   InitialZoomMode,
-  LayerControlMode,
+  LayerControlPosition,
   LegendItem,
   MapViewMode,
   Qgis2webProject
@@ -22,6 +22,7 @@ export type ProjectMapTabProps = {
   addPresetBasemap: (basemap: BasemapConfig) => void;
   addCustomBasemap: () => void;
   setMapSetting: <K extends keyof Qgis2webProject["mapSettings"]>(key: K, value: Qgis2webProject["mapSettings"][K]) => void;
+  setLayerControlSetting: <K extends keyof Qgis2webProject["layerControlSettings"]>(key: K, value: Qgis2webProject["layerControlSettings"][K]) => void;
   toggleRuntimeWidget: (widgetId: string, enabled: boolean) => void;
   setLegendSetting: <K extends keyof Qgis2webProject["legendSettings"]>(key: K, value: Qgis2webProject["legendSettings"][K]) => void;
   updateManualLegendItems: (items: LegendItem[]) => void;
@@ -69,13 +70,19 @@ export function ProjectMapTab(props: ProjectMapTabProps) {
       </div>
       <button type="button" className="btn compact full" onClick={props.addCustomBasemap}><Plus size={14} /> Add custom tile URL</button>
       <SegmentedControl label="Layer display" value={project.mapSettings.viewMode} options={[{ value: "all", label: "All layers" }, { value: "selected", label: "Selected layer" }]} onChange={(value) => props.setMapSetting("viewMode", value as MapViewMode)} />
-      <SelectField label="Layer control" value={project.mapSettings.layerControlMode} onChange={(value) => props.setMapSetting("layerControlMode", value as LayerControlMode)} options={[{ value: "compact", label: "Compact" }, { value: "expanded", label: "Expanded" }, { value: "tree", label: "Tree" }]} />
+      <SelectField label="Layer control" value={project.layerControlSettings.mode} onChange={(value) => props.setLayerControlSetting("mode", value as Qgis2webProject["layerControlSettings"]["mode"])} options={[{ value: "collapsed", label: "Collapsed" }, { value: "expanded", label: "Expanded" }, { value: "tree", label: "Tree" }]} />
+      <SelectField label="Control position" value={project.layerControlSettings.position} onChange={(value) => props.setLayerControlSetting("position", value as LayerControlPosition)} options={[{ value: "top-right", label: "Top right" }, { value: "top-left", label: "Top left" }, { value: "bottom-right", label: "Bottom right" }, { value: "bottom-left", label: "Bottom left" }]} />
+      <ColorInput label="Control background" value={project.layerControlSettings.backgroundColor} onChange={(value) => props.setLayerControlSetting("backgroundColor", value)} />
+      <RangeNumberField label="Control opacity" value={project.layerControlSettings.backgroundOpacity} min={0} max={100} step={1} unit="%" onChange={(value) => props.setLayerControlSetting("backgroundOpacity", value)} />
+      <ColorInput label="Control text" value={project.layerControlSettings.textColor} onChange={(value) => props.setLayerControlSetting("textColor", value)} />
+      <RangeNumberField label="Control text size" value={project.layerControlSettings.textSize} min={10} max={18} step={1} unit="px" onChange={(value) => props.setLayerControlSetting("textSize", value)} />
+      <RangeNumberField label="Control radius" value={project.layerControlSettings.borderRadius} min={0} max={28} step={1} unit="px" onChange={(value) => props.setLayerControlSetting("borderRadius", value)} />
       <SelectField label="Initial zoom" value={project.mapSettings.initialZoomMode} onChange={(value) => props.setMapSetting("initialZoomMode", value as InitialZoomMode)} options={[{ value: "fit", label: "Fit visible layers" }, { value: "fixed", label: "Use fixed zoom level" }]} />
       <RangeNumberField label="Zoom level" value={project.mapSettings.initialZoom} min={5} max={20} step={1} onChange={(value) => props.setMapSetting("initialZoom", value)} />
       {project.runtime.widgets.length > 0 && <><PanelTitle icon={<Settings2 size={16} />} title="Original Widgets" /><div className="widget-list">{project.runtime.widgets.map((widget) => <label key={widget.id} className="widget-row"><input type="checkbox" checked={widget.enabled} onChange={(event) => props.toggleRuntimeWidget(widget.id, event.target.checked)} /><span>{widget.label}</span><small>{widget.assetPaths.length ? `${widget.assetPaths.length} assets` : "detected"}</small></label>)}</div></>}
       <PanelTitle icon={<Wand2 size={16} />} title="Legend" />
       <div className="toggle-grid"><SwitchLabel label="Show legend" checked={project.legendSettings.enabled} onCheckedChange={(checked) => props.setLegendSetting("enabled", checked)} testId="legend-enabled" /></div>
-      <label className="field" data-testid="legend-placement-field"><span>Legend placement</span><select data-testid="legend-placement" value={project.legendSettings.placement} onChange={(event) => props.setLegendSetting("placement", event.target.value as Qgis2webProject["legendSettings"]["placement"])}><option value="hidden">Hidden</option><option value="inside-control">Inside layer control</option><option value="floating-bottom-right">Floating bottom right</option><option value="floating-bottom-left">Floating bottom left</option><option value="floating-top-right">Floating top right</option><option value="floating-top-left">Floating top left</option></select></label>
+      <label className="field" data-testid="legend-placement-field"><span>Legend placement</span><select data-testid="legend-placement" value={project.legendSettings.placement} onChange={(event) => props.setLegendSetting("placement", event.target.value as Qgis2webProject["legendSettings"]["placement"])}><option value="hidden">Hidden</option><option value="inside-control">Inside control</option><option value="floating-bottom-right">Floating bottom right</option><option value="floating-bottom-left">Floating bottom left</option><option value="floating-top-right">Floating top right</option><option value="floating-top-left">Floating top left</option></select></label>
       <div className="toggle-grid"><SwitchLabel label="Group by layer" checked={project.legendSettings.groupByLayer} onCheckedChange={(checked) => props.setLegendSetting("groupByLayer", checked)} /><SwitchLabel label="Start collapsed" checked={project.legendSettings.collapsed} onCheckedChange={(checked) => props.setLegendSetting("collapsed", checked)} /></div>
       <div className="manual-legend-panel" data-testid="project-manual-legend">
         <PanelTitle title="Manual Legend" />

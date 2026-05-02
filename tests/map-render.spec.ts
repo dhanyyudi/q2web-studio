@@ -1406,3 +1406,133 @@ test("phase 3 add property form clears key and value after submit", async ({ pag
   await expect(keyInput).toHaveValue("");
   await expect(valueInput).toHaveValue("");
 });
+
+test("phase 4 editor legend placement supports all four floating corners", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.getByTestId("legend-enabled").click();
+
+  const placementField = page.getByTestId("legend-placement");
+  const placements = [
+    { value: "floating-bottom-right", className: "legend-bottom-right" },
+    { value: "floating-bottom-left", className: "legend-bottom-left" },
+    { value: "floating-top-right", className: "legend-top-right" },
+    { value: "floating-top-left", className: "legend-top-left" }
+  ] as const;
+
+  for (const placement of placements) {
+    await placementField.selectOption(placement.value);
+    await expect(page.locator(`.legend-preview.${placement.className}`)).toBeVisible();
+  }
+});
+
+test("phase 4 qgis2web parity mode names use collapsed expanded tree with no Compact", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+
+  const layerControlField = page.locator('label:has-text("Layer control") select');
+  const optionLabels = await layerControlField.locator("option").evaluateAll((options) =>
+    options.map((option) => ({ value: option.getAttribute("value") || "", label: option.textContent?.trim() || "" }))
+  );
+  expect(optionLabels).toEqual([
+    { value: "collapsed", label: "Collapsed" },
+    { value: "expanded", label: "Expanded" },
+    { value: "tree", label: "Tree" }
+  ]);
+  expect(optionLabels.some((option) => /compact/i.test(option.label) || option.value === "compact")).toBe(false);
+});
+
+test("phase 4 layer control and legend stay in parity between editor and runtime preview", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.getByTestId("legend-enabled").click();
+  await page.getByTestId("legend-placement").selectOption("floating-top-left");
+  await page.locator('label:has-text("Layer control") select').selectOption("collapsed");
+  await page.getByLabel("Control text size value").fill("18");
+  await page.getByLabel("Control text size value").blur();
+
+  const editorControl = page.locator(".layer-toggle-preview");
+  const editorLegend = page.locator(".legend-preview.legend-top-left");
+  await expect(editorControl).toBeVisible();
+  await expect(editorLegend).toBeVisible();
+  await expect(editorControl.locator("label span").first()).toHaveCSS("font-size", "18px");
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toBeVisible({ timeout: 15000 });
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator("#q2ws-layer-control")).toHaveClass(/q2ws-layer-control-collapsed/);
+  await expect(frame.locator("#q2ws-legend")).toHaveClass(/q2ws-legend-top-left/);
+  await expect(frame.locator("#q2ws-layer-control label span").first()).toHaveCSS("font-size", "18px");
+});
+
+test("phase 4 runtime legend reserves top-right layer control space conditionally", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  await page.getByRole("tab", { name: /Map/i }).click();
+  await page.getByTestId("legend-enabled").click();
+  await page.getByTestId("legend-placement").selectOption("floating-top-right");
+  await page.locator('label:has-text("Layer control") select').selectOption("expanded");
+
+  const editorOffsets = await page.locator(".legend-preview.legend-top-right").evaluate((legend) => {
+    const readOffsets = () => {
+      const style = window.getComputedStyle(legend as HTMLElement);
+      return {
+        top: style.top,
+        right: style.right
+      };
+    };
+
+    const withControl = readOffsets();
+    const control = document.querySelector(".layer-toggle-preview.layer-toggle-top-right");
+    control?.parentElement?.removeChild(control);
+    const withoutControl = readOffsets();
+    return { withControl, withoutControl };
+  });
+
+  expect(editorOffsets.withControl.top).toBe(editorOffsets.withoutControl.top);
+  expect(editorOffsets.withControl.right).toBe("248px");
+  expect(editorOffsets.withoutControl.right).toBe("14px");
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toBeVisible({ timeout: 15000 });
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator("#q2ws-layer-control")).toHaveClass(/q2ws-layer-control-top-right/);
+  await expect(frame.locator("#q2ws-legend")).toHaveClass(/q2ws-legend-top-right/);
+
+  const offsets = await frame.locator("#q2ws-legend").evaluate((legend) => {
+    const readOffsets = () => {
+      const style = window.getComputedStyle(legend as HTMLElement);
+      return {
+        top: style.top,
+        right: style.right
+      };
+    };
+
+    const withControl = readOffsets();
+    const control = document.querySelector("#q2ws-layer-control");
+    control?.parentElement?.removeChild(control);
+    const withoutControl = readOffsets();
+    return { withControl, withoutControl };
+  });
+
+  expect(offsets.withControl.top).toBe(offsets.withoutControl.top);
+  expect(offsets.withControl.right).toBe("248px");
+  expect(offsets.withoutControl.right).toBe("14px");
+});

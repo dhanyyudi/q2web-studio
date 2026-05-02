@@ -1,0 +1,11 @@
+=== npx playwright test tests/map-render.spec.ts -g 'phase 4' ===
+
+Running 4 tests using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:1410:1 › phase 4 editor legend placement supports all four floating corners (960ms)
+  ✓  2 tests/map-render.spec.ts:1433:1 › phase 4 qgis2web parity mode names use collapsed expanded tree with no Compact (740ms)
+  ✓  3 tests/map-render.spec.ts:1453:1 › phase 4 layer control and legend stay in parity between editor and runtime preview (5.3s)
+  ✓  4 tests/map-render.spec.ts:1477:1 › phase 4 runtime legend reserves top-right layer control space conditionally (5.3s)
+
+  4 passed (13.2s)
+EXIT_STATUS=0

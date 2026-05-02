@@ -10,8 +10,10 @@ type ColorFieldProps = {
 };
 
 export function ColorField({ label, value, onChange }: ColorFieldProps) {
+  const hexInputLabel = `${label} hex color`;
+
   return (
-    <label className="field color-field">
+    <div className="field color-field">
       <span>{label}</span>
       <Popover>
         <PopoverTrigger asChild>
@@ -22,10 +24,16 @@ export function ColorField({ label, value, onChange }: ColorFieldProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="color-popover">
-          <HexColorPicker color={value} onChange={onChange} />
-          <HexColorInput prefixed color={value} onChange={onChange} className="color-hex-input" />
+          <HexColorPicker color={value} onChange={onChange} aria-label={hexInputLabel} />
+          <HexColorInput
+            prefixed
+            color={value}
+            onChange={onChange}
+            className="color-hex-input"
+            aria-label={hexInputLabel}
+          />
         </PopoverContent>
       </Popover>
-    </label>
+    </div>
   );
 }

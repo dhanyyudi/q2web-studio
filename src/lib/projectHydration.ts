@@ -2,6 +2,7 @@ import bbox from "@turf/bbox";
 import type { Qgis2webProject } from "../types/project";
 import {
   defaultBasemaps,
+  defaultLayerControlSettings,
   defaultLegendSettings,
   defaultMapSettings,
   defaultPopupSettings,
@@ -9,6 +10,12 @@ import {
   defaultSidebarSettings
 } from "./defaults";
 import { migrateProject } from "./projectUpdates";
+
+function migrateLayerControlMode(value: unknown): "collapsed" | "expanded" | "tree" {
+  if (value === "collapsed" || value === "expanded" || value === "tree") return value;
+  if (value === "compact") return "collapsed";
+  return defaultLayerControlSettings.mode;
+}
 
 export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
   const migrated = migrateProject(project);
@@ -35,9 +42,19 @@ export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
     fontFamily: "Inter, Segoe UI, Arial, sans-serif",
     headerHeight: 48
   };
+  const layerControlSettings = {
+    ...defaultLayerControlSettings,
+    ...(migrated.layerControlSettings || {}),
+    mode: migrateLayerControlMode(migrated.layerControlSettings?.mode || migrated.mapSettings?.layerControlMode)
+  };
   return {
     ...migrated,
-    mapSettings: { ...defaultMapSettings, ...(migrated.mapSettings || {}) },
+    layerControlSettings,
+    mapSettings: {
+      ...defaultMapSettings,
+      ...(migrated.mapSettings || {}),
+      layerControlMode: layerControlSettings.mode
+    },
     basemaps: normalizeBasemaps(migrated.basemaps),
     runtime: { ...defaultRuntimeSettings, ...(migrated.runtime || {}) },
     legendSettings: { ...defaultLegendSettings, ...(migrated.legendSettings || {}) },

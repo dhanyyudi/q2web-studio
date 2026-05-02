@@ -1,0 +1,22 @@
+[editor] debug [vite] connecting...
+[editor] debug [vite] connected.
+[editor] info %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[editor] debug [q2ws-debug] {at: 1777738325120, source: autofit, event: apply, autoFitKey: 0::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13, mode: fit}
+[editor] debug [q2ws-debug] {at: 1777738325152, source: autofit, event: apply, autoFitKey: 0::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13, mode: fit}
+[editor] debug [q2ws-debug] {at: 1777738325166, source: autofit, event: fit-bounds, bounds: 108.44751622866258,-6.805748138062593,108.49537824483647,-6.753659885020784}
+[editor] debug [q2ws-debug] {at: 1777738325167, source: map, event: zoomstart, center: LatLng, zoom: 4}
+[editor] debug [q2ws-debug] {at: 1777738325167, source: map, event: movestart, center: LatLng, zoom: 4}
+[editor] debug [q2ws-debug] {at: 1777738325169, source: map, event: zoomend, center: LatLng, zoom: 13}
+[editor] debug [q2ws-debug] {at: 1777738325170, source: map, event: moveend, center: LatLng, zoom: 13}
+[editor] debug [q2ws-debug] {at: 1777738325210, source: autofit, event: apply, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13, mode: fit}
+[editor] debug [q2ws-debug] {at: 1777738325211, source: autofit, event: fit-bounds, bounds: 108.44751622866258,-6.805748138062593,108.49537824483647,-6.753659885020784}
+[editor] debug [q2ws-debug] {at: 1777738325211, source: map, event: moveend, center: LatLng, zoom: 13}
+[editor] debug [q2ws-debug] {at: 1777738327098, source: autofit, event: skip-same-key, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13}
+[editor] debug [q2ws-debug] {at: 1777738327147, source: autofit, event: skip-same-key, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13}
+[editor] debug [q2ws-debug] {at: 1777738327803, source: autofit, event: skip-same-key, autoFitKey: 2::all::all::BatasDesa_3:true|JaringanJalan_6:true|Sungai_5:true|ZonaNilaiTanah_4:true::fit::13}
+[editor] warning An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+[editor] warning Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. Error
+    at et.extend (blob:http://127.0.0.1:5173/aea8cf23-4860-4583-a22d-16b95acf4e26:5:3233)
+    at blob:http://127.0.0.1:5173/73610b80-dc25-4333-91ae-6aac3cc9e72e:6:34
+    at blob:http://127.0.0.1:5173/73610b80-dc25-4333-91ae-6aac3cc9e72e:6:7077
+[runtime] error Failed to load resource: the server responded with a status of 404 (Not Found)

@@ -113,7 +113,7 @@ export function App() {
     updateProject, undoProject, redoProject, warnAboutLargeDatasets, handleTileError, handleSelectedFeatureChange,
     patchSelectedLayer, selectedFeatureTitle, updateSelectedFeatureField, addSelectedFeatureProperty,
     removeSelectedFeatureProperty, renameSelectedPopupField, ensureLayerLabel, ensurePopupTemplate, setMapSetting,
-    setPopupSetting, setLegendSetting, toggleRuntimeWidget, setDefaultBasemap, addPresetBasemap, addCustomBasemap,
+    setLayerControlSetting, setPopupSetting, setLegendSetting, toggleRuntimeWidget, setDefaultBasemap, addPresetBasemap, addCustomBasemap,
     removeBasemap, updateBasemapField, moveBasemap, addManualLegend, addTextAnnotation, setDrawModeWithGuard,
     simplifySelectedFeature, bufferSelectedFeature, mergeSelectedLayer, selectAllFeatures, clearSelection,
     translateSelectedFeatures, rotateSelectedFeatures, scaleSelectedFeatures, handleLassoComplete, splitLineSelectedFeature,
@@ -534,6 +534,7 @@ export function App() {
             addPresetBasemap={addPresetBasemap}
             addCustomBasemap={addCustomBasemap}
             setMapSetting={setMapSetting}
+            setLayerControlSetting={setLayerControlSetting}
             toggleRuntimeWidget={toggleRuntimeWidget}
             setLegendSetting={setLegendSetting}
             updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })}

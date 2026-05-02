@@ -187,7 +187,17 @@ export type BasemapId =
 export type MapViewMode = "all" | "selected";
 export type InitialZoomMode = "fit" | "fixed";
 
-export type LayerControlMode = "original" | "compact" | "expanded" | "tree" | "studio";
+export type LayerControlMode = "collapsed" | "expanded" | "tree";
+export type LayerControlPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+export type LayerControlSettings = {
+  mode: LayerControlMode;
+  position: LayerControlPosition;
+  backgroundColor: string;
+  backgroundOpacity: number;
+  textColor: string;
+  textSize: number;
+  borderRadius: number;
+};
 export type LegendPlacement = "inside-control" | "floating-bottom-right" | "floating-bottom-left" | "floating-top-right" | "floating-top-left" | "hidden";
 
 export type MapSettings = {
@@ -241,6 +251,7 @@ export type Qgis2webProject = {
   mapSettings: MapSettings;
   basemaps: BasemapConfig[];
   runtime: RuntimeSettings;
+  layerControlSettings: LayerControlSettings;
   legendSettings: LegendSettings;
   popupSettings: PopupSettings;
   sidebar: SidebarSettings;

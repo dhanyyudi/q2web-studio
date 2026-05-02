@@ -31,6 +31,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     branding: project.branding,
     theme: project.theme,
     mapSettings: project.mapSettings,
+    layerControlSettings: project.layerControlSettings,
     basemaps: project.basemaps,
     runtime: project.runtime,
     legendSettings: project.legendSettings,

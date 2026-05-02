@@ -187,11 +187,57 @@ export const q2wsRuntime = String.raw`(function () {
     window.map.fitBounds(bounds, { padding: [28, 28] });
   }
 
+  function runtimeLegendPositionClass(placement) {
+    if (placement === "floating-top-left") return "q2ws-legend-top-left";
+    if (placement === "floating-top-right") return "q2ws-legend-top-right";
+    if (placement === "floating-bottom-left") return "q2ws-legend-bottom-left";
+    if (placement === "floating-bottom-right") return "q2ws-legend-bottom-right";
+    return "";
+  }
+
+  function normalizeLayerControlSettings(config) {
+    var legacySettings = config.mapSettings || {};
+    var settings = config.layerControlSettings || {};
+    var mode = settings.mode || legacySettings.layerControlMode || "collapsed";
+    if (mode === "compact") mode = "collapsed";
+    if (["collapsed", "expanded", "tree"].indexOf(mode) === -1) mode = "collapsed";
+    var position = settings.position || "top-right";
+    if (["top-left", "top-right", "bottom-left", "bottom-right"].indexOf(position) === -1) position = "top-right";
+    return {
+      mode: mode,
+      position: position,
+      backgroundColor: normalizeHexColor(settings.backgroundColor, "#ffffff"),
+      backgroundOpacity: clampNumber(settings.backgroundOpacity, 0, 100, 92),
+      textColor: normalizeHexColor(settings.textColor, "#172026"),
+      textSize: clampNumber(settings.textSize, 10, 18, 13),
+      borderRadius: clampNumber(settings.borderRadius, 0, 28, 12)
+    };
+  }
+
+  function alphaColor(color, opacityPercent) {
+    var hex = normalizeHexColor(color, "#ffffff").slice(1);
+    var alpha = clampNumber(opacityPercent, 0, 100, 100) / 100;
+    return "rgba(" + parseInt(hex.slice(0, 2), 16) + ", " + parseInt(hex.slice(2, 4), 16) + ", " + parseInt(hex.slice(4, 6), 16) + ", " + alpha + ")";
+  }
+
+  function normalizeHexColor(value, fallback) {
+    if (typeof value !== "string") return fallback;
+    var trimmed = value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed;
+    if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) return "#" + trimmed[1] + trimmed[1] + trimmed[2] + trimmed[2] + trimmed[3] + trimmed[3];
+    return fallback;
+  }
+
+  function clampNumber(value, min, max, fallback) {
+    var numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(max, Math.max(min, numeric));
+  }
+
   function applyLayerToggle(config) {
     if (!window.map) return;
-    var settings = config.mapSettings || {};
-    var mode = settings.layerControlMode || "expanded";
-    if (["compact", "expanded", "tree"].indexOf(mode) === -1) mode = "expanded";
+    var controlSettings = normalizeLayerControlSettings(config);
+    var mode = controlSettings.mode;
     var layers = (config.layers || []).filter(function (layerConfig) {
       return layerConfig.showInLayerControl !== false && window[layerConfig.layerVariable];
     });
@@ -200,8 +246,14 @@ export const q2wsRuntime = String.raw`(function () {
     if (originalControl) {
       originalControl.style.display = "none";
     }
-    var control = createEl("aside", { id: "q2ws-layer-control", class: "q2ws-layer-control-" + mode });
-    var header = createEl("button", { type: "button", class: "q2ws-layer-control-header", "aria-expanded": mode === "compact" ? "false" : "true" });
+    var control = createEl("aside", { id: "q2ws-layer-control", class: "q2ws-layer-control-" + mode + " q2ws-layer-control-" + controlSettings.position });
+    control.style.background = alphaColor(controlSettings.backgroundColor, controlSettings.backgroundOpacity);
+    control.style.color = controlSettings.textColor;
+    control.style.borderRadius = controlSettings.borderRadius + "px";
+    control.style.fontSize = controlSettings.textSize + "px";
+    var header = createEl("button", { type: "button", class: "q2ws-layer-control-header", "aria-expanded": mode === "collapsed" ? "false" : "true" });
+    header.style.color = controlSettings.textColor;
+    header.style.fontSize = controlSettings.textSize + "px";
     header.appendChild(createEl("strong", {}, "Layers"));
     control.appendChild(header);
     var content = createEl("div", { class: "q2ws-layer-control-content" });
@@ -215,6 +267,8 @@ export const q2wsRuntime = String.raw`(function () {
         if (treeHosts[groupName]) return;
         var treeGroup = createEl("div", { class: "q2ws-layer-tree-group" });
         var treeToggle = createEl("button", { type: "button", class: "q2ws-layer-tree-toggle", "aria-expanded": "true" });
+        treeToggle.style.color = controlSettings.textColor;
+        treeToggle.style.fontSize = controlSettings.textSize + "px";
         treeToggle.appendChild(createEl("span", { class: "q2ws-layer-tree-icon" }, "-"));
         treeToggle.appendChild(createEl("strong", {}, groupName));
         var treeItems = createEl("div", { class: "q2ws-layer-tree-items" });
@@ -231,6 +285,8 @@ export const q2wsRuntime = String.raw`(function () {
     }
     layers.forEach(function (layerConfig) {
       var row = createEl("label", {});
+      row.style.color = controlSettings.textColor;
+      row.style.fontSize = controlSettings.textSize + "px";
       var input = createEl("input", { type: "checkbox" });
       input.checked = layerConfig.visible !== false;
       input.onchange = function () {
@@ -251,7 +307,7 @@ export const q2wsRuntime = String.raw`(function () {
     if (legendSection && (config.legendSettings || {}).placement === "inside-control") {
       content.appendChild(legendSection);
     }
-    if (mode === "compact") {
+    if (mode === "collapsed") {
       content.hidden = true;
       header.onclick = function () {
         content.hidden = !content.hidden;
@@ -546,11 +602,12 @@ export const q2wsRuntime = String.raw`(function () {
 
   function applyLegend(config) {
     var settings = config.legendSettings || {};
-    if (!settings.placement || settings.placement === "inside-control" || settings.placement === "hidden") return;
+    var positionClass = runtimeLegendPositionClass(settings.placement);
+    if (!positionClass) return;
     var legend = buildLegendSection(config);
     if (!legend) return;
     legend.id = "q2ws-legend";
-    legend.classList.add("q2ws-legend-" + settings.placement.replace("floating-", ""));
+    legend.classList.add(positionClass);
     document.body.appendChild(legend);
   }
 
@@ -878,6 +935,16 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
   color: var(--q2ws-text);
 }
 
+#q2ws-legend.q2ws-legend-bottom-right,
+#q2ws-legend.q2ws-legend-bottom-left,
+#q2ws-legend.q2ws-legend-top-right,
+#q2ws-legend.q2ws-legend-top-left {
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+}
+
 #q2ws-legend.q2ws-legend-bottom-right {
   right: 58px;
   bottom: 52px;
@@ -890,6 +957,10 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
 
 #q2ws-legend.q2ws-legend-top-right {
   top: 76px;
+  right: 14px;
+}
+
+#q2ws-layer-control.q2ws-layer-control-top-right ~ #q2ws-legend.q2ws-legend-top-right {
   right: 248px;
 }
 
@@ -900,16 +971,20 @@ body.q2ws-has-header-top-right-pill .leaflet-top.leaflet-right {
 
 body.q2ws-has-header-top-full #q2ws-legend.q2ws-legend-top-left,
 body.q2ws-has-header-top-full #q2ws-legend.q2ws-legend-top-right,
-body.q2ws-has-header-top-full #q2ws-layer-control {
+body.q2ws-has-header-top-full #q2ws-layer-control.q2ws-layer-control-top-left,
+body.q2ws-has-header-top-full #q2ws-layer-control.q2ws-layer-control-top-right {
   top: 96px;
 }
 
 body.q2ws-has-header-top-left-pill #q2ws-legend.q2ws-legend-top-left,
 body.q2ws-has-header-top-center-card #q2ws-legend.q2ws-legend-top-left,
 body.q2ws-has-header-top-right-pill #q2ws-legend.q2ws-legend-top-right,
-body.q2ws-has-header-top-left-pill #q2ws-layer-control,
-body.q2ws-has-header-top-center-card #q2ws-layer-control,
-body.q2ws-has-header-top-right-pill #q2ws-layer-control {
+body.q2ws-has-header-top-left-pill #q2ws-layer-control.q2ws-layer-control-top-left,
+body.q2ws-has-header-top-left-pill #q2ws-layer-control.q2ws-layer-control-top-right,
+body.q2ws-has-header-top-center-card #q2ws-layer-control.q2ws-layer-control-top-left,
+body.q2ws-has-header-top-center-card #q2ws-layer-control.q2ws-layer-control-top-right,
+body.q2ws-has-header-top-right-pill #q2ws-layer-control.q2ws-layer-control-top-left,
+body.q2ws-has-header-top-right-pill #q2ws-layer-control.q2ws-layer-control-top-right {
   top: 92px;
 }
 
@@ -929,7 +1004,33 @@ body.q2ws-has-header-top-right-pill #q2ws-layer-control {
   color: var(--q2ws-text);
 }
 
-#q2ws-layer-control.q2ws-layer-control-compact {
+#q2ws-layer-control.q2ws-layer-control-top-left {
+  top: 76px;
+  right: auto;
+  left: 14px;
+}
+
+#q2ws-layer-control.q2ws-layer-control-top-right {
+  top: 76px;
+  right: 14px;
+  left: auto;
+}
+
+#q2ws-layer-control.q2ws-layer-control-bottom-left {
+  top: auto;
+  right: auto;
+  bottom: 52px;
+  left: 14px;
+}
+
+#q2ws-layer-control.q2ws-layer-control-bottom-right {
+  top: auto;
+  right: 14px;
+  bottom: 52px;
+  left: auto;
+}
+
+#q2ws-layer-control.q2ws-layer-control-collapsed {
   width: auto;
   min-width: 150px;
 }

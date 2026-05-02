@@ -34,6 +34,7 @@ export function ProjectInspector(props: ProjectInspectorProps) {
           addPresetBasemap={props.addPresetBasemap}
           addCustomBasemap={props.addCustomBasemap}
           setMapSetting={props.setMapSetting}
+          setLayerControlSetting={props.setLayerControlSetting}
           toggleRuntimeWidget={props.toggleRuntimeWidget}
           setLegendSetting={props.setLegendSetting}
           updateManualLegendItems={props.updateManualLegendItems}
