@@ -1,6 +1,7 @@
 import type {
   BasemapConfig,
   BrandingSettings,
+  LayerControlSettings,
   LayerStyle,
   LegendSettings,
   MapSettings,
@@ -50,6 +51,16 @@ export const defaultMapSettings: MapSettings = {
   initialZoomMode: "fit",
   initialZoom: 13,
   layerControlMode: "expanded"
+};
+
+export const defaultLayerControlSettings: LayerControlSettings = {
+  mode: "collapsed",
+  position: "top-right",
+  backgroundColor: "#ffffff",
+  backgroundOpacity: 92,
+  textColor: "#172026",
+  textSize: 13,
+  borderRadius: 12
 };
 
 export const defaultBasemaps: BasemapConfig[] = [

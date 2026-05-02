@@ -5,7 +5,7 @@ function featureMatchesId(feature: FeatureCollection["features"][number], featur
   return String(feature.properties?.__q2ws_id ?? feature.id ?? "") === featureId;
 }
 
-const phaseCLayerControlModes: LayerControlMode[] = ["compact", "expanded", "tree"];
+const phaseCLayerControlModes: LayerControlMode[] = ["collapsed", "expanded", "tree"];
 
 export function migrateProject(project: Qgis2webProject): Qgis2webProject {
   const legacyLayerControlMode = project.mapSettings?.layerControlMode;
@@ -28,7 +28,8 @@ export function migrateProject(project: Qgis2webProject): Qgis2webProject {
   };
 }
 
-function normalizeLayerControlMode(mode: LayerControlMode | undefined): LayerControlMode {
+function normalizeLayerControlMode(mode: LayerControlMode | "compact" | undefined): LayerControlMode {
+  if (mode === "compact") return "collapsed";
   if (mode && phaseCLayerControlModes.includes(mode)) return mode;
   return "expanded";
 }

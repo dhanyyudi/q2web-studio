@@ -3,6 +3,7 @@ import {
   defaultBasemaps,
   defaultBranding,
   defaultLayerStyle,
+  defaultLayerControlSettings,
   defaultLegendSettings,
   defaultMapSettings,
   defaultPopupSettings,
@@ -118,6 +119,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       ...defaultRuntimeSettings,
       widgets
     },
+    layerControlSettings: defaultLayerControlSettings,
     legendSettings: defaultLegendSettings,
     popupSettings: defaultPopupSettings,
     sidebar: defaultSidebarSettings,

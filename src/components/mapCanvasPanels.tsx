@@ -86,7 +86,7 @@ export function LayerControl({
   }, new Map<string, LayerManifest[]>()).entries());
   const [treeOpen, setTreeOpen] = useState<Record<string, boolean>>({});
   if (toggleableLayers.length === 0) return null;
-  const effectiveMode = mode === "compact" || mode === "tree" ? mode : "expanded";
+  const effectiveMode = mode === "collapsed" || mode === "tree" ? mode : "expanded";
   return (
     <aside className={`layer-toggle-preview layer-toggle-${effectiveMode}`}>
       <h3>
