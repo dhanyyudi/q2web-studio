@@ -146,6 +146,10 @@ if (enabledConfig.mapSettings?.layerControlMode !== "collapsed") {
   throw new Error(`Expected exported config to default to collapsed qgis2web parity layer control. Got: ${enabledConfig.mapSettings?.layerControlMode}`);
 }
 
+if (enabledConfig.layerControlSettings?.mode !== "collapsed" || enabledConfig.layerControlSettings?.position !== "top-right") {
+  throw new Error(`Expected exported config to preserve layerControlSettings defaults. Got: ${JSON.stringify(enabledConfig.layerControlSettings)}`);
+}
+
 if (enabledConfig.legendSettings?.enabled || enabledConfig.legendSettings?.placement !== "hidden") {
   throw new Error(`Expected exported config to keep legend hidden by default. Got: enabled=${enabledConfig.legendSettings?.enabled}, placement=${enabledConfig.legendSettings?.placement}`);
 }
@@ -192,10 +196,29 @@ floatingLegendProject.legendSettings = {
   placement: "floating-top-left",
   collapsed: false
 };
+floatingLegendProject.layerControlSettings = {
+  ...floatingLegendProject.layerControlSettings,
+  position: "bottom-left",
+  backgroundColor: "#112233",
+  backgroundOpacity: 64,
+  textColor: "#f8fafc",
+  textSize: 17,
+  borderRadius: 9
+};
 const floatingLegendZip = await exportZip(floatingLegendProject);
 const floatingLegendConfig = JSON.parse(await zipText(floatingLegendZip, `${root}q2ws-config.json`));
 if (!floatingLegendConfig.legendSettings?.enabled || floatingLegendConfig.legendSettings?.placement !== "floating-top-left") {
   throw new Error(`Expected q2ws-config.json to preserve floating top-left legend placement. Got: ${JSON.stringify(floatingLegendConfig.legendSettings)}`);
+}
+if (
+  floatingLegendConfig.layerControlSettings?.position !== "bottom-left" ||
+  floatingLegendConfig.layerControlSettings?.backgroundColor !== "#112233" ||
+  floatingLegendConfig.layerControlSettings?.backgroundOpacity !== 64 ||
+  floatingLegendConfig.layerControlSettings?.textColor !== "#f8fafc" ||
+  floatingLegendConfig.layerControlSettings?.textSize !== 17 ||
+  floatingLegendConfig.layerControlSettings?.borderRadius !== 9
+) {
+  throw new Error(`Expected q2ws-config.json to preserve custom layerControlSettings. Got: ${JSON.stringify(floatingLegendConfig.layerControlSettings)}`);
 }
 const runtimeSourceForLegend = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
 for (const expectedLegendCode of ["q2ws-legend-top-left", "q2ws-legend-top-right", "q2ws-legend-bottom-left", "q2ws-legend-bottom-right", "function runtimeLegendPositionClass"]) {
