@@ -926,6 +926,69 @@ test("phase 7 graduated style only offers fully numeric fields and clears stale 
   await expect(page.locator(".graduated-range-row")).toHaveCount(1);
 });
 
+test("phase 7 editor colors graduated features by numeric range with multiple fill colors", async ({ page }) => {
+  const zipPath = await createGraduatedNumericFixtureZip();
+  await page.goto(debugUrl("/"));
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Graduated Numeric/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("graduated");
+  await page.getByLabel("Graduated field").selectOption("GOOD");
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+
+  const renderedColors = await page.evaluate(() => {
+    const map = (window as Window & {
+      __q2ws_map?: {
+        eachLayer: (callback: (layer: {
+          eachLayer?: (nested: (layer: { feature?: GeoJSON.Feature; options?: { fillColor?: string } }) => void) => void;
+          feature?: GeoJSON.Feature;
+          options?: { fillColor?: string };
+        }) => void) => void;
+      };
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: { graduated: { ranges: Array<{ fillColor: string }> } };
+        }>;
+      };
+    }).__q2ws_map;
+    const fills: string[] = [];
+    map?.eachLayer((layer) => {
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((nested) => {
+          if (nested.feature?.properties?.GOOD != null && nested.options?.fillColor) {
+            fills.push(nested.options.fillColor);
+          }
+        });
+        return;
+      }
+      if (layer.feature?.properties?.GOOD != null && layer.options?.fillColor) {
+        fills.push(layer.options.fillColor);
+      }
+    });
+    return {
+      fills,
+      uniqueFills: Array.from(new Set(fills)),
+      graduatedRanges: (window as Window & {
+        __q2ws_project?: {
+          layers: Array<{
+            displayName: string;
+            style: { graduated: { ranges: Array<{ fillColor: string }> } };
+          }>;
+        };
+      }).__q2ws_project?.layers.find((layer) => layer.displayName === "Graduated Numeric")?.style.graduated.ranges
+    };
+  });
+
+  expect(renderedColors.graduatedRanges).toHaveLength(5);
+  expect(renderedColors.fills.length).toBeGreaterThanOrEqual(4);
+  expect(renderedColors.uniqueFills.length).toBeGreaterThan(1);
+});
+
 test("phase 7 categorized style keeps empty values aligned with rendered lookup", async ({ page }) => {
   const zipPath = await createCategorizedEmptyFixtureZip();
   await page.goto(debugUrl("/"));

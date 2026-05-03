@@ -13,22 +13,38 @@ function normalizeCategoryValue(value: unknown): string {
   return value == null ? "" : String(value);
 }
 
+function numericFeatureValue(feature: Feature | undefined, field: string): number | null {
+  const value = feature?.properties?.[field];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function graduatedRangeForFeature(layer: LayerManifest, feature?: Feature) {
+  const field = layer.style.graduated.field;
+  if (!field) return undefined;
+  const value = numericFeatureValue(feature, field);
+  if (value == null) return undefined;
+  return layer.style.graduated.ranges.find((range) => range.visible && value >= range.min && value <= range.max);
+}
+
 export function styleForFeature(layer: LayerManifest, feature?: Feature): PathOptions {
   const mode = effectiveLayerStyleMode(layer);
   const categoryValue = mode === "categorized" && layer.style.categoryField
     ? normalizeCategoryValue(feature?.properties?.[layer.style.categoryField])
     : "";
   const category = mode === "categorized" ? layer.style.categories.find((item) => item.value === categoryValue && item.visible) : undefined;
-  const fillColor = category?.fillColor || layer.style.fillColor;
-  const strokeColor = category?.strokeColor || layer.style.strokeColor;
+  const graduatedRange = mode === "graduated" ? graduatedRangeForFeature(layer, feature) : undefined;
+  const fillColor = category?.fillColor || graduatedRange?.fillColor || layer.style.fillColor;
+  const strokeColor = category?.strokeColor || graduatedRange?.strokeColor || layer.style.strokeColor;
 
   return {
     color: strokeColor,
     fillColor,
     fillOpacity: layer.style.fillOpacity,
     opacity: layer.style.strokeOpacity,
-    weight: category?.strokeWidth || layer.style.strokeWidth,
-    dashArray: category?.dashArray || layer.style.dashArray || undefined
+    weight: category?.strokeWidth || graduatedRange?.strokeWidth || layer.style.strokeWidth,
+    dashArray: category?.dashArray || graduatedRange?.dashArray || layer.style.dashArray || undefined
   };
 }
 
@@ -36,7 +52,8 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
   if (!layer.legendEnabled) {
     return [];
   }
-  if (effectiveLayerStyleMode(layer) === "categorized" && layer.style.categories.length > 0) {
+  const mode = effectiveLayerStyleMode(layer);
+  if (mode === "categorized" && layer.style.categories.length > 0) {
     return layer.style.categories
       .filter((item) => item.visible)
       .map((item) => ({
@@ -48,6 +65,22 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
         dashArray: item.dashArray,
         symbolType: item.symbolType,
         sourceImagePath: item.sourceImagePath,
+        layerId: layer.id,
+        visible: true
+      }));
+  }
+  if (mode === "graduated" && layer.style.graduated.ranges.length > 0) {
+    return layer.style.graduated.ranges
+      .filter((item) => item.visible)
+      .map((item, index) => ({
+        id: `${layer.id}:range:${index}`,
+        label: item.label || `${item.min} sampai ${item.max}`,
+        fillColor: item.fillColor,
+        strokeColor: item.strokeColor,
+        strokeWidth: item.strokeWidth,
+        dashArray: item.dashArray,
+        symbolType: layer.style.symbolType,
+        sourceImagePath: layer.style.sourceImagePath,
         layerId: layer.id,
         visible: true
       }));
