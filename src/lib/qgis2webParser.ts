@@ -14,6 +14,7 @@ import {
 import { opacityFromRgba, rgbaToHex } from "./colors";
 import type { BasemapConfig, LayerLabelConfig, LayerManifest, LayerStyleMode, LegendSymbolType, PopupField, PopupTemplate, Qgis2webProject, RuntimeWidget, RuntimeWidgetId, VirtualFile } from "../types/project";
 import { isFeatureCollection } from "../types/project";
+import { parseImageOverlayLayers } from "./rasterParsing";
 
 type ParsedDataFile = {
   path: string;
@@ -56,7 +57,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
   const layerVars = parseLayerVariables(indexHtml);
   const layerByDataVar = new Map(layerVars.map((entry) => [entry.dataVariable, entry]));
 
-  const layers: LayerManifest[] = dataFiles.map((dataFile, index) => {
+  const vectorLayers: LayerManifest[] = dataFiles.map((dataFile, index) => {
     const feature = dataFile.geojson.features.find(Boolean) as Feature | undefined;
     const geometryType = feature?.geometry?.type || "Unknown";
     const layerInfo = layerByDataVar.get(dataFile.variable);
@@ -97,6 +98,9 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       geojson: normalizeFeatureIds(dataFile.geojson)
     };
   });
+
+  const rasterImageLayers = parseImageOverlayLayers(indexHtml, files);
+  const layers = [...vectorLayers, ...rasterImageLayers];
 
   const title = parseTitle(indexHtml) || "Peta WebGIS Interaktif";
 

@@ -1,4 +1,4 @@
-import type { LayerManifest, ProjectLayer, RasterImageLayer, RasterPmtilesLayer, RasterWmsLayer } from "../types/project";
+import type { LayerManifest, ProjectLayer, RasterImageLayer, RasterPmtilesLayer, RasterWmsLayer, VirtualFile } from "../types/project";
 
 export function isVectorLayer(layer: ProjectLayer): layer is LayerManifest {
   return layer.kind == null || layer.kind === "vector";
@@ -19,4 +19,72 @@ export function isRasterPmtilesLayer(layer: ProjectLayer): layer is RasterPmtile
 export function normalizeProjectLayerKind<T extends ProjectLayer>(layer: T): T {
   if (layer.kind == null) return { ...layer, kind: "vector" } as T;
   return layer;
+}
+
+export function parseImageOverlayLayers(indexHtml: string, files: VirtualFile[]): RasterImageLayer[] {
+  const indexFile = files.find((file) => file.path.endsWith("index.html"));
+  const indexRoot = indexFile?.path.includes("/") ? indexFile.path.slice(0, indexFile.path.lastIndexOf("/") + 1) : "";
+  const availablePaths = new Set(files.map((file) => normalizeAssetPath(file.path)));
+  const overlayMatches = Array.from(indexHtml.matchAll(/(?:var\s+([A-Za-z0-9_]+)\s*=\s*)?L\.imageOverlay\(\s*(["'])(.*?)\2\s*,\s*\[\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]\s*,\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]\s*\](?:\s*,\s*\{([\s\S]*?)\})?\s*\)/g));
+  return overlayMatches.map((match, index) => {
+    const rawVariable = match[1] || `layer_raster_image_${index + 1}`;
+    const variable = rawVariable.startsWith("layer_") ? rawVariable : `layer_${rawVariable}`;
+    const rawPath = unescapeJsString(match[3]);
+    const imagePath = resolveAssetPath(indexRoot, rawPath, availablePaths);
+    const opacity = Number.parseFloat(readOptionRaw(match[8] || "", "opacity"));
+    return {
+      id: variable.replace(/^layer_/, ""),
+      kind: "raster-image",
+      displayName: prettifyRasterName(variable.replace(/^layer_/, "")),
+      visible: indexHtml.includes(`map.addLayer(${rawVariable})`) || indexHtml.includes(`map.addLayer(${variable})`) || new RegExp(`${escapeRegExp(rawVariable)}\\.addTo\\(map\\)`).test(indexHtml),
+      showInLayerControl: true,
+      legendEnabled: false,
+      opacity: Number.isFinite(opacity) ? opacity : 1,
+      layerVariable: variable,
+      imagePath,
+      bounds: [
+        [Number.parseFloat(match[4]), Number.parseFloat(match[5])],
+        [Number.parseFloat(match[6]), Number.parseFloat(match[7])]
+      ]
+    } satisfies RasterImageLayer;
+  });
+}
+
+function resolveAssetPath(indexRoot: string, rawPath: string, availablePaths: Set<string>): string {
+  if (/^(?:https?:)?\/\//i.test(rawPath) || rawPath.startsWith("data:")) return rawPath;
+  const normalized = normalizeAssetPath(`${indexRoot}${stripUrlSuffix(rawPath)}`);
+  if (availablePaths.has(normalized)) return normalized;
+  const withoutRoot = normalizeAssetPath(stripUrlSuffix(rawPath));
+  return availablePaths.has(withoutRoot) ? withoutRoot : normalized;
+}
+
+function normalizeAssetPath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function stripUrlSuffix(path: string): string {
+  return path.split("#", 1)[0].split("?", 1)[0];
+}
+
+function readOptionRaw(options: string, key: string): string {
+  const match = options.match(new RegExp(`${key}\\s*:\\s*('(?:\\\\'|[^'])*'|\"(?:\\\\\"|[^\"])*\"|[^,\\n}]+)`, "i"));
+  return (match?.[1] || "").trim().replace(/^["']|["']$/g, "");
+}
+
+function unescapeJsString(value: string): string {
+  return value.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+}
+
+function prettifyRasterName(name: string): string {
+  return name.replace(/^raster_?image_?/i, "Raster Image ").replace(/_\d+$/, "").replace(/([a-z])([A-Z])/g, "$1 $2").replaceAll("_", " ").trim() || "Raster Image";
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { isVectorLayer } from "./rasterParsing";
+import { isRasterImageLayer, isVectorLayer } from "./rasterParsing";
 import { allLegendItems, legendGroupsForLayers } from "./style";
 import { q2wsCss, q2wsRuntime } from "../runtime/runtime";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
@@ -38,26 +38,49 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     legendSettings: project.legendSettings,
     popupSettings: project.popupSettings,
     sidebar: project.sidebar,
-    layers: project.layers.filter(isVectorLayer).map((layer) => ({
-      id: layer.id,
-      displayName: layer.displayName,
-      layerVariable: layer.layerVariable,
-      visible: layer.visible,
-      showInLayerControl: layer.showInLayerControl,
-      layerTreeGroup: layer.layerTreeGroup,
-      popupEnabled: layer.popupEnabled,
-      legendEnabled: layer.legendEnabled,
-      popupFields: layer.popupFields,
-      popupTemplate: layer.popupTemplate,
-      popupSettings: layer.popupSettings,
-      label: layer.label,
-      style: layer.style,
-      geojson: layer.geojson
-    })),
+    layers: project.layers.map((layer) => {
+      if (isRasterImageLayer(layer)) {
+        return {
+          id: layer.id,
+          kind: layer.kind,
+          displayName: layer.displayName,
+          layerVariable: layer.layerVariable,
+          visible: layer.visible,
+          showInLayerControl: layer.showInLayerControl,
+          legendEnabled: layer.legendEnabled,
+          opacity: layer.opacity,
+          imagePath: runtimeAssetPath(project, layer.imagePath),
+          bounds: layer.bounds
+        };
+      }
+      if (!isVectorLayer(layer)) return layer;
+      return {
+        id: layer.id,
+        kind: layer.kind || "vector",
+        displayName: layer.displayName,
+        layerVariable: layer.layerVariable,
+        visible: layer.visible,
+        showInLayerControl: layer.showInLayerControl,
+        layerTreeGroup: layer.layerTreeGroup,
+        popupEnabled: layer.popupEnabled,
+        legendEnabled: layer.legendEnabled,
+        popupFields: layer.popupFields,
+        popupTemplate: layer.popupTemplate,
+        popupSettings: layer.popupSettings,
+        label: layer.label,
+        style: layer.style,
+        geojson: layer.geojson
+      };
+    }),
     legend: allLegendItems(project.layers.filter(isVectorLayer), project.manualLegendItems),
     legendGroups: legendGroupsForLayers(project.layers.filter(isVectorLayer), project.manualLegendItems),
     textAnnotations: project.textAnnotations
   };
+}
+
+function runtimeAssetPath(project: Qgis2webProject, path: string): string {
+  const root = `${project.name}/`;
+  return path.startsWith(root) ? path.slice(root.length) : path;
 }
 
 function rewriteProjectFiles(project: Qgis2webProject): Record<string, VirtualFile> {

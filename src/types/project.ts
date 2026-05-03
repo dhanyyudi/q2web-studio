@@ -274,6 +274,7 @@ export type RasterBase = {
   showInLayerControl: boolean;
   legendEnabled: boolean;
   opacity: number;
+  layerVariable: string;
 };
 
 export type RasterImageLayer = RasterBase & {

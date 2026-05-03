@@ -8,6 +8,7 @@ import type { VirtualFile } from "../src/types/project";
 const fixtureName = "qgis2web_2026_04_22-06_30_44_400659";
 const fixtureRoot = join(process.cwd(), "docs", "example_export", fixtureName);
 const fixtureZipPath = join(process.cwd(), "docs", "example_export", `${fixtureName}.zip`);
+const rasterImageFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_image_overlay.zip");
 
 async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -18,6 +19,30 @@ async function walk(dir: string): Promise<string[]> {
     })
   );
   return nested.flat();
+}
+
+async function fixtureFilesFromZip(zipPath: string): Promise<VirtualFile[]> {
+  const zip = await JSZip.loadAsync(await readFile(zipPath));
+  const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
+  return Promise.all(entries.map(async (entry) => {
+    const rel = entry.name;
+    const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
+    if (isText) {
+      return {
+        path: rel,
+        name: rel.split("/").pop() || rel,
+        kind: "text" as const,
+        text: await entry.async("string")
+      };
+    }
+    const buffer = await entry.async("nodebuffer");
+    return {
+      path: rel,
+      name: rel.split("/").pop() || rel,
+      kind: "binary" as const,
+      buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    };
+  }));
 }
 
 async function fixtureFiles(): Promise<VirtualFile[]> {
@@ -46,27 +71,7 @@ async function fixtureFiles(): Promise<VirtualFile[]> {
       })
     );
   } catch {
-    const zip = await JSZip.loadAsync(await readFile(fixtureZipPath));
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
-    return Promise.all(entries.map(async (entry) => {
-      const rel = entry.name;
-      const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
-      if (isText) {
-        return {
-          path: rel,
-          name: rel.split("/").pop() || rel,
-          kind: "text" as const,
-          text: await entry.async("string")
-        };
-      }
-      const buffer = await entry.async("nodebuffer");
-      return {
-        path: rel,
-        name: rel.split("/").pop() || rel,
-        kind: "binary" as const,
-        buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-      };
-    }));
+    return fixtureFilesFromZip(fixtureZipPath);
   }
 }
 
@@ -78,6 +83,7 @@ if (!syntheticRasterKinds.every((kind) => ["raster-image", "raster-wms", "raster
 }
 
 const project = parseQgis2webProject(files);
+const rasterImageProject = parseQgis2webProject(await fixtureFilesFromZip(rasterImageFixtureZipPath));
 const layerNames = project.layers.map((layer) => layer.displayName).sort();
 
 if (project.engine !== "leaflet") {
@@ -129,6 +135,20 @@ if (!rivers?.style.categories.every((category) => category.symbolType === "line"
 
 if (boundary?.style.symbolType !== "line" || boundary.style.strokeColor.toLowerCase() !== "#ffffff") {
   throw new Error("Expected Batas Desa to preserve white line boundary style.");
+}
+
+const rasterImageLayer = rasterImageProject.layers.find((layer) => layer.kind === "raster-image");
+if (!rasterImageLayer || rasterImageLayer.kind !== "raster-image") {
+  throw new Error("Expected raster image overlay fixture to parse a raster-image layer.");
+}
+if (rasterImageLayer.imagePath !== "qgis2web_raster_image_overlay/images/raster-overlay.png") {
+  throw new Error(`Expected raster image path to stay project-relative. Got: ${rasterImageLayer.imagePath}`);
+}
+if (rasterImageLayer.opacity !== 0.75) {
+  throw new Error(`Expected raster image overlay opacity 0.75. Got: ${rasterImageLayer.opacity}`);
+}
+if (!rasterImageProject.layers.some((layer) => layer.kind === "vector")) {
+  throw new Error("Expected raster image overlay fixture to keep vector layers alongside raster.");
 }
 
 const measureWidget = project.runtime.widgets.find((widget) => widget.id === "measure");
@@ -255,4 +275,4 @@ if (legacyStyleProject.layers.some((layer) => !layer.style.graduated || !Array.i
   throw new Error("Expected legacy OPFS style hydration to restore graduated defaults.");
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legacy style normalization, legend labels, line styles, and runtime widget disable hardening verified.`);
+console.log(`Fixture parsed: ${project.layers.length} vector-baseline layers, ${files.length} files, plus raster image overlay fixture. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legacy style normalization, legend labels, line styles, raster image parsing, and runtime widget disable hardening verified.`);

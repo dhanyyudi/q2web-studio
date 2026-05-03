@@ -67,9 +67,21 @@ export const q2wsRuntime = String.raw`(function () {
     };
   }
 
+  function createRasterLayer(layerConfig) {
+    if (!window.L) return null;
+    if (layerConfig.kind === "raster-image" && layerConfig.imagePath && layerConfig.bounds) {
+      return window.L.imageOverlay(layerConfig.imagePath, layerConfig.bounds, { opacity: Number(layerConfig.opacity == null ? 1 : layerConfig.opacity) });
+    }
+    return null;
+  }
+
   function applyLayerConfig(config) {
     (config.layers || []).forEach(function (layerConfig) {
       var layer = window[layerConfig.layerVariable];
+      if (!layer && layerConfig.kind === "raster-image") {
+        layer = createRasterLayer(layerConfig);
+        if (layer) window[layerConfig.layerVariable] = layer;
+      }
       if (!layer && layerConfig.geojson && window.L) {
         layer = window.L.geoJSON(layerConfig.geojson, {
           style: function (feature) {
