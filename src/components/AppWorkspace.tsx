@@ -11,7 +11,7 @@ import { SidePanel } from "./SidePanel";
 import { ToolbarButton } from "./ToolbarButton";
 import { Button } from "./ui/button";
 import { filesFromDataTransferItems } from "../lib/fileImport";
-import { updateLayer } from "../lib/projectUpdates";
+import { updateVectorLayer } from "../lib/projectUpdates";
 import type { BasemapConfig, DrawMode, LayerManifest, MapSettings, Qgis2webProject, SelectedFeatureRef, VirtualFile } from "../types/project";
 import type { GeometryKind } from "../lib/appHelpers";
 
@@ -142,7 +142,7 @@ export function AppWorkspace(props: AppWorkspaceProps) {
       >
         <Group id="workspace-panels" data-testid="workspace-panels" groupRef={workspaceGroupRef} defaultLayout={defaultWorkspaceLayout || { "left-panel": leftPanelCollapsed ? 0 : 18, "main-stage": leftPanelCollapsed ? 74 : 56, "right-panel": 26 }} onLayoutChanged={onWorkspaceLayoutChanged} className="workspace-panels" orientation="horizontal">
           <Panel id="left-panel" data-testid="left-panel" defaultSize={leftPanelCollapsed ? "0%" : "18%"} minSize="12%" maxSize="30%" collapsible collapsedSize="0%" panelRef={sidePanelRef}>
-            <SidePanel project={project} busy={busy} status={status} inspectorMode={inspectorMode} selectedLayer={selectedLayer} onCollapse={() => setWorkspaceLeftPanelCollapsed(true)} onProjectSettings={() => setInspectorMode("project")} onDefaultBasemap={setDefaultBasemap} onMapViewModeChange={(value) => setMapSetting("viewMode", value)} onSelectLayer={(layerId) => { setSelectedLayerId(layerId); setSelectedFeature(null); setInspectorMode("layer"); }} onUpdateLayer={(layer) => project && updateProject(updateLayer(project, layer.id, { visible: layer.visible }))} />
+            <SidePanel project={project} busy={busy} status={status} inspectorMode={inspectorMode} selectedLayer={selectedLayer} onCollapse={() => setWorkspaceLeftPanelCollapsed(true)} onProjectSettings={() => setInspectorMode("project")} onDefaultBasemap={setDefaultBasemap} onMapViewModeChange={(value) => setMapSetting("viewMode", value)} onSelectLayer={(layerId) => { setSelectedLayerId(layerId); setSelectedFeature(null); setInspectorMode("layer"); }} onUpdateLayer={(layer) => project && updateProject(updateVectorLayer(project, layer.id, { visible: layer.visible }))} />
           </Panel>
           <Separator className="workspace-resize-handle" />
           <Panel id="main-stage" defaultSize={leftPanelCollapsed ? "74%" : "56%"} minSize="35%">

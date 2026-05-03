@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Polygon } from "geojson";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
+import { isVectorLayer } from "../lib/rasterParsing";
 import type { DrawMode, LayerManifest, LegendPlacement, LegendPosition, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
@@ -63,13 +64,14 @@ export function MapCanvas({
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
   const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
 
+  const vectorLayers = useMemo(() => project.layers.filter(isVectorLayer), [project.layers]);
   const selectedLayer = useMemo(
-    () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
-    [project.layers, selectedLayerId]
+    () => vectorLayers.find((layer) => layer.id === selectedLayerId) || vectorLayers[0],
+    [selectedLayerId, vectorLayers]
   );
   const previewLayers = useMemo(
-    () => visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode),
-    [project.layers, project.mapSettings.viewMode, selectedLayerId]
+    () => visiblePreviewLayers(vectorLayers, selectedLayerId, project.mapSettings.viewMode),
+    [vectorLayers, project.mapSettings.viewMode, selectedLayerId]
   );
   const visibleLayers = useMemo(
     () => previewLayers.filter((layer) => layerVisibility?.[layer.id] ?? layer.visible),
@@ -153,7 +155,7 @@ export function MapCanvas({
       <SidebarPanel project={project} />
       <WelcomeOverlay project={project} />
       <style>{popupCss(project)}</style>
-      <style>{labelCss(project.layers)}</style>
+      <style>{labelCss(vectorLayers)}</style>
       {showLayerControl && (
         <LayerControl
           layers={previewLayers}

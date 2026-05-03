@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { isVectorLayer } from "./rasterParsing";
 import { allLegendItems, legendGroupsForLayers } from "./style";
 import { q2wsCss, q2wsRuntime } from "../runtime/runtime";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
@@ -37,7 +38,7 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
     legendSettings: project.legendSettings,
     popupSettings: project.popupSettings,
     sidebar: project.sidebar,
-    layers: project.layers.map((layer) => ({
+    layers: project.layers.filter(isVectorLayer).map((layer) => ({
       id: layer.id,
       displayName: layer.displayName,
       layerVariable: layer.layerVariable,
@@ -53,15 +54,15 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
       style: layer.style,
       geojson: layer.geojson
     })),
-    legend: allLegendItems(project.layers, project.manualLegendItems),
-    legendGroups: legendGroupsForLayers(project.layers, project.manualLegendItems),
+    legend: allLegendItems(project.layers.filter(isVectorLayer), project.manualLegendItems),
+    legendGroups: legendGroupsForLayers(project.layers.filter(isVectorLayer), project.manualLegendItems),
     textAnnotations: project.textAnnotations
   };
 }
 
 function rewriteProjectFiles(project: Qgis2webProject): Record<string, VirtualFile> {
   const files = { ...project.files };
-  for (const layer of project.layers) {
+  for (const layer of project.layers.filter(isVectorLayer)) {
     files[layer.sourcePath] = {
       path: layer.sourcePath,
       name: layer.sourcePath.split("/").pop() || layer.sourcePath,

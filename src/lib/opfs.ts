@@ -9,7 +9,7 @@ import {
   defaultSidebarSettings,
   defaultTheme
 } from "./defaults";
-import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
+import type { LayerManifest, ProjectLayer, Qgis2webProject, VirtualFile } from "../types/project";
 import { migrateProject } from "./projectUpdates";
 import { normalizeGraduatedStyle, normalizeLayerStyleMode } from "./styleMode";
 
@@ -163,7 +163,9 @@ function hydrateLayerControlMode(value: unknown): Qgis2webProject["layerControlS
   return defaultLayerControlSettings.mode;
 }
 
-function hydrateLayer(layer: LayerManifest): LayerManifest {
+function hydrateLayer(inputLayer: ProjectLayer): ProjectLayer {
+  if (inputLayer.kind && inputLayer.kind !== "vector") return inputLayer;
+  const layer = inputLayer as LayerManifest;
   return {
     ...layer,
     popupTemplate: layer.popupTemplate

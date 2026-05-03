@@ -53,10 +53,18 @@ function normalizeLayerControlMode(mode: LayerControlMode | "compact" | undefine
   return defaultLayerControlSettings.mode;
 }
 
-export function updateLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {
+export function updateVectorLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {
   return {
     ...project,
-    layers: project.layers.map((layer) => (layer.id === layerId ? { ...layer, ...patch } : layer))
+    layers: project.layers.map((inputLayer) => {
+      const layer = normalizeProjectLayerKind(inputLayer);
+      if (layer.id !== layerId || !isVectorLayer(layer)) return layer;
+      return {
+        ...layer,
+        ...patch,
+        kind: "vector"
+      };
+    })
   };
 }
 
@@ -65,7 +73,7 @@ export function updateLayerGeojson(
   layerId: string,
   geojson: FeatureCollection
 ): Qgis2webProject {
-  return updateLayer(project, layerId, { geojson });
+  return updateVectorLayer(project, layerId, { geojson });
 }
 
 export function updateFeatureProperty(
@@ -130,7 +138,7 @@ export function addField(project: Qgis2webProject, layerId: string, key: string)
       [cleanKey]: ""
     }
   }));
-  return updateLayer(project, layerId, {
+  return updateVectorLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
     popupFields: [
       ...layer.popupFields,
@@ -169,7 +177,7 @@ export function renameField(project: Qgis2webProject, layerId: string, oldKey: s
         htmlTemplate: layer.label.htmlTemplate?.replaceAll(`{{${oldKey}}}`, `{{${cleanKey}}}`)
       }
     : undefined;
-  return updateLayer(project, layerId, {
+  return updateVectorLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
     popupFields,
     popupTemplate,
@@ -212,7 +220,7 @@ export function deleteField(project: Qgis2webProject, layerId: string, key: stri
         htmlTemplate: layer.label.field === key ? (nextLabelField ? `{{${nextLabelField}}}` : "") : layer.label.htmlTemplate
       }
     : undefined;
-  return updateLayer(project, layerId, {
+  return updateVectorLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
     popupFields: remainingFields,
     popupTemplate,

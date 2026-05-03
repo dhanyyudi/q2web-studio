@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Eye, EyeOff, Layers3, Settings2, Wand2 } from "lucide-react";
-import type { LayerManifest, MapViewMode, Qgis2webProject } from "../types/project";
+import { isVectorLayer } from "../lib/rasterParsing";
+import type { LayerManifest, MapViewMode, ProjectLayer, Qgis2webProject } from "../types/project";
 
 type SidePanelProps = {
   project: Qgis2webProject | null;
@@ -13,7 +14,7 @@ type SidePanelProps = {
   onDefaultBasemap: (basemapId: string) => void;
   onMapViewModeChange: (mode: MapViewMode) => void;
   onSelectLayer: (layerId: string) => void;
-  onUpdateLayer: (layer: LayerManifest) => void;
+  onUpdateLayer: (layer: ProjectLayer) => void;
 };
 
 export function SidePanel({
@@ -78,7 +79,7 @@ export function SidePanel({
               <div key={layer.id} className={layer.id === selectedLayer?.id ? "layer-row selected" : "layer-row"}>
                 <button type="button" className="layer-main" onClick={() => onSelectLayer(layer.id)}>
                   <span>{layer.displayName}</span>
-                  <small>{layer.geometryType}</small>
+                  <small>{isVectorLayer(layer) ? layer.geometryType : layer.kind}</small>
                 </button>
                 <button
                   type="button"

@@ -308,7 +308,7 @@ export type Qgis2webProject = {
   importedAt: string;
   files: Record<string, VirtualFile>;
   indexHtmlPath: string;
-  layers: LayerManifest[];
+  layers: ProjectLayer[];
   branding: BrandingSettings;
   theme: ThemeSettings;
   mapSettings: MapSettings;

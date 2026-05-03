@@ -4,6 +4,7 @@ import type { Feature, FeatureCollection } from "geojson";
 import type { TerraDraw } from "terra-draw";
 import type { GeoJSONStoreFeatures } from "terra-draw";
 import { renderLayerPopupHtml } from "../lib/popupRendering";
+import { isVectorLayer } from "../lib/rasterParsing";
 import { styleForFeature } from "../lib/style";
 import type { BasemapConfig, LayerManifest, PopupSettings, Qgis2webProject } from "../types/project";
 
@@ -119,6 +120,7 @@ export function popupCss(project: Qgis2webProject): string {
     }
   `;
   const layerOverrides = project.layers
+    .filter(isVectorLayer)
     .filter((layer) => layer.popupSettings)
     .map((layer) => {
       const override = layer.popupSettings!;
