@@ -775,6 +775,97 @@ test("phase 7 style mode selector shows single-style empty state", async ({ page
   await expect(page.locator(".category-row")).toHaveCount(0);
 });
 
+test("phase 7 style modes keep editor and export runtime parity across single categorized and graduated", async ({ page }) => {
+  const zipPath = await createGraduatedNumericFixtureZip();
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  const readExportRuntimeStyle = async () => {
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /Export ZIP/i }).click()
+    ]);
+    const { tempDir, zipPath: exportedZipPath } = await saveDownloadToTempDir(download, "q2ws-phase7-style-parity-");
+    try {
+      await unzipToDirectory(exportedZipPath, tempDir);
+      const rootEntries = await readdir(tempDir, { withFileTypes: true });
+      const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+      if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+
+      const config = JSON.parse(await readFile(join(tempDir, exportRoot.name, "q2ws-config.json"), "utf8")) as {
+        layers?: Array<{
+          displayName: string;
+          style: {
+            mode: string;
+            categoryField?: string;
+            categories?: Array<{ value: string; label: string }>;
+            graduated?: {
+              field?: string;
+              classCount?: number;
+              ranges?: Array<{ label: string; min: number; max: number }>;
+            };
+          };
+        }>;
+      };
+      const style = config.layers?.find((layer) => layer.displayName === "Graduated Numeric")?.style;
+      if (!style) throw new Error("Expected Graduated Numeric style in exported runtime config.");
+      return {
+        mode: style.mode,
+        categoryField: style.categoryField || null,
+        categoryLabels: (style.categories || []).map((category) => category.label),
+        graduatedField: style.graduated?.field || null,
+        graduatedClassCount: style.graduated?.classCount || 0,
+        graduatedRangeLabels: (style.graduated?.ranges || []).map((range) => range.label)
+      };
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  };
+
+  await page.goto("/");
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Graduated Numeric/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  const selector = page.getByLabel("Style mode");
+  await expect(selector).toHaveValue("single");
+
+  let exported = await readExportRuntimeStyle();
+  expect(exported).toMatchObject({
+    mode: "single",
+    categoryField: null,
+    categoryLabels: [],
+    graduatedField: null,
+    graduatedClassCount: 5,
+    graduatedRangeLabels: []
+  });
+
+  await selector.selectOption("categorized");
+  await page.getByLabel("Category field").selectOption("MIXED");
+  await expect(page.locator(".category-row")).not.toHaveCount(0);
+  exported = await readExportRuntimeStyle();
+  expect(exported.mode).toBe("categorized");
+  expect(exported.categoryField).toBe("MIXED");
+  expect(exported.categoryLabels.length).toBeGreaterThan(0);
+
+  await selector.selectOption("graduated");
+  await page.getByLabel("Graduated field").selectOption("GOOD");
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+  await expect(page.locator(".graduated-range-row").first()).toContainText("Class 1");
+  await expect(page.locator(".graduated-range-row").last()).toContainText("Class 5");
+  exported = await readExportRuntimeStyle();
+  expect(exported.mode).toBe("graduated");
+  expect(exported.graduatedField).toBe("GOOD");
+  expect(exported.graduatedClassCount).toBe(5);
+  expect(exported.graduatedRangeLabels).toEqual(["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
+
+  expect(consoleErrors).toEqual([]);
+});
+
 test("phase 7 categorized style regenerates categories from chosen field", async ({ page }) => {
   await page.goto(debugUrl("/"));
   await importFixture(page);
