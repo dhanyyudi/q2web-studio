@@ -3,6 +3,7 @@ import { Download, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { MapCanvas } from "./MapCanvas";
 import { buildRuntimePreview, type RuntimePreviewBundle } from "../lib/runtimePreview";
+import { evictPreviewEntries } from "../lib/previewBridge";
 import type { Qgis2webProject } from "../types/project";
 
 type PreviewOverlayProps = {
@@ -44,17 +45,22 @@ export function PreviewOverlay({
     buildRuntimePreview(project)
       .then((bundle) => {
         if (disposed) {
-          bundle.urls.forEach((url) => URL.revokeObjectURL(url));
+          void evictPreviewEntries(bundle.token);
           return;
         }
         setRuntimePreview((current) => {
-          current?.urls.forEach((url) => URL.revokeObjectURL(url));
+          if (current?.token && current.token !== bundle.token) void evictPreviewEntries(current.token);
           runtimePreviewRef.current = bundle;
           return bundle;
         });
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : "Runtime preview failed.";
+        setRuntimePreview((current) => {
+          if (current?.token) void evictPreviewEntries(current.token);
+          runtimePreviewRef.current = null;
+          return null;
+        });
         toast.error(message);
       })
       .finally(() => {
@@ -71,7 +77,7 @@ export function PreviewOverlay({
 
   useEffect(() => {
     return () => {
-      runtimePreviewRef.current?.urls.forEach((url) => URL.revokeObjectURL(url));
+      if (runtimePreviewRef.current?.token) void evictPreviewEntries(runtimePreviewRef.current.token);
       runtimePreviewRef.current = null;
       openTabUrlRef.current = null;
     };
@@ -79,15 +85,8 @@ export function PreviewOverlay({
 
   function openRuntimePreview() {
     if (!runtimePreview) return;
-    if (openTabUrlRef.current) URL.revokeObjectURL(openTabUrlRef.current);
-    const blob = new Blob([runtimePreview.srcdoc], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    openTabUrlRef.current = url;
-    window.open(url, "_blank", "noopener,noreferrer");
-    window.setTimeout(() => {
-      if (openTabUrlRef.current === url) openTabUrlRef.current = null;
-      URL.revokeObjectURL(url);
-    }, 15000);
+    openTabUrlRef.current = runtimePreview.url;
+    window.open(runtimePreview.url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -122,8 +121,6 @@ export function PreviewOverlay({
               title="Runtime preview"
               data-testid="runtime-preview-frame"
               className="runtime-preview-frame"
-              // The ZIP-derived preview rewrites assets to blob: URLs. Chromium blocks
-              // those subresources in an opaque sandbox, so same-origin is required here.
               sandbox="allow-scripts allow-popups allow-same-origin"
               src={runtimePreview.url}
             />

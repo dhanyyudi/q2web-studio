@@ -636,6 +636,22 @@ test("scales selected simple features in place and exports coordinates", async (
   }
 });
 
+test("phase 6 preview uses service worker route instead of blob iframe", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByTestId("open-preview").click();
+  const frame = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(frame).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+  expect(consoleErrors).toEqual([]);
+});
+
 test("runtime preview mirrors exported map path", async ({ page }) => {
   const requests: string[] = [];
   const consoleErrors: string[] = [];
@@ -654,7 +670,7 @@ test("runtime preview mirrors exported map path", async ({ page }) => {
   const iframe = page.locator('[data-testid="runtime-preview-frame"]');
   await expect(iframe).toBeVisible({ timeout: 15000 });
   await expect(iframe).toHaveAttribute("sandbox", "allow-scripts allow-popups allow-same-origin");
-  await expect(iframe).toHaveAttribute("src", /blob:/);
+  await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
   const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
   await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
   await expect(frame.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
@@ -692,18 +708,18 @@ test("runtime preview mirrors disabled widget export state", async ({ page }) =>
   await page.getByTestId("open-preview").click();
   const iframe = page.locator('[data-testid="runtime-preview-frame"]');
   await expect(iframe).toBeVisible({ timeout: 15000 });
-  await expect(iframe).toHaveAttribute("src", /blob:/);
+  await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
   const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
   await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
   await expect(frame.locator(".leaflet-control-measure")).toHaveCount(0);
 
-  const srcdoc = await page.evaluate(async () => {
+  const previewHtml = await page.evaluate(async () => {
     const iframe = document.querySelector<HTMLIFrameElement>('[data-testid="runtime-preview-frame"]');
     if (!iframe?.src) return "";
     return fetch(iframe.src).then((response) => response.text());
   });
-  expect(srcdoc).not.toContain("leaflet-measure.css");
-  expect(srcdoc).not.toContain("leaflet.photon.css");
+  expect(previewHtml).not.toContain("leaflet-measure.css");
+  expect(previewHtml).not.toContain("leaflet.photon.css");
   expect(consoleErrors).toEqual([]);
 });
 
