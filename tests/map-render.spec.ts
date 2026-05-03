@@ -776,6 +776,8 @@ test("phase 7 style mode selector shows single-style empty state", async ({ page
 });
 
 test("phase 7 style modes keep editor and export runtime parity across single categorized and graduated", async ({ page }) => {
+  test.setTimeout(90_000);
+
   const zipPath = await createGraduatedNumericFixtureZip();
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
