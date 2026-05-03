@@ -78,6 +78,7 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
 
       return {
         id: dataFile.variable.replace(/^json_/, ""),
+        kind: "vector",
         displayName,
         sourcePath: dataFile.path,
         dataVariable: dataFile.variable,

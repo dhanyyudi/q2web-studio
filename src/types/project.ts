@@ -87,6 +87,7 @@ export type LayerLabelConfig = {
 
 export type LayerManifest = {
   id: string;
+  kind?: "vector";
   displayName: string;
   sourcePath: string;
   dataVariable: string;
@@ -265,6 +266,41 @@ export type TextAnnotation = Feature<
     anchor: "center" | "left" | "right";
   }
 >;
+
+export type RasterBase = {
+  id: string;
+  displayName: string;
+  visible: boolean;
+  showInLayerControl: boolean;
+  legendEnabled: boolean;
+  opacity: number;
+};
+
+export type RasterImageLayer = RasterBase & {
+  kind: "raster-image";
+  imagePath: string;
+  bounds: [[number, number], [number, number]];
+};
+
+export type RasterWmsLayer = RasterBase & {
+  kind: "raster-wms";
+  url: string;
+  layersParam: string;
+  format: string;
+  transparent: boolean;
+  version?: string;
+  attribution?: string;
+};
+
+export type RasterPmtilesLayer = RasterBase & {
+  kind: "raster-pmtiles";
+  url: string;
+  attribution?: string;
+  minZoom?: number;
+  maxZoom?: number;
+};
+
+export type ProjectLayer = LayerManifest | RasterImageLayer | RasterWmsLayer | RasterPmtilesLayer;
 
 export type Qgis2webProject = {
   name: string;

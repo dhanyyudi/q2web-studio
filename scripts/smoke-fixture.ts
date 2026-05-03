@@ -72,6 +72,11 @@ async function fixtureFiles(): Promise<VirtualFile[]> {
 
 const files = await fixtureFiles();
 
+const syntheticRasterKinds = ["raster-image", "raster-wms", "raster-pmtiles"];
+if (!syntheticRasterKinds.every((kind) => ["raster-image", "raster-wms", "raster-pmtiles"].includes(kind))) {
+  throw new Error("Expected raster layer kinds to be declared for Phase 8.");
+}
+
 const project = parseQgis2webProject(files);
 const layerNames = project.layers.map((layer) => layer.displayName).sort();
 
@@ -96,6 +101,10 @@ if (znt?.style.mode !== "categorized") {
 
 if (boundary?.style.mode !== "single") {
   throw new Error(`Expected Batas Desa style mode to be single. Got: ${boundary?.style.mode || "none"}`);
+}
+
+if (!project.layers.every((layer) => layer.kind === "vector")) {
+  throw new Error(`Expected fixture baseline layers to stay vector-only before raster parser lands. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.kind}`).join(", ")}`);
 }
 
 if (!project.layers.every((layer) => ["single", "categorized", "graduated"].includes(layer.style.mode))) {
