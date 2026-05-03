@@ -9,10 +9,14 @@ export type LegendGroup = {
   items: LegendItem[];
 };
 
+function normalizeCategoryValue(value: unknown): string {
+  return value == null ? "" : String(value);
+}
+
 export function styleForFeature(layer: LayerManifest, feature?: Feature): PathOptions {
   const mode = effectiveLayerStyleMode(layer);
   const categoryValue = mode === "categorized" && layer.style.categoryField
-    ? String(feature?.properties?.[layer.style.categoryField] ?? "")
+    ? normalizeCategoryValue(feature?.properties?.[layer.style.categoryField])
     : "";
   const category = mode === "categorized" ? layer.style.categories.find((item) => item.value === categoryValue && item.visible) : undefined;
   const fillColor = category?.fillColor || layer.style.fillColor;
@@ -88,6 +92,8 @@ export function legendGroupsForLayers(layers: LayerManifest[], manual: LegendIte
   return groups;
 }
 
+const CATEGORY_PALETTE = ["#f59e0b", "#0ea5e9", "#22c55e", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#64748b"];
+
 export function fieldNames(layer: LayerManifest): string[] {
   const keys = new Set<string>();
   layer.geojson.features.forEach((feature) => {
@@ -98,4 +104,31 @@ export function fieldNames(layer: LayerManifest): string[] {
     });
   });
   return Array.from(keys);
+}
+
+export function categoriesForField(layer: LayerManifest, field: string): LayerManifest["style"]["categories"] {
+  if (!field) return [];
+
+  const existingByValue = new Map(layer.style.categories.map((category) => [category.value, category]));
+  const legacyEmptyCategory = existingByValue.get("(empty)");
+  const values = new Set<string>();
+  layer.geojson.features.forEach((feature) => {
+    values.add(normalizeCategoryValue(feature.properties?.[field]));
+  });
+
+  return Array.from(values).sort((a, b) => a.localeCompare(b)).map((value, index) => {
+    const existing = existingByValue.get(value) || (value === "" ? legacyEmptyCategory : undefined);
+    const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
+    return {
+      value,
+      label: existing?.label || (value === "" ? "(empty)" : value),
+      fillColor: existing?.fillColor || (layer.style.fillColor === "transparent" ? color : color),
+      strokeColor: existing?.strokeColor || layer.style.strokeColor || color,
+      strokeWidth: existing?.strokeWidth || layer.style.strokeWidth,
+      dashArray: existing?.dashArray ?? layer.style.dashArray,
+      symbolType: existing?.symbolType || layer.style.symbolType,
+      sourceImagePath: existing?.sourceImagePath || layer.style.sourceImagePath,
+      visible: existing?.visible ?? true
+    };
+  });
 }

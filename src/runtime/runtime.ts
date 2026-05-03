@@ -19,12 +19,16 @@ export const q2wsRuntime = String.raw`(function () {
     return el;
   }
 
+  function normalizeCategoryValue(value) {
+    return value == null ? "" : String(value);
+  }
+
   function styleFor(layerConfig, feature) {
     var style = layerConfig.style || {};
     var field = style.categoryField;
     var category = null;
     if (field && feature && feature.properties) {
-      var value = String(feature.properties[field] || "");
+      var value = normalizeCategoryValue(feature.properties[field]);
       category = (style.categories || []).find(function (item) {
         return item.value === value && item.visible !== false;
       });

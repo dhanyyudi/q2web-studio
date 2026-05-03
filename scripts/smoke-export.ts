@@ -3,6 +3,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { exportProjectZip } from "../src/lib/exportProject";
 import { parseQgis2webProject } from "../src/lib/qgis2webParser";
+import { categoriesForField } from "../src/lib/style";
 import type { Qgis2webProject, VirtualFile } from "../src/types/project";
 
 const fixtureName = "qgis2web_2026_04_22-06_30_44_400659";
@@ -262,6 +263,33 @@ for (const expectedEditorTreeCode of ["layer-tree-group", "layer-tree-toggle", "
   if (!editorPanelSourceForTree.includes(expectedEditorTreeCode)) {
     throw new Error(`Expected editor tree layer control support to include: ${expectedEditorTreeCode}`);
   }
+}
+
+const categorizedProject = cloneProject(project);
+categorizedProject.layers = categorizedProject.layers.map((layer) => {
+  if (layer.displayName !== "Batas Desa") return layer;
+  return {
+    ...layer,
+    style: {
+      ...layer.style,
+      mode: "categorized",
+      categoryField: "WADMKK",
+      categories: categoriesForField(layer, "WADMKK")
+    }
+  };
+});
+const categorizedZip = await exportZip(categorizedProject);
+const categorizedConfig = JSON.parse(await zipText(categorizedZip, `${root}q2ws-config.json`));
+const categorizedLayerConfig = categorizedConfig.layers?.find((layer: { displayName: string; style: { mode?: string; categoryField?: string; categories?: Array<{ value: string; label: string }> } }) => layer.displayName === "Batas Desa");
+if (categorizedLayerConfig?.style?.mode !== "categorized" || categorizedLayerConfig.style?.categoryField !== "WADMKK") {
+  throw new Error(`Expected q2ws-config.json to preserve categorized style mode and chosen field. Got: ${JSON.stringify(categorizedLayerConfig?.style)}`);
+}
+if (!Array.isArray(categorizedLayerConfig.style?.categories) || categorizedLayerConfig.style.categories.length !== 2) {
+  throw new Error(`Expected q2ws-config.json to preserve regenerated categories for WADMKK. Got: ${JSON.stringify(categorizedLayerConfig?.style?.categories)}`);
+}
+const runtimeSourceForCategorized = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+if (!runtimeSourceForCategorized.includes("function normalizeCategoryValue(value)") || !runtimeSourceForCategorized.includes("normalizeCategoryValue(feature.properties[field])")) {
+  throw new Error("Expected runtime categorized style lookup to use editor parity normalization for null, missing, undefined, and empty category values.");
 }
 
 const generatedLayerProject = cloneProject(project);

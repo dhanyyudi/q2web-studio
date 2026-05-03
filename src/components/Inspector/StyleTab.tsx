@@ -2,6 +2,7 @@ import type { LayerManifest } from "../../types/project";
 import { DashArrayField } from "../forms/DashArrayField";
 import { RangeNumberField } from "../forms/RangeNumberField";
 import { CategorizedStylePanel } from "./CategorizedStylePanel";
+import { categoriesForField } from "../../lib/style";
 import { ColorInput, PanelTitle, SelectField, type GeometryKind } from "./controls";
 
 export type StyleTabProps = {
@@ -13,13 +14,31 @@ export type StyleTabProps = {
 export function StyleTab({ selectedLayer, selectedGeometryKind, patchSelectedLayer }: StyleTabProps) {
   const styleMode = selectedLayer.style.mode;
 
+  function updateStyleMode(mode: LayerManifest["style"]["mode"]) {
+    if (mode !== "categorized") {
+      patchSelectedLayer({ style: { ...selectedLayer.style, mode } });
+      return;
+    }
+
+    const categoryField = selectedLayer.style.categoryField;
+    patchSelectedLayer({
+      style: {
+        ...selectedLayer.style,
+        mode,
+        categories: categoryField && selectedLayer.style.categories.length === 0
+          ? categoriesForField(selectedLayer, categoryField)
+          : selectedLayer.style.categories
+      }
+    });
+  }
+
   return (
     <>
       <PanelTitle title="Style mode" />
       <SelectField
         label="Style mode"
         value={styleMode}
-        onChange={(mode) => patchSelectedLayer({ style: { ...selectedLayer.style, mode: mode as LayerManifest["style"]["mode"] } })}
+        onChange={(mode) => updateStyleMode(mode as LayerManifest["style"]["mode"])}
         options={[
           { value: "single", label: "Single symbol" },
           { value: "categorized", label: "Categorized" },

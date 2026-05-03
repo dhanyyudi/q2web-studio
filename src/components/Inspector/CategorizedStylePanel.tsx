@@ -1,5 +1,5 @@
 import type { LayerManifest } from "../../types/project";
-import { fieldNames } from "../../lib/style";
+import { categoriesForField, fieldNames } from "../../lib/style";
 import { PanelTitle, SelectField } from "./controls";
 
 export type CategorizedStylePanelProps = {
@@ -13,9 +13,20 @@ export function CategorizedStylePanel({ selectedLayer, patchSelectedLayer }: Cat
   return (
     <section data-testid="categorized-style-panel">
       <PanelTitle title="Categorized Style" />
-      <SelectField label="Category field" value={selectedLayer.style.categoryField} onChange={(categoryField) => patchSelectedLayer({ style: { ...selectedLayer.style, categoryField } })} options={[{ value: "", label: "No category field" }, ...fields.map((field) => ({ value: field, label: field }))]} />
+      <SelectField
+        label="Category field"
+        value={selectedLayer.style.categoryField}
+        onChange={(categoryField) => patchSelectedLayer({
+          style: {
+            ...selectedLayer.style,
+            categoryField,
+            categories: categoriesForField(selectedLayer, categoryField)
+          }
+        })}
+        options={[{ value: "", label: "No category field" }, ...fields.map((field) => ({ value: field, label: field }))]}
+      />
       {selectedLayer.style.categories.length === 0 ? (
-        <p className="editor-note">Choose a field to symbolize this layer by category. Category generation is coming in a later task.</p>
+        <p className="editor-note">Choose a field to symbolize this layer by category.</p>
       ) : selectedLayer.style.categories.map((category, index) => (
         <div className="category-row" key={category.value}>
           <input value={category.label} onChange={(event) => {
