@@ -19,23 +19,50 @@ export const q2wsRuntime = String.raw`(function () {
     return el;
   }
 
+  function normalizeCategoryValue(value) {
+    return value == null ? "" : String(value);
+  }
+
+  function numericFeatureValue(feature, field) {
+    var value = feature && feature.properties ? feature.properties[field] : null;
+    if (typeof value === "number" && isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "" && isFinite(Number(value))) return Number(value);
+    return null;
+  }
+
+  function graduatedRangeForFeature(style, feature) {
+    var graduated = style && style.graduated ? style.graduated : {};
+    var field = graduated.field;
+    if (!field) return null;
+    var value = numericFeatureValue(feature, field);
+    if (value == null) return null;
+    return (graduated.ranges || []).find(function (range) {
+      return range.visible !== false && value >= range.min && value <= range.max;
+    }) || null;
+  }
+
   function styleFor(layerConfig, feature) {
     var style = layerConfig.style || {};
+    var mode = style.mode || "single";
     var field = style.categoryField;
     var category = null;
-    if (field && feature && feature.properties) {
-      var value = String(feature.properties[field] || "");
+    var graduatedRange = null;
+    if (mode === "categorized" && field && feature && feature.properties) {
+      var value = normalizeCategoryValue(feature.properties[field]);
       category = (style.categories || []).find(function (item) {
         return item.value === value && item.visible !== false;
-      });
+      }) || null;
+    }
+    if (mode === "graduated") {
+      graduatedRange = graduatedRangeForFeature(style, feature);
     }
     return {
-      color: (category && category.strokeColor) || style.strokeColor || "#3388ff",
-      fillColor: (category && category.fillColor) || style.fillColor || "#3388ff",
+      color: (category && category.strokeColor) || (graduatedRange && graduatedRange.strokeColor) || style.strokeColor || "#3388ff",
+      fillColor: (category && category.fillColor) || (graduatedRange && graduatedRange.fillColor) || style.fillColor || "#3388ff",
       fillOpacity: Number(style.fillOpacity == null ? 0.5 : style.fillOpacity),
       opacity: Number(style.strokeOpacity == null ? 1 : style.strokeOpacity),
-      weight: Number(style.strokeWidth == null ? 2 : style.strokeWidth),
-      dashArray: style.dashArray || null,
+      weight: Number((category && category.strokeWidth) || (graduatedRange && graduatedRange.strokeWidth) || (style.strokeWidth == null ? 2 : style.strokeWidth)),
+      dashArray: (category && category.dashArray) || (graduatedRange && graduatedRange.dashArray) || style.dashArray || null,
       radius: Number(style.pointRadius == null ? 6 : style.pointRadius)
     };
   }

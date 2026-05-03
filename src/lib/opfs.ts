@@ -11,6 +11,7 @@ import {
 } from "./defaults";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
 import { migrateProject } from "./projectUpdates";
+import { normalizeGraduatedStyle, normalizeLayerStyleMode } from "./styleMode";
 
 const PROJECT_FILE = "last-project.json";
 const QUOTA_WARNING_RATIO = 0.82;
@@ -189,6 +190,7 @@ function hydrateLayer(layer: LayerManifest): LayerManifest {
       : undefined,
     style: {
       ...layer.style,
+      mode: normalizeLayerStyleMode(layer.style),
       symbolType: layer.style?.symbolType || (layer.geometryType.includes("Line") ? "line" : layer.geometryType.includes("Point") ? "point" : "polygon"),
       sourceImagePath: layer.style?.sourceImagePath || "",
       categories: (layer.style?.categories || []).map((category) => ({
@@ -197,7 +199,8 @@ function hydrateLayer(layer: LayerManifest): LayerManifest {
         dashArray: category.dashArray || "",
         symbolType: category.symbolType || layer.style?.symbolType || "polygon",
         sourceImagePath: category.sourceImagePath || ""
-      }))
+      })),
+      graduated: normalizeGraduatedStyle(layer.style?.graduated)
     }
   };
 }

@@ -90,6 +90,18 @@ const roads = project.layers.find((layer) => layer.displayName === "Jaringan Jal
 const rivers = project.layers.find((layer) => layer.displayName === "Sungai");
 const boundary = project.layers.find((layer) => layer.displayName === "Batas Desa");
 
+if (znt?.style.mode !== "categorized") {
+  throw new Error(`Expected Zona Nilai Tanah style mode to be categorized. Got: ${znt?.style.mode || "none"}`);
+}
+
+if (boundary?.style.mode !== "single") {
+  throw new Error(`Expected Batas Desa style mode to be single. Got: ${boundary?.style.mode || "none"}`);
+}
+
+if (!project.layers.every((layer) => ["single", "categorized", "graduated"].includes(layer.style.mode))) {
+  throw new Error(`Expected every layer to have a valid style mode. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.style.mode}`).join(", ")}`);
+}
+
 if (!znt?.style.categories.some((category) => category.label.includes("100.000"))) {
   throw new Error(`Expected Zona Nilai Tanah legend labels to use value ranges. Got: ${znt?.style.categories.map((category) => category.label).join(", ")}`);
 }
@@ -212,4 +224,26 @@ if (legacyStoredProject.layers.some((layer) => !layer.layerTreeGroup || !layer.s
   throw new Error("Expected legacy OPFS project hydration to restore layer defaults.");
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legend labels, line styles, and runtime widget disable hardening verified.`);
+const legacyStyleProject = hydrateStoredProjectForTest({
+  ...project,
+  layers: project.layers.map((layer) => ({
+    ...layer,
+    style: {
+      ...layer.style,
+      mode: undefined,
+      graduated: undefined
+    }
+  }))
+});
+if (legacyStyleProject.layers.some((layer) => !["single", "categorized", "graduated"].includes(layer.style.mode))) {
+  throw new Error(`Expected legacy OPFS style hydration to restore valid style modes. Got: ${legacyStyleProject.layers.map((layer) => `${layer.displayName}:${String(layer.style.mode)}`).join(", ")}`);
+}
+const legacyCategorizedLayer = legacyStyleProject.layers.find((layer) => layer.displayName === "Zona Nilai Tanah");
+if (legacyCategorizedLayer?.style.mode !== "categorized") {
+  throw new Error(`Expected legacy OPFS style hydration to infer categorized mode. Got: ${legacyCategorizedLayer?.style.mode || "none"}`);
+}
+if (legacyStyleProject.layers.some((layer) => !layer.style.graduated || !Array.isArray(layer.style.graduated.ranges) || typeof layer.style.graduated.field !== "string")) {
+  throw new Error("Expected legacy OPFS style hydration to restore graduated defaults.");
+}
+
+console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legacy style normalization, legend labels, line styles, and runtime widget disable hardening verified.`);

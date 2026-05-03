@@ -1,6 +1,7 @@
 import type { Feature } from "geojson";
 import type { PathOptions } from "leaflet";
 import type { LayerManifest, LegendItem } from "../types/project";
+import { effectiveLayerStyleMode } from "./styleMode";
 
 export type LegendGroup = {
   id: string;
@@ -8,21 +9,42 @@ export type LegendGroup = {
   items: LegendItem[];
 };
 
+function normalizeCategoryValue(value: unknown): string {
+  return value == null ? "" : String(value);
+}
+
+function numericFeatureValue(feature: Feature | undefined, field: string): number | null {
+  const value = feature?.properties?.[field];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function graduatedRangeForFeature(layer: LayerManifest, feature?: Feature) {
+  const field = layer.style.graduated.field;
+  if (!field) return undefined;
+  const value = numericFeatureValue(feature, field);
+  if (value == null) return undefined;
+  return layer.style.graduated.ranges.find((range) => range.visible && value >= range.min && value <= range.max);
+}
+
 export function styleForFeature(layer: LayerManifest, feature?: Feature): PathOptions {
-  const categoryValue = layer.style.categoryField
-    ? String(feature?.properties?.[layer.style.categoryField] ?? "")
+  const mode = effectiveLayerStyleMode(layer);
+  const categoryValue = mode === "categorized" && layer.style.categoryField
+    ? normalizeCategoryValue(feature?.properties?.[layer.style.categoryField])
     : "";
-  const category = layer.style.categories.find((item) => item.value === categoryValue && item.visible);
-  const fillColor = category?.fillColor || layer.style.fillColor;
-  const strokeColor = category?.strokeColor || layer.style.strokeColor;
+  const category = mode === "categorized" ? layer.style.categories.find((item) => item.value === categoryValue && item.visible) : undefined;
+  const graduatedRange = mode === "graduated" ? graduatedRangeForFeature(layer, feature) : undefined;
+  const fillColor = category?.fillColor || graduatedRange?.fillColor || layer.style.fillColor;
+  const strokeColor = category?.strokeColor || graduatedRange?.strokeColor || layer.style.strokeColor;
 
   return {
     color: strokeColor,
     fillColor,
     fillOpacity: layer.style.fillOpacity,
     opacity: layer.style.strokeOpacity,
-    weight: category?.strokeWidth || layer.style.strokeWidth,
-    dashArray: category?.dashArray || layer.style.dashArray || undefined
+    weight: category?.strokeWidth || graduatedRange?.strokeWidth || layer.style.strokeWidth,
+    dashArray: category?.dashArray || graduatedRange?.dashArray || layer.style.dashArray || undefined
   };
 }
 
@@ -30,7 +52,8 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
   if (!layer.legendEnabled) {
     return [];
   }
-  if (layer.style.categories.length > 0) {
+  const mode = effectiveLayerStyleMode(layer);
+  if (mode === "categorized" && layer.style.categories.length > 0) {
     return layer.style.categories
       .filter((item) => item.visible)
       .map((item) => ({
@@ -42,6 +65,22 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
         dashArray: item.dashArray,
         symbolType: item.symbolType,
         sourceImagePath: item.sourceImagePath,
+        layerId: layer.id,
+        visible: true
+      }));
+  }
+  if (mode === "graduated" && layer.style.graduated.ranges.length > 0) {
+    return layer.style.graduated.ranges
+      .filter((item) => item.visible)
+      .map((item, index) => ({
+        id: `${layer.id}:range:${index}`,
+        label: item.label || `${item.min} sampai ${item.max}`,
+        fillColor: item.fillColor,
+        strokeColor: item.strokeColor,
+        strokeWidth: item.strokeWidth,
+        dashArray: item.dashArray,
+        symbolType: layer.style.symbolType,
+        sourceImagePath: layer.style.sourceImagePath,
         layerId: layer.id,
         visible: true
       }));
@@ -86,6 +125,8 @@ export function legendGroupsForLayers(layers: LayerManifest[], manual: LegendIte
   return groups;
 }
 
+const CATEGORY_PALETTE = ["#f59e0b", "#0ea5e9", "#22c55e", "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#64748b"];
+
 export function fieldNames(layer: LayerManifest): string[] {
   const keys = new Set<string>();
   layer.geojson.features.forEach((feature) => {
@@ -96,4 +137,31 @@ export function fieldNames(layer: LayerManifest): string[] {
     });
   });
   return Array.from(keys);
+}
+
+export function categoriesForField(layer: LayerManifest, field: string): LayerManifest["style"]["categories"] {
+  if (!field) return [];
+
+  const existingByValue = new Map(layer.style.categories.map((category) => [category.value, category]));
+  const legacyEmptyCategory = existingByValue.get("(empty)");
+  const values = new Set<string>();
+  layer.geojson.features.forEach((feature) => {
+    values.add(normalizeCategoryValue(feature.properties?.[field]));
+  });
+
+  return Array.from(values).sort((a, b) => a.localeCompare(b)).map((value, index) => {
+    const existing = existingByValue.get(value) || (value === "" ? legacyEmptyCategory : undefined);
+    const color = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
+    return {
+      value,
+      label: existing?.label || (value === "" ? "(empty)" : value),
+      fillColor: existing?.fillColor || (layer.style.fillColor === "transparent" ? color : color),
+      strokeColor: existing?.strokeColor || layer.style.strokeColor || color,
+      strokeWidth: existing?.strokeWidth || layer.style.strokeWidth,
+      dashArray: existing?.dashArray ?? layer.style.dashArray,
+      symbolType: existing?.symbolType || layer.style.symbolType,
+      sourceImagePath: existing?.sourceImagePath || layer.style.sourceImagePath,
+      visible: existing?.visible ?? true
+    };
+  });
 }

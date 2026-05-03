@@ -10,6 +10,7 @@ import {
   defaultSidebarSettings
 } from "./defaults";
 import { migrateProject } from "./projectUpdates";
+import { normalizeGraduatedStyle, normalizeLayerStyleMode } from "./styleMode";
 
 function migrateLayerControlMode(value: unknown): "collapsed" | "expanded" | "tree" {
   if (value === "collapsed" || value === "expanded" || value === "tree") return value;
@@ -113,6 +114,7 @@ export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
           : undefined,
         style: {
           ...layer.style,
+          mode: normalizeLayerStyleMode(layer.style),
           symbolType: layer.style?.symbolType || (layer.geometryType.includes("Line") ? "line" : layer.geometryType.includes("Point") ? "point" : "polygon"),
           sourceImagePath: layer.style?.sourceImagePath || "",
           categories: (layer.style?.categories || []).map((category) => ({
@@ -121,7 +123,8 @@ export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
             dashArray: category.dashArray || "",
             symbolType: category.symbolType || layer.style?.symbolType || "polygon",
             sourceImagePath: category.sourceImagePath || ""
-          }))
+          })),
+          graduated: normalizeGraduatedStyle(layer.style?.graduated)
         }
       };
     }),

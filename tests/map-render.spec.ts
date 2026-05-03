@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import JSZip from "jszip";
 import { createServer } from "node:http";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
@@ -71,6 +71,28 @@ async function createTranslateFixture(): Promise<string> {
   await writeFile(join(root, "data", "SimpleLine_2.js"), `var json_SimpleLine_2 = {"type":"FeatureCollection","name":"SimpleLine","features":[{"type":"Feature","properties":{"name":"line-one"},"geometry":{"type":"LineString","coordinates":[[108.46,-6.79],[108.47,-6.78]]}},{"type":"Feature","properties":{"name":"line-two"},"geometry":{"type":"LineString","coordinates":[[108.51,-6.74],[108.52,-6.73]]}}]};`);
   await writeFile(join(root, "data", "SimplePolygon_3.js"), `var json_SimplePolygon_3 = {"type":"FeatureCollection","name":"SimplePolygon","features":[{"type":"Feature","properties":{"name":"polygon-one"},"geometry":{"type":"Polygon","coordinates":[[[108.43,-6.81],[108.44,-6.81],[108.44,-6.80],[108.43,-6.80],[108.43,-6.81]]]}},{"type":"Feature","properties":{"name":"polygon-two"},"geometry":{"type":"Polygon","coordinates":[[[108.50,-6.75],[108.51,-6.75],[108.51,-6.74],[108.50,-6.74],[108.50,-6.75]]]}}]};`);
   return root;
+}
+
+async function createCategorizedEmptyFixtureZip(): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-empty-category-fixture-"));
+  const zipPath = join(tempDir, "categorized-empty.zip");
+  const zip = new JSZip();
+  const root = "categorized-empty/";
+  zip.file(`${root}index.html`, `<!doctype html><html><head><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>#map{height:400px}</style><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script></head><body><div id="map"></div><script src="data/CategoryTest_1.js"></script><script>var bounds_group = new L.featureGroup([]); var map = L.map('map', { zoomControl:true, maxZoom:28, minZoom:1 }).fitBounds([[-6.81,108.43],[-6.74,108.51]]); var layer_CategoryTest_1 = new L.geoJson(json_CategoryTest_1, {}); map.addLayer(layer_CategoryTest_1);</script></body></html>`);
+  zip.file(`${root}data/CategoryTest_1.js`, `var json_CategoryTest_1 = {"type":"FeatureCollection","name":"CategoryTest_1","features":[{"type":"Feature","properties":{"GROUP":"Filled","NAME":"filled"},"geometry":{"type":"Polygon","coordinates":[[[108.43,-6.81],[108.44,-6.81],[108.44,-6.80],[108.43,-6.80],[108.43,-6.81]]]}},{"type":"Feature","properties":{"GROUP":"","NAME":"empty"},"geometry":{"type":"Polygon","coordinates":[[[108.45,-6.81],[108.46,-6.81],[108.46,-6.80],[108.45,-6.80],[108.45,-6.81]]]}},{"type":"Feature","properties":{"GROUP":null,"NAME":"nullish"},"geometry":{"type":"Polygon","coordinates":[[[108.47,-6.81],[108.48,-6.81],[108.48,-6.80],[108.47,-6.80],[108.47,-6.81]]]}},{"type":"Feature","properties":{"NAME":"missing"},"geometry":{"type":"Polygon","coordinates":[[[108.49,-6.81],[108.50,-6.81],[108.50,-6.80],[108.49,-6.80],[108.49,-6.81]]]}}]};`);
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
+}
+
+async function createGraduatedNumericFixtureZip(): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-graduated-numeric-fixture-"));
+  const zipPath = join(tempDir, "graduated-numeric.zip");
+  const zip = new JSZip();
+  const root = "graduated-numeric/";
+  zip.file(`${root}index.html`, `<!doctype html><html><head><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>#map{height:400px}</style><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script></head><body><div id="map"></div><script src="data/GraduatedNumeric_1.js"></script><script>var bounds_group = new L.featureGroup([]); var map = L.map('map', { zoomControl:true, maxZoom:28, minZoom:1 }).fitBounds([[-6.81,108.43],[-6.74,108.51]]); var layer_GraduatedNumeric_1 = new L.geoJson(json_GraduatedNumeric_1, {}); map.addLayer(layer_GraduatedNumeric_1);</script></body></html>`);
+  zip.file(`${root}data/GraduatedNumeric_1.js`, `var json_GraduatedNumeric_1 = {"type":"FeatureCollection","name":"GraduatedNumeric_1","features":[{"type":"Feature","properties":{"GOOD":"1","SPARSE":"10","MIXED":"1","EMPTY":""},"geometry":{"type":"Polygon","coordinates":[[[108.43,-6.81],[108.44,-6.81],[108.44,-6.80],[108.43,-6.80],[108.43,-6.81]]]}},{"type":"Feature","properties":{"GOOD":2,"SPARSE":"","MIXED":"not numeric","EMPTY":null},"geometry":{"type":"Polygon","coordinates":[[[108.45,-6.81],[108.46,-6.81],[108.46,-6.80],[108.45,-6.80],[108.45,-6.81]]]}},{"type":"Feature","properties":{"GOOD":"3.5","SPARSE":null,"MIXED":"3","EMPTY":""},"geometry":{"type":"Polygon","coordinates":[[[108.47,-6.81],[108.48,-6.81],[108.48,-6.80],[108.47,-6.80],[108.47,-6.81]]]}},{"type":"Feature","properties":{"GOOD":4,"MIXED":"4","EMPTY":null},"geometry":{"type":"Polygon","coordinates":[[[108.49,-6.81],[108.50,-6.81],[108.50,-6.80],[108.49,-6.80],[108.49,-6.81]]]}}]};`);
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
 }
 
 async function displayNameBySource(page: import("@playwright/test").Page, sourceFileName: string): Promise<string> {
@@ -724,6 +746,488 @@ test("phase 6 initial view can match qgis2web export-original bounds", async ({ 
   expect(runtimeView.mode).toBe("export-original");
   expect(runtimeView.containsSouthWest).toBe(true);
   expect(runtimeView.containsNorthEast).toBe(true);
+});
+
+test("phase 7 style mode selector shows single-style empty state", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const singleLayerName = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; style: { mode: string; categories: unknown[] } }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName !== "Sungai" && candidate.style.mode === "single" && candidate.style.categories.length === 0);
+    if (!layer) throw new Error("Expected an actually single-style fixture layer that is not Sungai.");
+    return layer.displayName;
+  });
+
+  await page.getByRole("button", { name: new RegExp(singleLayerName, "i") }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  const selector = page.getByLabel("Style mode");
+  await expect(selector).toBeVisible();
+  await expect(selector).toHaveValue("single");
+  await expect(selector.locator("option")).toHaveText(["Single symbol", "Categorized", "Graduated"]);
+  await expect(page.getByTestId("single-style-empty-state")).toContainText(/shown with one symbol/i);
+  await expect(page.locator(".category-row")).toHaveCount(0);
+
+  await selector.selectOption("categorized");
+  await expect(page.getByTestId("categorized-style-panel")).toBeVisible();
+  await expect(page.getByTestId("categorized-style-panel")).toContainText(/Choose a field/i);
+  await expect(page.locator(".category-row")).toHaveCount(0);
+});
+
+test("phase 7 style modes keep editor and export runtime parity across single categorized and graduated", async ({ page }) => {
+  const zipPath = await createGraduatedNumericFixtureZip();
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  const downloads: import("@playwright/test").Download[] = [];
+  page.on("download", (download) => downloads.push(download));
+  const exportZipButton = page.getByRole("button", { name: /Export ZIP/i });
+
+  const readExportRuntimeStyle = async () => {
+    await expect(exportZipButton).toBeEnabled();
+    const downloadCount = downloads.length;
+    await exportZipButton.click();
+    await expect.poll(() => downloads.length, { timeout: 30_000 }).toBe(downloadCount + 1);
+    const download = downloads[downloadCount];
+    await expect(exportZipButton).toBeEnabled();
+    const { tempDir, zipPath: exportedZipPath } = await saveDownloadToTempDir(download, "q2ws-phase7-style-parity-");
+    try {
+      await unzipToDirectory(exportedZipPath, tempDir);
+      const rootEntries = await readdir(tempDir, { withFileTypes: true });
+      const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+      if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+
+      const config = JSON.parse(await readFile(join(tempDir, exportRoot.name, "q2ws-config.json"), "utf8")) as {
+        layers?: Array<{
+          displayName: string;
+          style: {
+            mode: string;
+            categoryField?: string;
+            categories?: Array<{ value: string; label: string }>;
+            graduated?: {
+              field?: string;
+              classCount?: number;
+              ranges?: Array<{ label: string; min: number; max: number }>;
+            };
+          };
+        }>;
+      };
+      const style = config.layers?.find((layer) => layer.displayName === "Graduated Numeric")?.style;
+      if (!style) throw new Error("Expected Graduated Numeric style in exported runtime config.");
+      return {
+        mode: style.mode,
+        categoryField: style.categoryField || null,
+        categoryLabels: (style.categories || []).map((category) => category.label),
+        graduatedField: style.graduated?.field || null,
+        graduatedClassCount: style.graduated?.classCount || 0,
+        graduatedRangeLabels: (style.graduated?.ranges || []).map((range) => range.label)
+      };
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  };
+
+  await page.goto("/");
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Graduated Numeric/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  const selector = page.getByLabel("Style mode");
+  await expect(selector).toHaveValue("single");
+
+  await expect(page.getByTestId("single-style-empty-state")).toBeVisible();
+
+  await selector.selectOption("categorized");
+  await page.getByLabel("Category field").selectOption("MIXED");
+  await expect(page.locator(".category-row")).not.toHaveCount(0);
+  await expect(page.locator(".category-row").first()).toBeVisible();
+
+  await selector.selectOption("graduated");
+  await page.getByLabel("Graduated field").selectOption("GOOD");
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+  await expect(page.locator(".graduated-range-row").first()).toContainText("Class 1");
+  await expect(page.locator(".graduated-range-row").last()).toContainText("Class 5");
+  const exported = await readExportRuntimeStyle();
+  expect(exported.mode).toBe("graduated");
+  expect(exported.graduatedField).toBe("GOOD");
+  expect(exported.graduatedClassCount).toBe(5);
+  expect(exported.graduatedRangeLabels).toEqual(["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
+
+  expect(consoleErrors).toEqual([]);
+});
+
+test("phase 7 categorized style regenerates categories from chosen field", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("categorized");
+
+  const categoryField = page.getByLabel("Category field");
+  await expect(categoryField).toBeVisible();
+  await categoryField.selectOption("WADMKK");
+
+  await expect(page.locator(".category-row")).toHaveCount(2);
+  await expect(page.locator(".category-row").first().locator("input").first()).not.toHaveValue("");
+
+  const categorizedLayer = await page.evaluate(() => {
+    const project = (window as Window & {
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: {
+            mode: string;
+            categoryField: string;
+            categories: Array<{ value: string; label: string }>;
+          };
+        }>;
+      };
+    }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName === "Batas Desa")?.style;
+  });
+
+  expect(categorizedLayer).toMatchObject({
+    mode: "categorized",
+    categoryField: "WADMKK"
+  });
+  expect(categorizedLayer?.categories.length).toBe(2);
+  expect(categorizedLayer?.categories.every((category) => category.label)).toBe(true);
+});
+
+test("phase 7 graduated style generates numeric ranges from selected field", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Zona Nilai Tanah/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("graduated");
+
+  const graduatedPanel = page.getByTestId("graduated-style-panel");
+  await expect(graduatedPanel).toBeVisible();
+
+  const fieldSelect = page.getByLabel("Graduated field");
+  await expect(fieldSelect).toBeVisible();
+  await fieldSelect.selectOption("q2wHide_KELASNILAI");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(0);
+
+  await expect(page.getByRole("button", { name: "Generate ranges" })).toBeVisible();
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+
+  await expect(page.getByLabel("Classes")).toHaveValue("5");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+  await expect(page.locator(".graduated-range-row").first()).toContainText("Class 1");
+  await expect(page.locator(".graduated-range-row").last()).toContainText("Class 5");
+
+  const classInput = page.getByLabel("Classes");
+  await classInput.fill("8");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(0);
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(7);
+
+  const graduatedStyle = await page.evaluate(() => {
+    const project = (window as Window & {
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: {
+            mode: string;
+            graduated: {
+              field: string;
+              method: string;
+              classCount: number;
+              ranges: Array<{ min: number; max: number; label: string }>;
+            };
+          };
+        }>;
+      };
+    }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName === "Zona Nilai Tanah")?.style;
+  });
+
+  expect(graduatedStyle).toMatchObject({
+    mode: "graduated",
+    graduated: {
+      field: "q2wHide_KELASNILAI",
+      method: "equal",
+      classCount: 7
+    }
+  });
+  expect(graduatedStyle?.graduated.ranges).toHaveLength(7);
+  expect(graduatedStyle?.graduated.ranges[0]).toMatchObject({ min: 1, label: "Class 1" });
+  expect(graduatedStyle?.graduated.ranges[6]).toMatchObject({ max: 6, label: "Class 7" });
+});
+
+test("phase 7 graduated style only offers fully numeric fields and clears stale ranges until regenerate", async ({ page }) => {
+  const zipPath = await createGraduatedNumericFixtureZip();
+  await page.goto(debugUrl("/"));
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Graduated Numeric/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("graduated");
+
+  const fieldOptions = await page.getByLabel("Graduated field").locator("option").evaluateAll((options) =>
+    options.map((option) => ({ value: option.getAttribute("value") || "", label: option.textContent || "" }))
+  );
+  expect(fieldOptions.map((option) => option.value)).toEqual(["", "GOOD", "SPARSE"]);
+
+  const fieldSelect = page.getByLabel("Graduated field");
+  await fieldSelect.selectOption("GOOD");
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+
+  await fieldSelect.selectOption("SPARSE");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(0);
+
+  const graduatedStyle = await page.evaluate(() => {
+    const project = (window as Window & {
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: {
+            graduated: {
+              field: string;
+              ranges: Array<{ min: number; max: number; label: string }>;
+            };
+          };
+        }>;
+      };
+    }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName === "Graduated Numeric")?.style.graduated;
+  });
+
+  expect(graduatedStyle).toMatchObject({ field: "SPARSE" });
+  expect(graduatedStyle?.ranges).toHaveLength(0);
+
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(1);
+});
+
+test("phase 7 graduated style keeps editor and runtime preview fill color parity", async ({ page }) => {
+  const zipPath = await createGraduatedNumericFixtureZip();
+  await page.goto(debugUrl("/"));
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Graduated Numeric/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("graduated");
+  await page.getByLabel("Graduated field").selectOption("GOOD");
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+
+  const editorColors = await page.evaluate(() => {
+    const map = (window as Window & {
+      __q2ws_map?: {
+        eachLayer: (callback: (layer: {
+          eachLayer?: (nested: (layer: { feature?: GeoJSON.Feature; options?: { fillColor?: string } }) => void) => void;
+          feature?: GeoJSON.Feature;
+          options?: { fillColor?: string };
+        }) => void) => void;
+      };
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: { graduated: { ranges: Array<{ fillColor: string }> } };
+        }>;
+      };
+    }).__q2ws_map;
+    const fills: string[] = [];
+    map?.eachLayer((layer) => {
+      if (typeof layer.eachLayer === "function") {
+        layer.eachLayer((nested) => {
+          if (nested.feature?.properties?.GOOD != null && nested.options?.fillColor) fills.push(nested.options.fillColor);
+        });
+        return;
+      }
+      if (layer.feature?.properties?.GOOD != null && layer.options?.fillColor) fills.push(layer.options.fillColor);
+    });
+    return {
+      fills,
+      uniqueFills: Array.from(new Set(fills)),
+      graduatedRanges: (window as Window & {
+        __q2ws_project?: {
+          layers: Array<{
+            displayName: string;
+            style: { graduated: { ranges: Array<{ fillColor: string }> } };
+          }>;
+        };
+      }).__q2ws_project?.layers.find((layer) => layer.displayName === "Graduated Numeric")?.style.graduated.ranges
+    };
+  });
+
+  expect(editorColors.graduatedRanges).toHaveLength(5);
+  expect(editorColors.fills.length).toBeGreaterThanOrEqual(4);
+  expect(editorColors.uniqueFills.length).toBeGreaterThan(1);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath: exportedZipPath } = await saveDownloadToTempDir(download, "q2ws-graduated-parity-");
+
+  try {
+    await unzipToDirectory(exportedZipPath, tempDir);
+    const rootEntries = await readdir(tempDir, { withFileTypes: true });
+    const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+    if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+
+    const server = await startStaticServer(join(tempDir, exportRoot.name));
+    const runtimePage = await page.context().browser()!.newPage();
+    try {
+      const runtimeErrors: string[] = [];
+      runtimePage.on("console", (message) => {
+        if (message.type() === "error") runtimeErrors.push(message.text());
+      });
+
+      await runtimePage.goto(`${server.origin}/index.html`);
+      await runtimePage.waitForFunction(() => Boolean((window as Window & { __q2wsConfig?: unknown }).__q2wsConfig), null, { timeout: 15000 });
+      await runtimePage.waitForSelector("path.leaflet-interactive", { timeout: 15000 });
+      await runtimePage.waitForFunction(() => {
+        const runtimeWindow = window as Window & {
+          __q2wsConfig?: { layers?: Array<{ displayName: string; layerVariable?: string }> };
+          [key: string]: unknown;
+        };
+        const layerConfig = runtimeWindow.__q2wsConfig?.layers?.find((layer) => layer.displayName === "Graduated Numeric");
+        const runtimeLayer = layerConfig?.layerVariable ? runtimeWindow[layerConfig.layerVariable] as { eachLayer?: (callback: (featureLayer: { feature?: GeoJSON.Feature; options?: { fillColor?: string } }) => void) => void } : null;
+        let styledFeatureCount = 0;
+        runtimeLayer?.eachLayer?.((featureLayer) => {
+          if (featureLayer.feature?.properties?.GOOD != null && featureLayer.options?.fillColor) styledFeatureCount += 1;
+        });
+        return styledFeatureCount >= 4;
+      }, null, { timeout: 15000 });
+
+      const runtimeColors = await runtimePage.evaluate(() => {
+        const runtimeWindow = window as Window & {
+          __q2wsConfig?: { layers?: Array<{ displayName: string; layerVariable?: string; style?: { graduated?: { ranges?: Array<{ fillColor: string }> } } }> };
+          [key: string]: unknown;
+        };
+        const layerConfig = runtimeWindow.__q2wsConfig?.layers?.find((layer) => layer.displayName === "Graduated Numeric");
+        const runtimeLayer = layerConfig?.layerVariable ? runtimeWindow[layerConfig.layerVariable] as { eachLayer?: (callback: (featureLayer: { feature?: GeoJSON.Feature; options?: { fillColor?: string } }) => void) => void } : null;
+        const fills: string[] = [];
+        runtimeLayer?.eachLayer?.((featureLayer) => {
+          if (featureLayer.feature?.properties?.GOOD != null && featureLayer.options?.fillColor) fills.push(featureLayer.options.fillColor);
+        });
+        return {
+          fills,
+          uniqueFills: Array.from(new Set(fills)).sort(),
+          graduatedRanges: layerConfig?.style?.graduated?.ranges
+        };
+      });
+
+      expect(runtimeColors.graduatedRanges).toHaveLength(5);
+      expect(runtimeColors.fills.length, JSON.stringify(runtimeColors)).toBeGreaterThanOrEqual(4);
+      expect(runtimeColors.uniqueFills.length).toBeGreaterThan(1);
+      expect(runtimeColors.uniqueFills).toEqual([...editorColors.uniqueFills].sort());
+      expect(runtimeErrors).toEqual([]);
+    } finally {
+      await runtimePage.close();
+      await server.close();
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("phase 7 categorized style keeps empty values aligned with rendered lookup", async ({ page }) => {
+  const zipPath = await createCategorizedEmptyFixtureZip();
+  await page.goto(debugUrl("/"));
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Category Test/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("categorized");
+  await page.getByLabel("Category field").selectOption("GROUP");
+
+  await expect(page.locator(".category-row")).toHaveCount(2);
+  await expect(page.locator(".category-row").first().locator("input").first()).toHaveValue("(empty)");
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath: exportedZipPath } = await saveDownloadToTempDir(download, "q2ws-category-empty-export-");
+
+  try {
+    await unzipToDirectory(exportedZipPath, tempDir);
+    const rootEntries = await readdir(tempDir, { withFileTypes: true });
+    const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+    if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+
+    const server = await startStaticServer(join(tempDir, exportRoot.name));
+    const runtimePage = await page.context().browser()!.newPage();
+    try {
+      const runtimeErrors: string[] = [];
+      runtimePage.on("console", (message) => {
+        if (message.type() === "error") runtimeErrors.push(message.text());
+      });
+
+      await runtimePage.goto(`${server.origin}/index.html`);
+      await runtimePage.waitForFunction(() => Boolean((window as Window & { layer_CategoryTest_1?: unknown; __q2wsConfig?: unknown }).layer_CategoryTest_1 && window.__q2wsConfig), null, { timeout: 15000 });
+      await runtimePage.waitForSelector("path.leaflet-interactive", { timeout: 15000 });
+
+      const runtimeState = await runtimePage.evaluate(() => {
+        const runtimeWindow = window as Window & {
+          __q2wsConfig?: {
+            layers?: Array<{
+              displayName: string;
+              style?: { categoryField?: string; categories?: Array<{ value: string; label: string; fillColor?: string; strokeColor?: string }> };
+            }>;
+          };
+          layer_CategoryTest_1?: { eachLayer: (callback: (featureLayer: { feature?: GeoJSON.Feature; options?: { fillColor?: string; color?: string } }) => void) => void };
+        };
+
+        const layerConfig = runtimeWindow.__q2wsConfig?.layers?.find((layer) => layer.displayName === "Category Test");
+        if (!layerConfig?.style?.categoryField || !layerConfig.style.categories) throw new Error("Expected categorized runtime config.");
+        const rendered: Array<{ name: string | null; rawValue: unknown; matchedValue: string | null; matchedLabel: string | null; fillColor: string | null; strokeColor: string | null }> = [];
+        runtimeWindow.layer_CategoryTest_1?.eachLayer((featureLayer) => {
+          const rawValue = featureLayer.feature?.properties?.[layerConfig.style?.categoryField as string];
+          const normalizedValue = rawValue == null ? "" : String(rawValue);
+          const matched = layerConfig.style?.categories?.find((category) => category.value === normalizedValue) || null;
+          rendered.push({
+            name: typeof featureLayer.feature?.properties?.NAME === "string" ? featureLayer.feature.properties.NAME : null,
+            rawValue: rawValue ?? null,
+            matchedValue: matched?.value ?? null,
+            matchedLabel: matched?.label ?? null,
+            fillColor: featureLayer.options?.fillColor ?? null,
+            strokeColor: featureLayer.options?.color ?? null
+          });
+        });
+        return {
+          categories: layerConfig.style.categories,
+          rendered
+        };
+      });
+
+      expect(runtimeState.categories).toMatchObject([
+        { value: "", label: "(empty)" },
+        { value: "Filled", label: "Filled" }
+      ]);
+      expect(runtimeState.rendered).toEqual([
+        { name: "filled", rawValue: "Filled", matchedValue: "Filled", matchedLabel: "Filled", fillColor: runtimeState.categories[1]?.fillColor ?? null, strokeColor: runtimeState.categories[1]?.strokeColor ?? null },
+        { name: "empty", rawValue: "", matchedValue: "", matchedLabel: "(empty)", fillColor: runtimeState.categories[0]?.fillColor ?? null, strokeColor: runtimeState.categories[0]?.strokeColor ?? null },
+        { name: "nullish", rawValue: null, matchedValue: "", matchedLabel: "(empty)", fillColor: runtimeState.categories[0]?.fillColor ?? null, strokeColor: runtimeState.categories[0]?.strokeColor ?? null },
+        { name: "missing", rawValue: null, matchedValue: "", matchedLabel: "(empty)", fillColor: runtimeState.categories[0]?.fillColor ?? null, strokeColor: runtimeState.categories[0]?.strokeColor ?? null }
+      ]);
+      expect(runtimeErrors).toEqual([]);
+    } finally {
+      await runtimePage.close();
+      await server.close();
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("phase 6 preview can reopen repeatedly without orphan state", async ({ page }) => {

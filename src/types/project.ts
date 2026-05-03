@@ -11,7 +11,30 @@ export type VirtualFile = {
   mime?: string;
 };
 
+export type LayerStyleMode = "single" | "categorized" | "graduated";
+
+export type GraduatedMethod = "equal" | "quantile" | "manual";
+
+export type GraduatedRange = {
+  min: number;
+  max: number;
+  label: string;
+  fillColor: string;
+  strokeColor: string;
+  strokeWidth: number;
+  dashArray: string;
+  visible: boolean;
+};
+
+export type GraduatedStyle = {
+  field: string;
+  method: GraduatedMethod;
+  classCount: number;
+  ranges: GraduatedRange[];
+};
+
 export type LayerStyle = {
+  mode: LayerStyleMode;
   fillColor: string;
   strokeColor: string;
   fillOpacity: number;
@@ -25,6 +48,7 @@ export type LayerStyle = {
   sourceImagePath: string;
   categoryField: string;
   categories: LayerCategoryStyle[];
+  graduated: GraduatedStyle;
 };
 
 export type LayerCategoryStyle = {

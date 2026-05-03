@@ -1,0 +1,12 @@
+
+Running 7 tests using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:751:1 › phase 7 style mode selector shows single-style empty state (794ms)
+  ✓  2 tests/map-render.spec.ts:778:1 › phase 7 style modes keep editor and export runtime parity across single categorized and graduated (9.6s)
+  ✓  3 tests/map-render.spec.ts:869:1 › phase 7 categorized style regenerates categories from chosen field (759ms)
+  ✓  4 tests/map-render.spec.ts:909:1 › phase 7 graduated style generates numeric ranges from selected field (1.0s)
+  ✓  5 tests/map-render.spec.ts:973:1 › phase 7 graduated style only offers fully numeric fields and clears stale ranges until regenerate (479ms)
+  ✓  6 tests/map-render.spec.ts:1020:1 › phase 7 graduated style keeps editor and runtime preview fill color parity (5.1s)
+  ✓  7 tests/map-render.spec.ts:1147:1 › phase 7 categorized style keeps empty values aligned with rendered lookup (5.1s)
+
+  7 passed (23.7s)

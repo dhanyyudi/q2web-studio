@@ -134,6 +134,7 @@ export function defaultLayerStyle(geometryType: string, index: number): LayerSty
   const isPoint = geometryType.includes("Point");
 
   return {
+    mode: "single",
     fillColor: isLine ? "transparent" : color,
     strokeColor: color,
     fillOpacity: isPoint ? 0.85 : 0.55,
@@ -146,6 +147,12 @@ export function defaultLayerStyle(geometryType: string, index: number): LayerSty
     symbolType: isLine ? "line" : isPoint ? "point" : "polygon",
     sourceImagePath: "",
     categoryField: "",
-    categories: []
+    categories: [],
+    graduated: {
+      field: "",
+      method: "equal",
+      classCount: 5,
+      ranges: []
+    }
   };
 }

@@ -1,5 +1,6 @@
 import type { FeatureCollection } from "geojson";
 import { defaultLayerControlSettings } from "./defaults";
+import { normalizeGraduatedStyle, normalizeLayerStyleMode } from "./styleMode";
 import type { LayerControlMode, LayerManifest, Qgis2webProject } from "../types/project";
 
 function featureMatchesId(feature: FeatureCollection["features"][number], featureId: string): boolean {
@@ -25,7 +26,19 @@ export function migrateProject(project: Qgis2webProject): Qgis2webProject {
       ...project.legendSettings,
       enabled: legendWasEnabled,
       placement: legendPlacement || (legendWasEnabled ? "inside-control" : "hidden")
-    }
+    },
+    layers: (project.layers || []).map((layer) => ({
+      ...layer,
+      style: normalizeLayerStyle(layer)
+    }))
+  };
+}
+
+function normalizeLayerStyle(layer: LayerManifest): LayerManifest["style"] {
+  return {
+    ...layer.style,
+    mode: normalizeLayerStyleMode(layer.style),
+    graduated: normalizeGraduatedStyle(layer.style?.graduated)
   };
 }
 
@@ -156,10 +169,17 @@ export function renameField(project: Qgis2webProject, layerId: string, oldKey: s
     popupFields,
     popupTemplate,
     label,
-    style: {
-      ...layer.style,
-      categoryField: layer.style.categoryField === oldKey ? cleanKey : layer.style.categoryField
-    }
+    style: normalizeLayerStyle({
+      ...layer,
+      style: {
+        ...layer.style,
+        categoryField: layer.style.categoryField === oldKey ? cleanKey : layer.style.categoryField,
+        graduated: {
+          ...layer.style.graduated,
+          field: layer.style.graduated?.field === oldKey ? cleanKey : layer.style.graduated?.field || ""
+        }
+      }
+    })
   });
 }
 
@@ -192,9 +212,16 @@ export function deleteField(project: Qgis2webProject, layerId: string, key: stri
     popupFields: remainingFields,
     popupTemplate,
     label,
-    style: {
-      ...layer.style,
-      categoryField: layer.style.categoryField === key ? "" : layer.style.categoryField
-    }
+    style: normalizeLayerStyle({
+      ...layer,
+      style: {
+        ...layer.style,
+        categoryField: layer.style.categoryField === key ? "" : layer.style.categoryField,
+        graduated: {
+          ...layer.style.graduated,
+          field: layer.style.graduated?.field === key ? "" : layer.style.graduated?.field || ""
+        }
+      }
+    })
   });
 }
