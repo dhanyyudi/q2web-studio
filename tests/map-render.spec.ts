@@ -676,6 +676,77 @@ test("phase 6 preview renders after main app CSP reverts to strict mode", async 
   expect(consoleErrors).toEqual([]);
 });
 
+test("phase 6 initial view can match qgis2web export-original bounds", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const projectView = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { mapSettings: { initialZoomMode: string; initialBounds?: [[number, number], [number, number]] } } }).__q2ws_project;
+    const map = (window as Window & { __q2ws_map?: { getCenter: () => { lat: number; lng: number }; getBounds: () => { contains: (latLng: [number, number]) => boolean } } }).__q2ws_map;
+    if (!project || !map || !project.mapSettings.initialBounds) throw new Error("Expected imported project and map.");
+    const center = map.getCenter();
+    return {
+      mode: project.mapSettings.initialZoomMode,
+      containsSouthWest: map.getBounds().contains(project.mapSettings.initialBounds[0]),
+      containsNorthEast: map.getBounds().contains(project.mapSettings.initialBounds[1]),
+      center: [center.lat, center.lng]
+    };
+  });
+  expect(projectView.mode).toBe("export-original");
+  expect(projectView.containsSouthWest).toBe(true);
+  expect(projectView.containsNorthEast).toBe(true);
+  expect(projectView.center[0]).toBeGreaterThan(-6.81);
+  expect(projectView.center[0]).toBeLessThan(-6.75);
+  expect(projectView.center[1]).toBeGreaterThan(108.44);
+  expect(projectView.center[1]).toBeLessThan(108.50);
+
+  await page.getByRole("tab", { name: "Map" }).click();
+  await expect(page.getByRole("button", { name: "Match qgis2web export view" })).toBeVisible();
+
+  await page.getByTestId("open-preview").click();
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  const runtimeView = await frame.locator("body").evaluate(() => {
+    const runtimeWindow = window as Window & {
+      map?: { getCenter: () => { lat: number; lng: number }; getBounds: () => { contains: (latLng: [number, number]) => boolean } };
+      __q2wsConfig?: { mapSettings: { initialZoomMode: string; initialBounds?: [[number, number], [number, number]] } };
+    };
+    if (!runtimeWindow.map || !runtimeWindow.__q2wsConfig?.mapSettings.initialBounds) throw new Error("Expected runtime map and config.");
+    const center = runtimeWindow.map.getCenter();
+    return {
+      mode: runtimeWindow.__q2wsConfig.mapSettings.initialZoomMode,
+      containsSouthWest: runtimeWindow.map.getBounds().contains(runtimeWindow.__q2wsConfig.mapSettings.initialBounds[0]),
+      containsNorthEast: runtimeWindow.map.getBounds().contains(runtimeWindow.__q2wsConfig.mapSettings.initialBounds[1]),
+      center: [center.lat, center.lng]
+    };
+  });
+  expect(runtimeView.mode).toBe("export-original");
+  expect(runtimeView.containsSouthWest).toBe(true);
+  expect(runtimeView.containsNorthEast).toBe(true);
+});
+
+test("phase 6 preview can reopen repeatedly without orphan state", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  for (let index = 0; index < 3; index += 1) {
+    await page.getByTestId("open-preview").click();
+    const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+    await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+    await expect(page.frameLocator('[data-testid="runtime-preview-frame"]').locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: /Exit Preview/i }).click();
+    await expect(iframe).toHaveCount(0);
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("runtime preview mirrors exported map path", async ({ page }) => {
   const requests: string[] = [];
   const consoleErrors: string[] = [];

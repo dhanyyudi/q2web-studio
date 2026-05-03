@@ -125,6 +125,7 @@ export function MapCanvas({
     project.mapSettings.initialZoomMode,
     project.mapSettings.initialZoom,
     project.mapSettings.initialBounds,
+    project.mapSettings.initialCenter,
     mapInstanceVersion
   );
   useTerraDrawEditor({

@@ -23,6 +23,7 @@ type ProjectInspectorProps = {
   addPresetBasemap: (basemap: BasemapConfig) => void;
   addCustomBasemap: () => void;
   setMapSetting: <K extends keyof Qgis2webProject["mapSettings"]>(key: K, value: Qgis2webProject["mapSettings"][K]) => void;
+  resetToExportView: () => void;
   setLayerControlSetting: <K extends keyof Qgis2webProject["layerControlSettings"]>(key: K, value: Qgis2webProject["layerControlSettings"][K]) => void;
   toggleRuntimeWidget: (widgetId: string, enabled: boolean) => void;
   setLegendSetting: <K extends keyof Qgis2webProject["legendSettings"]>(key: K, value: Qgis2webProject["legendSettings"][K]) => void;
@@ -62,6 +63,7 @@ export function InspectorShell(props: InspectorShellProps) {
           addPresetBasemap={props.addPresetBasemap}
           addCustomBasemap={props.addCustomBasemap}
           setMapSetting={props.setMapSetting}
+          resetToExportView={props.resetToExportView}
           setLayerControlSetting={props.setLayerControlSetting}
           toggleRuntimeWidget={props.toggleRuntimeWidget}
           setLegendSetting={props.setLegendSetting}

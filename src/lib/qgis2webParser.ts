@@ -112,7 +112,8 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
     mapSettings: {
       ...defaultMapSettings,
       basemap: basemaps.find((basemap) => basemap.default)?.id || defaultMapSettings.basemap,
-      initialBounds: parseInitialBounds(indexHtml)
+      initialBounds: parseInitialBounds(indexHtml),
+      initialCenter: parseInitialCenter(indexHtml)
     },
     basemaps: basemaps.length ? basemaps : defaultBasemaps,
     runtime: {
@@ -739,6 +740,14 @@ function parseInitialBounds(indexHtml: string): [[number, number], [number, numb
     [values[0], values[1]],
     [values[2], values[3]]
   ];
+}
+
+function parseInitialCenter(indexHtml: string): [number, number] | undefined {
+  const match = indexHtml.match(/\.setView\(\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]\s*,\s*-?\d+(?:\.\d+)?\s*\)/);
+  if (!match) return undefined;
+  const values = match.slice(1).map((value) => Number.parseFloat(value));
+  if (values.some((value) => !Number.isFinite(value))) return undefined;
+  return [values[0], values[1]];
 }
 
 function parseTitle(indexHtml: string): string {

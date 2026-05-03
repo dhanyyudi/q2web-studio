@@ -12,6 +12,7 @@ import { ColorInput, PanelTitle, SegmentedControl, SelectField, SwitchLabel } fr
 
 export type ProjectMapTabProps = {
   project: Qgis2webProject;
+  resetToExportView: () => void;
   presetBasemapProvider: string;
   setPresetBasemapProvider: (value: string) => void;
   baseMapPresetGroups: { name: string; items: BasemapConfig[] }[];
@@ -77,8 +78,9 @@ export function ProjectMapTab(props: ProjectMapTabProps) {
       <ColorInput label="Control text" value={project.layerControlSettings.textColor} onChange={(value) => props.setLayerControlSetting("textColor", value)} />
       <RangeNumberField label="Control text size" value={project.layerControlSettings.textSize} min={10} max={18} step={1} unit="px" onChange={(value) => props.setLayerControlSetting("textSize", value)} />
       <RangeNumberField label="Control radius" value={project.layerControlSettings.borderRadius} min={0} max={28} step={1} unit="px" onChange={(value) => props.setLayerControlSetting("borderRadius", value)} />
-      <SelectField label="Initial zoom" value={project.mapSettings.initialZoomMode} onChange={(value) => props.setMapSetting("initialZoomMode", value as InitialZoomMode)} options={[{ value: "fit", label: "Fit visible layers" }, { value: "fixed", label: "Use fixed zoom level" }]} />
+      <SelectField label="Initial zoom" value={project.mapSettings.initialZoomMode} onChange={(value) => props.setMapSetting("initialZoomMode", value as InitialZoomMode)} options={[{ value: "export-original", label: "Match qgis2web export" }, { value: "fit", label: "Fit visible layers" }, { value: "fixed", label: "Use fixed zoom level" }]} />
       <RangeNumberField label="Zoom level" value={project.mapSettings.initialZoom} min={5} max={20} step={1} onChange={(value) => props.setMapSetting("initialZoom", value)} />
+      <button type="button" className="btn compact full" onClick={props.resetToExportView} disabled={!project.mapSettings.initialBounds && !project.mapSettings.initialCenter}>Match qgis2web export view</button>
       {project.runtime.widgets.length > 0 && <><PanelTitle icon={<Settings2 size={16} />} title="Original Widgets" /><div className="widget-list">{project.runtime.widgets.map((widget) => <label key={widget.id} className="widget-row"><input type="checkbox" checked={widget.enabled} onChange={(event) => props.toggleRuntimeWidget(widget.id, event.target.checked)} /><span>{widget.label}</span><small>{widget.assetPaths.length ? `${widget.assetPaths.length} assets` : "detected"}</small></label>)}</div></>}
       <PanelTitle icon={<Wand2 size={16} />} title="Legend" />
       <div className="toggle-grid"><SwitchLabel label="Show legend" checked={project.legendSettings.enabled} onCheckedChange={(checked) => props.setLegendSetting("enabled", checked)} testId="legend-enabled" /></div>

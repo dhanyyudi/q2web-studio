@@ -228,10 +228,13 @@ export const q2wsRuntime = String.raw`(function () {
   function applyInitialView(config) {
     if (!window.map) return;
     var settings = config.mapSettings || {};
-    var bounds = layerBounds(config);
+    var exportBounds = settings.initialBounds && window.L ? window.L.latLngBounds(settings.initialBounds) : null;
+    var adaptiveBounds = layerBounds(config);
+    var bounds = settings.initialZoomMode === "fit" ? adaptiveBounds : (exportBounds || adaptiveBounds);
     if (!bounds) return;
     if (settings.initialZoomMode === "fixed") {
-      window.map.setView(bounds.getCenter(), Number(settings.initialZoom || 13));
+      var center = settings.initialCenter && window.L ? window.L.latLng(settings.initialCenter) : bounds.getCenter();
+      window.map.setView(center, Number(settings.initialZoom || 13));
       return;
     }
     window.map.fitBounds(bounds, { padding: [28, 28] });
@@ -756,6 +759,7 @@ export const q2wsRuntime = String.raw`(function () {
     fetch("q2ws-config.json")
       .then(function (response) { return response.json(); })
       .then(function (config) {
+        window.__q2wsConfig = config;
         window.__q2wsConfigPopupSettings = config.popupSettings || { style: "card" };
         document.documentElement.style.setProperty("--q2ws-accent", config.theme.accent);
         document.documentElement.style.setProperty("--q2ws-surface", config.theme.surface);

@@ -18,7 +18,7 @@ import type { GeometryKind } from "../lib/appHelpers";
 type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
 type PanelRef = ReturnType<typeof usePanelRef>;
 type PanelLayout = Record<string, number>;
-type InspectorBaseProps = "project" | "selectedLayer" | "inspectorMode" | "logoInputRef" | "presetBasemapProvider" | "setPresetBasemapProvider" | "baseMapPresetGroups" | "updateProject" | "importLogo" | "updateBasemapField" | "moveBasemap" | "removeBasemap" | "setDefaultBasemap" | "addPresetBasemap" | "addCustomBasemap" | "setMapSetting" | "updateManualLegendItems" | "clearSelectedFeature" | "selectedGeometryKind" | "selectedFeatureIds" | "selectedLayerHasMultiGeometry" | "selectedFeatureData" | "addManualLegendItem";
+type InspectorBaseProps = "project" | "selectedLayer" | "inspectorMode" | "logoInputRef" | "presetBasemapProvider" | "setPresetBasemapProvider" | "baseMapPresetGroups" | "updateProject" | "importLogo" | "updateBasemapField" | "moveBasemap" | "removeBasemap" | "setDefaultBasemap" | "addPresetBasemap" | "addCustomBasemap" | "setMapSetting" | "resetToExportView" | "updateManualLegendItems" | "clearSelectedFeature" | "selectedGeometryKind" | "selectedFeatureIds" | "selectedLayerHasMultiGeometry" | "selectedFeatureData" | "addManualLegendItem";
 type InspectorActions = Omit<InspectorShellProps, InspectorBaseProps> & {
   selectedFeatureData: InspectorShellProps["selectedFeatureData"];
   addManualLegend: () => void;
@@ -53,6 +53,7 @@ export type AppWorkspaceProps = {
   updateProject: (project: Qgis2webProject, options?: UpdateProjectOptions) => void;
   setDefaultBasemap: (basemapId: string) => void;
   setMapSetting: <K extends keyof MapSettings>(key: K, value: MapSettings[K]) => void;
+  resetToExportView: () => void;
   selectedGeometryKind: GeometryKind;
   selectedLayerHasMultiGeometry: boolean;
   canEditGeometry: boolean;
@@ -103,7 +104,7 @@ export function AppWorkspace(props: AppWorkspaceProps) {
     defaultWorkspaceLayout, onWorkspaceLayoutChanged, defaultLayout, onLayoutChanged, leftPanelCollapsed,
     setWorkspaceLeftPanelCollapsed, importVirtualFiles, importZipFile, importFiles, startImport, startZipImport,
     setStatus, inspectorMode, setInspectorMode, selectedLayer, setSelectedLayerId, setSelectedFeature,
-    updateProject, setDefaultBasemap, setMapSetting, selectedGeometryKind, selectedLayerHasMultiGeometry,
+    updateProject, setDefaultBasemap, setMapSetting, resetToExportView, selectedGeometryKind, selectedLayerHasMultiGeometry,
     canEditGeometry, canDrawPoint, canDrawLine, canDrawPolygon, drawMode, setDrawModeWithGuard, snapEnabled,
     setSnapEnabled, addTextAnnotation, setShowShortcutDialog, tableMode, setTableMode, attributeFilter,
     setAttributeFilter, showFieldsDialog, setShowFieldsDialog, newField, setNewField, renameFrom,
@@ -176,7 +177,7 @@ export function AppWorkspace(props: AppWorkspaceProps) {
           </Panel>
           <Separator className="workspace-resize-handle" />
           <Panel id="right-panel" defaultSize="26%" minSize="20%" maxSize="45%" collapsible collapsedSize="0%" panelRef={inspectorPanelRef}>
-            {project ? <InspectorShell project={project} selectedLayer={selectedLayer} inspectorMode={inspectorMode} logoInputRef={logoInputRef} presetBasemapProvider={presetBasemapProvider} setPresetBasemapProvider={setPresetBasemapProvider} baseMapPresetGroups={baseMapPresetGroups} updateProject={updateProject} importLogo={importLogo} updateBasemapField={updateBasemapField} moveBasemap={moveBasemap} removeBasemap={removeBasemap} setDefaultBasemap={setDefaultBasemap} addPresetBasemap={addPresetBasemap} addCustomBasemap={addCustomBasemap} setMapSetting={setMapSetting} updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })} clearSelectedFeature={() => setSelectedFeature(null)} selectedGeometryKind={selectedGeometryKind} selectedFeatureIds={selectedFeatureIds} selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry} {...inspectorActions} selectedFeatureData={inspectorActions.selectedFeatureData || null} addManualLegendItem={inspectorActions.addManualLegend} /> : <div className="inspector inspector-empty" aria-hidden="true" />}
+            {project ? <InspectorShell project={project} selectedLayer={selectedLayer} inspectorMode={inspectorMode} logoInputRef={logoInputRef} presetBasemapProvider={presetBasemapProvider} setPresetBasemapProvider={setPresetBasemapProvider} baseMapPresetGroups={baseMapPresetGroups} updateProject={updateProject} importLogo={importLogo} updateBasemapField={updateBasemapField} moveBasemap={moveBasemap} removeBasemap={removeBasemap} setDefaultBasemap={setDefaultBasemap} addPresetBasemap={addPresetBasemap} addCustomBasemap={addCustomBasemap} setMapSetting={setMapSetting} resetToExportView={resetToExportView} updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })} clearSelectedFeature={() => setSelectedFeature(null)} selectedGeometryKind={selectedGeometryKind} selectedFeatureIds={selectedFeatureIds} selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry} {...inspectorActions} selectedFeatureData={inspectorActions.selectedFeatureData || null} addManualLegendItem={inspectorActions.addManualLegend} /> : <div className="inspector inspector-empty" aria-hidden="true" />}
           </Panel>
         </Group>
         {leftPanelCollapsed && <button data-testid="left-panel-expand" type="button" className="left-panel-expand" aria-label="Expand side panel" onClick={() => setWorkspaceLeftPanelCollapsed(false)}><span>☰</span></button>}
