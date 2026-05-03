@@ -48,7 +48,7 @@ export const defaultBranding: BrandingSettings = {
 export const defaultMapSettings: MapSettings = {
   basemap: "carto-voyager",
   viewMode: "all",
-  initialZoomMode: "fit",
+  initialZoomMode: "export-original",
   initialZoom: 13,
   layerControlMode: "collapsed"
 };

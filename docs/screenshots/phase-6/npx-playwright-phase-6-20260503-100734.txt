@@ -1,0 +1,9 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:644:1 › phase 6 preview uses service worker route instead of blob iframe (5.0s)
+  ✓  2 tests/map-render.spec.ts:660:1 › phase 6 preview renders after main app CSP reverts to strict mode (4.9s)
+  ✓  3 tests/map-render.spec.ts:679:1 › phase 6 initial view can match qgis2web export-original bounds (5.1s)
+  ✓  4 tests/map-render.spec.ts:729:1 › phase 6 preview can reopen repeatedly without orphan state (5.5s)
+
+  4 passed (21.5s)

@@ -185,7 +185,7 @@ export type BasemapId =
   | "none";
 
 export type MapViewMode = "all" | "selected";
-export type InitialZoomMode = "fit" | "fixed";
+export type InitialZoomMode = "fit" | "fixed" | "export-original";
 
 export type LayerControlMode = "collapsed" | "expanded" | "tree";
 export type LayerControlPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -206,6 +206,7 @@ export type MapSettings = {
   initialZoomMode: InitialZoomMode;
   initialZoom: number;
   initialBounds?: [[number, number], [number, number]];
+  initialCenter?: [number, number];
   layerControlMode: LayerControlMode;
 };
 

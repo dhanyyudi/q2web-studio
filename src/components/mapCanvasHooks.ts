@@ -359,6 +359,7 @@ export function useAutoFit(
   initialZoomMode: Qgis2webProject["mapSettings"]["initialZoomMode"],
   initialZoom: number,
   initialBounds: Qgis2webProject["mapSettings"]["initialBounds"],
+  initialCenter: Qgis2webProject["mapSettings"]["initialCenter"],
   mapInstanceVersion: number
 ) {
   const lastAutoFitKeyRef = useRef("");
@@ -410,7 +411,9 @@ export function useAutoFit(
       }
     }
     lastAutoFitKeyRef.current = instanceAutoFitKey;
-    const bounds = (initialBounds ? L.latLngBounds(initialBounds) : null) || projectBounds(renderLayers);
+    const exportBounds = initialBounds ? L.latLngBounds(initialBounds) : null;
+    const adaptiveBounds = projectBounds(renderLayers);
+    const bounds = initialZoomMode === "fit" ? adaptiveBounds : exportBounds || adaptiveBounds;
     if (!bounds) {
       debugLog("autofit", "skip-no-bounds", { autoFitKey: instanceAutoFitKey });
       return;
@@ -421,8 +424,9 @@ export function useAutoFit(
       if (mapRef.current !== map || !map.getContainer()?.isConnected) return;
       map.invalidateSize();
       if (initialZoomMode === "fixed") {
-        debugLog("autofit", "set-view", { zoom: initialZoom, center: bounds.getCenter() });
-        map.setView(bounds.getCenter(), initialZoom);
+        const center = initialCenter ? L.latLng(initialCenter) : bounds.getCenter();
+        debugLog("autofit", "set-view", { zoom: initialZoom, center });
+        map.setView(center, initialZoom);
       } else {
         debugLog("autofit", "fit-bounds", { bounds: bounds.toBBoxString() });
         map.fitBounds(bounds, { padding: [28, 28] });
@@ -431,7 +435,7 @@ export function useAutoFit(
         programmaticMoveRef.current = false;
       }, 0);
     });
-  }, [autoFitKey, initialBounds, initialZoom, initialZoomMode, lastAutoFitKeyRef, mapInstanceVersion, mapRef, programmaticMoveRef, renderLayers]);
+  }, [autoFitKey, initialBounds, initialCenter, initialZoom, initialZoomMode, lastAutoFitKeyRef, mapInstanceVersion, mapRef, programmaticMoveRef, renderLayers]);
 }
 
 export function useTerraDrawEditor({

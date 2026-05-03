@@ -1,0 +1,5 @@
+
+> q2webstudio@0.1.0 smoke:export
+> tsx scripts/smoke-export.ts
+
+Export smoke verified q2ws runtime files, config fidelity, enabled widget assets, and disabled widget asset removal.

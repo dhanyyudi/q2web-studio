@@ -228,13 +228,18 @@ test("audit v4 phase 2 debt keeps App shell below 400 lines", async () => {
   expect(lines.length).toBeLessThanOrEqual(400);
 });
 
-test("production headers allow temporary blob runtime preview", async ({ page }) => {
+test("production headers restore strict main app CSP after service worker preview", async ({ page }) => {
   const response = await page.goto("/_headers");
   expect(response?.ok()).toBe(true);
   const headers = await page.locator("body").textContent();
-  expect(headers).toContain("script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' blob:");
-  expect(headers).toContain("style-src 'self' 'unsafe-inline' blob:");
-  expect(headers).toContain("TEMPORARY: 'unsafe-inline' + blob: required for blob-iframe Preview");
+  expect(headers).toContain("script-src 'self' 'wasm-unsafe-eval'");
+  expect(headers).toContain("style-src 'self' 'unsafe-inline'");
+  expect(headers).toContain("worker-src 'self' blob:");
+  expect(headers).toContain("frame-src 'self'");
+  expect(headers).not.toContain("script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' blob:");
+  expect(headers).not.toContain("style-src 'self' 'unsafe-inline' blob:");
+  expect(headers).not.toContain("frame-src 'self' blob:");
+  expect(headers).not.toContain("TEMPORARY: 'unsafe-inline' + blob: required for blob-iframe Preview");
 });
 
 test("selected feature header uses a readable label and cannot overflow inspector", async ({ page }) => {
@@ -636,6 +641,112 @@ test("scales selected simple features in place and exports coordinates", async (
   }
 });
 
+test("phase 6 preview uses service worker route instead of blob iframe", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto("/?debug=1");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByTestId("open-preview").click();
+  const frame = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(frame).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+  expect(consoleErrors).toEqual([]);
+});
+
+test("phase 6 preview renders after main app CSP reverts to strict mode", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  await expect(frame.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
+  expect(consoleErrors).toEqual([]);
+});
+
+test("phase 6 initial view can match qgis2web export-original bounds", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const projectView = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { mapSettings: { initialZoomMode: string; initialBounds?: [[number, number], [number, number]] } } }).__q2ws_project;
+    const map = (window as Window & { __q2ws_map?: { getCenter: () => { lat: number; lng: number }; getBounds: () => { contains: (latLng: [number, number]) => boolean } } }).__q2ws_map;
+    if (!project || !map || !project.mapSettings.initialBounds) throw new Error("Expected imported project and map.");
+    const center = map.getCenter();
+    return {
+      mode: project.mapSettings.initialZoomMode,
+      containsSouthWest: map.getBounds().contains(project.mapSettings.initialBounds[0]),
+      containsNorthEast: map.getBounds().contains(project.mapSettings.initialBounds[1]),
+      center: [center.lat, center.lng]
+    };
+  });
+  expect(projectView.mode).toBe("export-original");
+  expect(projectView.containsSouthWest).toBe(true);
+  expect(projectView.containsNorthEast).toBe(true);
+  expect(projectView.center[0]).toBeGreaterThan(-6.81);
+  expect(projectView.center[0]).toBeLessThan(-6.75);
+  expect(projectView.center[1]).toBeGreaterThan(108.44);
+  expect(projectView.center[1]).toBeLessThan(108.50);
+
+  await page.getByRole("tab", { name: "Map" }).click();
+  await expect(page.getByRole("button", { name: "Match qgis2web export view" })).toBeVisible();
+
+  await page.getByTestId("open-preview").click();
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  const runtimeView = await frame.locator("body").evaluate(() => {
+    const runtimeWindow = window as Window & {
+      map?: { getCenter: () => { lat: number; lng: number }; getBounds: () => { contains: (latLng: [number, number]) => boolean } };
+      __q2wsConfig?: { mapSettings: { initialZoomMode: string; initialBounds?: [[number, number], [number, number]] } };
+    };
+    if (!runtimeWindow.map || !runtimeWindow.__q2wsConfig?.mapSettings.initialBounds) throw new Error("Expected runtime map and config.");
+    const center = runtimeWindow.map.getCenter();
+    return {
+      mode: runtimeWindow.__q2wsConfig.mapSettings.initialZoomMode,
+      containsSouthWest: runtimeWindow.map.getBounds().contains(runtimeWindow.__q2wsConfig.mapSettings.initialBounds[0]),
+      containsNorthEast: runtimeWindow.map.getBounds().contains(runtimeWindow.__q2wsConfig.mapSettings.initialBounds[1]),
+      center: [center.lat, center.lng]
+    };
+  });
+  expect(runtimeView.mode).toBe("export-original");
+  expect(runtimeView.containsSouthWest).toBe(true);
+  expect(runtimeView.containsNorthEast).toBe(true);
+});
+
+test("phase 6 preview can reopen repeatedly without orphan state", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  for (let index = 0; index < 3; index += 1) {
+    await page.getByTestId("open-preview").click();
+    const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+    await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+    await expect(page.frameLocator('[data-testid="runtime-preview-frame"]').locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: /Exit Preview/i }).click();
+    await expect(iframe).toHaveCount(0);
+  }
+  expect(consoleErrors).toEqual([]);
+});
+
 test("runtime preview mirrors exported map path", async ({ page }) => {
   const requests: string[] = [];
   const consoleErrors: string[] = [];
@@ -654,7 +765,7 @@ test("runtime preview mirrors exported map path", async ({ page }) => {
   const iframe = page.locator('[data-testid="runtime-preview-frame"]');
   await expect(iframe).toBeVisible({ timeout: 15000 });
   await expect(iframe).toHaveAttribute("sandbox", "allow-scripts allow-popups allow-same-origin");
-  await expect(iframe).toHaveAttribute("src", /blob:/);
+  await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
   const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
   await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
   await expect(frame.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
@@ -692,18 +803,18 @@ test("runtime preview mirrors disabled widget export state", async ({ page }) =>
   await page.getByTestId("open-preview").click();
   const iframe = page.locator('[data-testid="runtime-preview-frame"]');
   await expect(iframe).toBeVisible({ timeout: 15000 });
-  await expect(iframe).toHaveAttribute("src", /blob:/);
+  await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
   const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
   await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
   await expect(frame.locator(".leaflet-control-measure")).toHaveCount(0);
 
-  const srcdoc = await page.evaluate(async () => {
+  const previewHtml = await page.evaluate(async () => {
     const iframe = document.querySelector<HTMLIFrameElement>('[data-testid="runtime-preview-frame"]');
     if (!iframe?.src) return "";
     return fetch(iframe.src).then((response) => response.text());
   });
-  expect(srcdoc).not.toContain("leaflet-measure.css");
-  expect(srcdoc).not.toContain("leaflet.photon.css");
+  expect(previewHtml).not.toContain("leaflet-measure.css");
+  expect(previewHtml).not.toContain("leaflet.photon.css");
   expect(consoleErrors).toEqual([]);
 });
 

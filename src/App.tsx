@@ -54,7 +54,7 @@ export function App() {
     newFeaturePropertyKey, setNewFeaturePropertyKey, newFeaturePropertyValue, setNewFeaturePropertyValue,
     updateProject, undoProject, redoProject, warnAboutLargeDatasets, handleTileError, handleSelectedFeatureChange,
     patchSelectedLayer, selectedFeatureTitle, updateSelectedFeatureField, addSelectedFeatureProperty,
-    removeSelectedFeatureProperty, renameSelectedPopupField, ensureLayerLabel, ensurePopupTemplate, setMapSetting,
+    removeSelectedFeatureProperty, renameSelectedPopupField, ensureLayerLabel, ensurePopupTemplate, setMapSetting, resetToExportView,
     setLayerControlSetting, setPopupSetting, setLegendSetting, toggleRuntimeWidget, setDefaultBasemap, addPresetBasemap, addCustomBasemap,
     removeBasemap, updateBasemapField, moveBasemap, addManualLegend, addTextAnnotation, setDrawModeWithGuard,
     simplifySelectedFeature, bufferSelectedFeature, mergeSelectedLayer, selectAllFeatures, clearSelection,
@@ -335,6 +335,7 @@ export function App() {
         updateProject={updateProject}
         setDefaultBasemap={setDefaultBasemap}
         setMapSetting={setMapSetting}
+        resetToExportView={resetToExportView}
         selectedGeometryKind={selectedGeometryKind}
         selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry}
         canEditGeometry={canEditGeometry}

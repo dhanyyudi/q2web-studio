@@ -247,6 +247,17 @@ export function useProjectState({
     );
   }
 
+  function resetToExportView() {
+    if (!project) return;
+    updateProject({
+      ...project,
+      mapSettings: {
+        ...project.mapSettings,
+        initialZoomMode: "export-original"
+      }
+    });
+  }
+
   function setLayerControlSetting<K extends keyof Qgis2webProject["layerControlSettings"]>(key: K, value: Qgis2webProject["layerControlSettings"][K]) {
     if (!project) return;
     const layerControlSettings = { ...project.layerControlSettings, [key]: value };
@@ -1002,6 +1013,7 @@ export function useProjectState({
     ensureLayerLabel,
     ensurePopupTemplate,
     setMapSetting,
+    resetToExportView,
     setLayerControlSetting,
     setPopupSetting,
     setLegendSetting,

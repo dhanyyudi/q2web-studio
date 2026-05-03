@@ -24,6 +24,7 @@ export function ProjectInspector(props: ProjectInspectorProps) {
       <Tabs.Content value="map" className="tabs-content">
         <ProjectMapTab
           project={props.project}
+          resetToExportView={props.resetToExportView}
           presetBasemapProvider={props.presetBasemapProvider}
           setPresetBasemapProvider={props.setPresetBasemapProvider}
           baseMapPresetGroups={props.baseMapPresetGroups}
