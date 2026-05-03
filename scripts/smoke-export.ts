@@ -3,6 +3,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { exportProjectZip } from "../src/lib/exportProject";
 import { parseQgis2webProject } from "../src/lib/qgis2webParser";
+import { buildGraduatedRanges } from "../src/lib/graduatedBreaks";
 import { categoriesForField } from "../src/lib/style";
 import type { Qgis2webProject, VirtualFile } from "../src/types/project";
 
@@ -290,6 +291,44 @@ if (!Array.isArray(categorizedLayerConfig.style?.categories) || categorizedLayer
 const runtimeSourceForCategorized = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
 if (!runtimeSourceForCategorized.includes("function normalizeCategoryValue(value)") || !runtimeSourceForCategorized.includes("normalizeCategoryValue(feature.properties[field])")) {
   throw new Error("Expected runtime categorized style lookup to use editor parity normalization for null, missing, undefined, and empty category values.");
+}
+
+const graduatedProject = cloneProject(project);
+graduatedProject.layers = graduatedProject.layers.map((layer) => {
+  if (layer.displayName !== "Zona Nilai Tanah") return layer;
+  return {
+    ...layer,
+    style: {
+      ...layer.style,
+      mode: "graduated",
+      graduated: {
+        ...layer.style.graduated,
+        field: "q2wHide_KELASNILAI",
+        method: "equal",
+        classCount: 5,
+        ranges: buildGraduatedRanges(layer, "q2wHide_KELASNILAI", "equal", 5)
+      }
+    }
+  };
+});
+const graduatedZip = await exportZip(graduatedProject);
+const graduatedConfig = JSON.parse(await zipText(graduatedZip, `${root}q2ws-config.json`));
+const graduatedLayerConfig = graduatedConfig.layers?.find((layer: { displayName: string; style?: { mode?: string; graduated?: { field?: string; method?: string; ranges?: Array<{ fillColor?: string }> } } }) => layer.displayName === "Zona Nilai Tanah");
+if (graduatedLayerConfig?.style?.mode !== "graduated" || graduatedLayerConfig.style?.graduated?.field !== "q2wHide_KELASNILAI") {
+  throw new Error(`Expected q2ws-config.json to preserve graduated style mode and chosen field. Got: ${JSON.stringify(graduatedLayerConfig?.style)}`);
+}
+if (!Array.isArray(graduatedLayerConfig.style?.graduated?.ranges) || graduatedLayerConfig.style.graduated.ranges.length !== 5) {
+  throw new Error(`Expected q2ws-config.json to preserve generated graduated ranges. Got: ${JSON.stringify(graduatedLayerConfig?.style?.graduated?.ranges)}`);
+}
+const graduatedRangeColors = new Set(graduatedLayerConfig.style.graduated.ranges.map((range) => range.fillColor).filter(Boolean));
+if (graduatedRangeColors.size < 2) {
+  throw new Error(`Expected graduated export to preserve more than one fill color. Got: ${JSON.stringify(graduatedLayerConfig.style.graduated.ranges)}`);
+}
+if (!runtimeSourceForCategorized.includes("function graduatedRangeForFeature(style, feature)") || !runtimeSourceForCategorized.includes("graduatedRangeForFeature(style, feature)")) {
+  throw new Error("Expected runtime graduated style support to survive export source generation.");
+}
+if (runtimeSourceForCategorized.includes("window.__q2wsStyleFor")) {
+  throw new Error("Expected exported runtime not to expose a permanent __q2wsStyleFor debug hook.");
 }
 
 const generatedLayerProject = cloneProject(project);

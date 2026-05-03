@@ -926,7 +926,7 @@ test("phase 7 graduated style only offers fully numeric fields and clears stale 
   await expect(page.locator(".graduated-range-row")).toHaveCount(1);
 });
 
-test("phase 7 editor colors graduated features by numeric range with multiple fill colors", async ({ page }) => {
+test("phase 7 graduated style keeps editor and runtime preview fill color parity", async ({ page }) => {
   const zipPath = await createGraduatedNumericFixtureZip();
   await page.goto(debugUrl("/"));
   await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
@@ -940,7 +940,7 @@ test("phase 7 editor colors graduated features by numeric range with multiple fi
 
   await expect(page.locator(".graduated-range-row")).toHaveCount(5);
 
-  const renderedColors = await page.evaluate(() => {
+  const editorColors = await page.evaluate(() => {
     const map = (window as Window & {
       __q2ws_map?: {
         eachLayer: (callback: (layer: {
@@ -960,15 +960,11 @@ test("phase 7 editor colors graduated features by numeric range with multiple fi
     map?.eachLayer((layer) => {
       if (typeof layer.eachLayer === "function") {
         layer.eachLayer((nested) => {
-          if (nested.feature?.properties?.GOOD != null && nested.options?.fillColor) {
-            fills.push(nested.options.fillColor);
-          }
+          if (nested.feature?.properties?.GOOD != null && nested.options?.fillColor) fills.push(nested.options.fillColor);
         });
         return;
       }
-      if (layer.feature?.properties?.GOOD != null && layer.options?.fillColor) {
-        fills.push(layer.options.fillColor);
-      }
+      if (layer.feature?.properties?.GOOD != null && layer.options?.fillColor) fills.push(layer.options.fillColor);
     });
     return {
       fills,
@@ -984,9 +980,77 @@ test("phase 7 editor colors graduated features by numeric range with multiple fi
     };
   });
 
-  expect(renderedColors.graduatedRanges).toHaveLength(5);
-  expect(renderedColors.fills.length).toBeGreaterThanOrEqual(4);
-  expect(renderedColors.uniqueFills.length).toBeGreaterThan(1);
+  expect(editorColors.graduatedRanges).toHaveLength(5);
+  expect(editorColors.fills.length).toBeGreaterThanOrEqual(4);
+  expect(editorColors.uniqueFills.length).toBeGreaterThan(1);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /Export ZIP/i }).click()
+  ]);
+  const { tempDir, zipPath: exportedZipPath } = await saveDownloadToTempDir(download, "q2ws-graduated-parity-");
+
+  try {
+    await unzipToDirectory(exportedZipPath, tempDir);
+    const rootEntries = await readdir(tempDir, { withFileTypes: true });
+    const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+    if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+
+    const server = await startStaticServer(join(tempDir, exportRoot.name));
+    const runtimePage = await page.context().browser()!.newPage();
+    try {
+      const runtimeErrors: string[] = [];
+      runtimePage.on("console", (message) => {
+        if (message.type() === "error") runtimeErrors.push(message.text());
+      });
+
+      await runtimePage.goto(`${server.origin}/index.html`);
+      await runtimePage.waitForFunction(() => Boolean((window as Window & { __q2wsConfig?: unknown }).__q2wsConfig), null, { timeout: 15000 });
+      await runtimePage.waitForSelector("path.leaflet-interactive", { timeout: 15000 });
+      await runtimePage.waitForFunction(() => {
+        const runtimeWindow = window as Window & {
+          __q2wsConfig?: { layers?: Array<{ displayName: string; layerVariable?: string }> };
+          [key: string]: unknown;
+        };
+        const layerConfig = runtimeWindow.__q2wsConfig?.layers?.find((layer) => layer.displayName === "Graduated Numeric");
+        const runtimeLayer = layerConfig?.layerVariable ? runtimeWindow[layerConfig.layerVariable] as { eachLayer?: (callback: (featureLayer: { feature?: GeoJSON.Feature; options?: { fillColor?: string } }) => void) => void } : null;
+        let styledFeatureCount = 0;
+        runtimeLayer?.eachLayer?.((featureLayer) => {
+          if (featureLayer.feature?.properties?.GOOD != null && featureLayer.options?.fillColor) styledFeatureCount += 1;
+        });
+        return styledFeatureCount >= 4;
+      }, null, { timeout: 15000 });
+
+      const runtimeColors = await runtimePage.evaluate(() => {
+        const runtimeWindow = window as Window & {
+          __q2wsConfig?: { layers?: Array<{ displayName: string; layerVariable?: string; style?: { graduated?: { ranges?: Array<{ fillColor: string }> } } }> };
+          [key: string]: unknown;
+        };
+        const layerConfig = runtimeWindow.__q2wsConfig?.layers?.find((layer) => layer.displayName === "Graduated Numeric");
+        const runtimeLayer = layerConfig?.layerVariable ? runtimeWindow[layerConfig.layerVariable] as { eachLayer?: (callback: (featureLayer: { feature?: GeoJSON.Feature; options?: { fillColor?: string } }) => void) => void } : null;
+        const fills: string[] = [];
+        runtimeLayer?.eachLayer?.((featureLayer) => {
+          if (featureLayer.feature?.properties?.GOOD != null && featureLayer.options?.fillColor) fills.push(featureLayer.options.fillColor);
+        });
+        return {
+          fills,
+          uniqueFills: Array.from(new Set(fills)).sort(),
+          graduatedRanges: layerConfig?.style?.graduated?.ranges
+        };
+      });
+
+      expect(runtimeColors.graduatedRanges).toHaveLength(5);
+      expect(runtimeColors.fills.length, JSON.stringify(runtimeColors)).toBeGreaterThanOrEqual(4);
+      expect(runtimeColors.uniqueFills.length).toBeGreaterThan(1);
+      expect(runtimeColors.uniqueFills).toEqual([...editorColors.uniqueFills].sort());
+      expect(runtimeErrors).toEqual([]);
+    } finally {
+      await runtimePage.close();
+      await server.close();
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("phase 7 categorized style keeps empty values aligned with rendered lookup", async ({ page }) => {
@@ -1025,6 +1089,7 @@ test("phase 7 categorized style keeps empty values aligned with rendered lookup"
 
       await runtimePage.goto(`${server.origin}/index.html`);
       await runtimePage.waitForFunction(() => Boolean((window as Window & { layer_CategoryTest_1?: unknown; __q2wsConfig?: unknown }).layer_CategoryTest_1 && window.__q2wsConfig), null, { timeout: 15000 });
+      await runtimePage.waitForSelector("path.leaflet-interactive", { timeout: 15000 });
 
       const runtimeState = await runtimePage.evaluate(() => {
         const runtimeWindow = window as Window & {
