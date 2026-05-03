@@ -228,13 +228,18 @@ test("audit v4 phase 2 debt keeps App shell below 400 lines", async () => {
   expect(lines.length).toBeLessThanOrEqual(400);
 });
 
-test("production headers allow temporary blob runtime preview", async ({ page }) => {
+test("production headers restore strict main app CSP after service worker preview", async ({ page }) => {
   const response = await page.goto("/_headers");
   expect(response?.ok()).toBe(true);
   const headers = await page.locator("body").textContent();
-  expect(headers).toContain("script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' blob:");
-  expect(headers).toContain("style-src 'self' 'unsafe-inline' blob:");
-  expect(headers).toContain("TEMPORARY: 'unsafe-inline' + blob: required for blob-iframe Preview");
+  expect(headers).toContain("script-src 'self' 'wasm-unsafe-eval'");
+  expect(headers).toContain("style-src 'self' 'unsafe-inline'");
+  expect(headers).toContain("worker-src 'self' blob:");
+  expect(headers).toContain("frame-src 'self'");
+  expect(headers).not.toContain("script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' blob:");
+  expect(headers).not.toContain("style-src 'self' 'unsafe-inline' blob:");
+  expect(headers).not.toContain("frame-src 'self' blob:");
+  expect(headers).not.toContain("TEMPORARY: 'unsafe-inline' + blob: required for blob-iframe Preview");
 });
 
 test("selected feature header uses a readable label and cannot overflow inspector", async ({ page }) => {
@@ -649,6 +654,25 @@ test("phase 6 preview uses service worker route instead of blob iframe", async (
   await page.getByTestId("open-preview").click();
   const frame = page.locator('[data-testid="runtime-preview-frame"]');
   await expect(frame).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+  expect(consoleErrors).toEqual([]);
+});
+
+test("phase 6 preview renders after main app CSP reverts to strict mode", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toHaveAttribute("src", /\/preview\/[A-Za-z0-9-]+\/index\.html/);
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  await expect(frame.locator("#q2ws-layer-control")).toBeVisible({ timeout: 15000 });
   expect(consoleErrors).toEqual([]);
 });
 
