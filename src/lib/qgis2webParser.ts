@@ -12,7 +12,7 @@ import {
   defaultTheme
 } from "./defaults";
 import { opacityFromRgba, rgbaToHex } from "./colors";
-import type { BasemapConfig, LayerLabelConfig, LayerManifest, LegendSymbolType, PopupField, PopupTemplate, Qgis2webProject, RuntimeWidget, RuntimeWidgetId, VirtualFile } from "../types/project";
+import type { BasemapConfig, LayerLabelConfig, LayerManifest, LayerStyleMode, LegendSymbolType, PopupField, PopupTemplate, Qgis2webProject, RuntimeWidget, RuntimeWidgetId, VirtualFile } from "../types/project";
 import { isFeatureCollection } from "../types/project";
 
 type ParsedDataFile = {
@@ -68,9 +68,12 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
       prettifyLayerName(collectionName || dataFile.variable.replace(/^json_/, ""));
     const importedPopupTemplate = popupTemplates.get(layerVariable);
     const popupFields = importedPopupTemplate?.fields.length ? importedPopupTemplate.fields : buildPopupFields(dataFile.geojson);
+    const parsedStyle = parseStyleForLayer(indexHtml, layerVariable, geometryType, overlay?.legendRows || []);
+    const detectedMode: LayerStyleMode = parsedStyle.categories?.length && parsedStyle.categoryField ? "categorized" : "single";
     const style = {
       ...defaultLayerStyle(geometryType, index),
-      ...parseStyleForLayer(indexHtml, layerVariable, geometryType, overlay?.legendRows || [])
+      ...parsedStyle,
+      mode: detectedMode
     };
 
       return {
