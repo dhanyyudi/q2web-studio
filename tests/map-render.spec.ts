@@ -84,6 +84,17 @@ async function createCategorizedEmptyFixtureZip(): Promise<string> {
   return zipPath;
 }
 
+async function createGraduatedNumericFixtureZip(): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-graduated-numeric-fixture-"));
+  const zipPath = join(tempDir, "graduated-numeric.zip");
+  const zip = new JSZip();
+  const root = "graduated-numeric/";
+  zip.file(`${root}index.html`, `<!doctype html><html><head><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>#map{height:400px}</style><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script></head><body><div id="map"></div><script src="data/GraduatedNumeric_1.js"></script><script>var bounds_group = new L.featureGroup([]); var map = L.map('map', { zoomControl:true, maxZoom:28, minZoom:1 }).fitBounds([[-6.81,108.43],[-6.74,108.51]]); var layer_GraduatedNumeric_1 = new L.geoJson(json_GraduatedNumeric_1, {}); map.addLayer(layer_GraduatedNumeric_1);</script></body></html>`);
+  zip.file(`${root}data/GraduatedNumeric_1.js`, `var json_GraduatedNumeric_1 = {"type":"FeatureCollection","name":"GraduatedNumeric_1","features":[{"type":"Feature","properties":{"GOOD":"1","SPARSE":"10","MIXED":"1","EMPTY":""},"geometry":{"type":"Polygon","coordinates":[[[108.43,-6.81],[108.44,-6.81],[108.44,-6.80],[108.43,-6.80],[108.43,-6.81]]]}},{"type":"Feature","properties":{"GOOD":2,"SPARSE":"","MIXED":"not numeric","EMPTY":null},"geometry":{"type":"Polygon","coordinates":[[[108.45,-6.81],[108.46,-6.81],[108.46,-6.80],[108.45,-6.80],[108.45,-6.81]]]}},{"type":"Feature","properties":{"GOOD":"3.5","SPARSE":null,"MIXED":"3","EMPTY":""},"geometry":{"type":"Polygon","coordinates":[[[108.47,-6.81],[108.48,-6.81],[108.48,-6.80],[108.47,-6.80],[108.47,-6.81]]]}},{"type":"Feature","properties":{"GOOD":4,"MIXED":"4","EMPTY":null},"geometry":{"type":"Polygon","coordinates":[[[108.49,-6.81],[108.50,-6.81],[108.50,-6.80],[108.49,-6.80],[108.49,-6.81]]]}}]};`);
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
+}
+
 async function displayNameBySource(page: import("@playwright/test").Page, sourceFileName: string): Promise<string> {
   return page.evaluate((fileName) => {
     const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; sourcePath: string }> } }).__q2ws_project;
@@ -802,6 +813,117 @@ test("phase 7 categorized style regenerates categories from chosen field", async
   });
   expect(categorizedLayer?.categories.length).toBe(2);
   expect(categorizedLayer?.categories.every((category) => category.label)).toBe(true);
+});
+
+test("phase 7 graduated style generates numeric ranges from selected field", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Zona Nilai Tanah/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("graduated");
+
+  const graduatedPanel = page.getByTestId("graduated-style-panel");
+  await expect(graduatedPanel).toBeVisible();
+
+  const fieldSelect = page.getByLabel("Graduated field");
+  await expect(fieldSelect).toBeVisible();
+  await fieldSelect.selectOption("q2wHide_KELASNILAI");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(0);
+
+  await expect(page.getByRole("button", { name: "Generate ranges" })).toBeVisible();
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+
+  await expect(page.getByLabel("Classes")).toHaveValue("5");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+  await expect(page.locator(".graduated-range-row").first()).toContainText("Class 1");
+  await expect(page.locator(".graduated-range-row").last()).toContainText("Class 5");
+
+  const classInput = page.getByLabel("Classes");
+  await classInput.fill("8");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(0);
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(7);
+
+  const graduatedStyle = await page.evaluate(() => {
+    const project = (window as Window & {
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: {
+            mode: string;
+            graduated: {
+              field: string;
+              method: string;
+              classCount: number;
+              ranges: Array<{ min: number; max: number; label: string }>;
+            };
+          };
+        }>;
+      };
+    }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName === "Zona Nilai Tanah")?.style;
+  });
+
+  expect(graduatedStyle).toMatchObject({
+    mode: "graduated",
+    graduated: {
+      field: "q2wHide_KELASNILAI",
+      method: "equal",
+      classCount: 7
+    }
+  });
+  expect(graduatedStyle?.graduated.ranges).toHaveLength(7);
+  expect(graduatedStyle?.graduated.ranges[0]).toMatchObject({ min: 1, label: "Class 1" });
+  expect(graduatedStyle?.graduated.ranges[6]).toMatchObject({ max: 6, label: "Class 7" });
+});
+
+test("phase 7 graduated style only offers fully numeric fields and clears stale ranges until regenerate", async ({ page }) => {
+  const zipPath = await createGraduatedNumericFixtureZip();
+  await page.goto(debugUrl("/"));
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
+  await expect(page.locator(".status-box")).toContainText(/Imported 1 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Graduated Numeric/i }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  await page.getByLabel("Style mode").selectOption("graduated");
+
+  const fieldOptions = await page.getByLabel("Graduated field").locator("option").evaluateAll((options) =>
+    options.map((option) => ({ value: option.getAttribute("value") || "", label: option.textContent || "" }))
+  );
+  expect(fieldOptions.map((option) => option.value)).toEqual(["", "GOOD", "SPARSE"]);
+
+  const fieldSelect = page.getByLabel("Graduated field");
+  await fieldSelect.selectOption("GOOD");
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(5);
+
+  await fieldSelect.selectOption("SPARSE");
+  await expect(page.locator(".graduated-range-row")).toHaveCount(0);
+
+  const graduatedStyle = await page.evaluate(() => {
+    const project = (window as Window & {
+      __q2ws_project?: {
+        layers: Array<{
+          displayName: string;
+          style: {
+            graduated: {
+              field: string;
+              ranges: Array<{ min: number; max: number; label: string }>;
+            };
+          };
+        }>;
+      };
+    }).__q2ws_project;
+    return project?.layers.find((layer) => layer.displayName === "Graduated Numeric")?.style.graduated;
+  });
+
+  expect(graduatedStyle).toMatchObject({ field: "SPARSE" });
+  expect(graduatedStyle?.ranges).toHaveLength(0);
+
+  await page.getByRole("button", { name: "Generate ranges" }).click();
+  await expect(page.locator(".graduated-range-row")).toHaveCount(1);
 });
 
 test("phase 7 categorized style keeps empty values aligned with rendered lookup", async ({ page }) => {

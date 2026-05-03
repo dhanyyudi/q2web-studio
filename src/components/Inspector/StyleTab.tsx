@@ -2,7 +2,10 @@ import type { LayerManifest } from "../../types/project";
 import { DashArrayField } from "../forms/DashArrayField";
 import { RangeNumberField } from "../forms/RangeNumberField";
 import { CategorizedStylePanel } from "./CategorizedStylePanel";
+import { GraduatedStylePanel } from "./GraduatedStylePanel";
 import { categoriesForField } from "../../lib/style";
+import { buildGraduatedRanges } from "../../lib/graduatedBreaks";
+import { normalizeGraduatedStyle } from "../../lib/styleMode";
 import { ColorInput, PanelTitle, SelectField, type GeometryKind } from "./controls";
 
 export type StyleTabProps = {
@@ -15,21 +18,38 @@ export function StyleTab({ selectedLayer, selectedGeometryKind, patchSelectedLay
   const styleMode = selectedLayer.style.mode;
 
   function updateStyleMode(mode: LayerManifest["style"]["mode"]) {
-    if (mode !== "categorized") {
-      patchSelectedLayer({ style: { ...selectedLayer.style, mode } });
+    if (mode === "categorized") {
+      const categoryField = selectedLayer.style.categoryField;
+      patchSelectedLayer({
+        style: {
+          ...selectedLayer.style,
+          mode,
+          categories: categoryField && selectedLayer.style.categories.length === 0
+            ? categoriesForField(selectedLayer, categoryField)
+            : selectedLayer.style.categories
+        }
+      });
       return;
     }
 
-    const categoryField = selectedLayer.style.categoryField;
-    patchSelectedLayer({
-      style: {
-        ...selectedLayer.style,
-        mode,
-        categories: categoryField && selectedLayer.style.categories.length === 0
-          ? categoriesForField(selectedLayer, categoryField)
-          : selectedLayer.style.categories
-      }
-    });
+    if (mode === "graduated") {
+      const graduated = normalizeGraduatedStyle(selectedLayer.style.graduated);
+      patchSelectedLayer({
+        style: {
+          ...selectedLayer.style,
+          mode,
+          graduated: {
+            ...graduated,
+            ranges: graduated.ranges.length > 0 || !graduated.field
+              ? graduated.ranges
+              : buildGraduatedRanges(selectedLayer, graduated.field, graduated.method, graduated.classCount)
+          }
+        }
+      });
+      return;
+    }
+
+    patchSelectedLayer({ style: { ...selectedLayer.style, mode } });
   }
 
   return (
@@ -65,12 +85,7 @@ export function StyleTab({ selectedLayer, selectedGeometryKind, patchSelectedLay
         </section>
       )}
       {styleMode === "categorized" && <CategorizedStylePanel selectedLayer={selectedLayer} patchSelectedLayer={patchSelectedLayer} />}
-      {styleMode === "graduated" && (
-        <section data-testid="graduated-style-empty-state">
-          <PanelTitle title="Graduated Style" />
-          <p className="editor-note">Graduated controls are coming in a later task.</p>
-        </section>
-      )}
+      {styleMode === "graduated" && <GraduatedStylePanel selectedLayer={selectedLayer} patchSelectedLayer={patchSelectedLayer} />}
     </>
   );
 }

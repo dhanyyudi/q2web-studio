@@ -16,22 +16,36 @@ export function normalizeGraduatedStyle(value?: Partial<GraduatedStyle> | null):
   return {
     field: typeof value?.field === "string" ? value.field : "",
     method: normalizeGraduatedMethod(value?.method),
-    classCount: clampNumber(value?.classCount, 2, 7, 5),
+    classCount: Math.round(clampNumber(value?.classCount, 2, 7, 5)),
     ranges: Array.isArray(value?.ranges) ? value.ranges.map(normalizeGraduatedRange) : []
   };
 }
 
 export function numericFieldNames(layer: LayerManifest): string[] {
-  const numeric = new Set<string>();
-  const keys = new Set<string>();
+  const stats = new Map<string, { numericCount: number; invalidCount: number }>();
   layer.geojson.features.forEach((feature) => {
     Object.entries(feature.properties || {}).forEach(([key, value]) => {
       if (key.startsWith("__q2ws_")) return;
-      keys.add(key);
-      if (typeof value === "number" && Number.isFinite(value)) numeric.add(key);
+      const fieldStats = stats.get(key) || { numericCount: 0, invalidCount: 0 };
+      if (isEmptyValue(value)) {
+        stats.set(key, fieldStats);
+        return;
+      }
+      if (numericLike(value)) {
+        fieldStats.numericCount += 1;
+      } else {
+        fieldStats.invalidCount += 1;
+      }
+      stats.set(key, fieldStats);
     });
   });
-  return Array.from(keys).filter((key) => numeric.has(key));
+  return Array.from(stats.entries())
+    .filter(([, value]) => value.numericCount > 0 && value.invalidCount === 0)
+    .map(([key]) => key);
+}
+
+function isEmptyValue(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
 }
 
 export function numericValue(feature: Feature, field: string): number | null {
@@ -39,6 +53,11 @@ export function numericValue(feature: Feature, field: string): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
   return null;
+}
+
+function numericLike(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value);
+  return typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value));
 }
 
 function normalizeGraduatedMethod(value: unknown): GraduatedMethod {
