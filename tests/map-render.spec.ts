@@ -726,6 +726,33 @@ test("phase 6 initial view can match qgis2web export-original bounds", async ({ 
   expect(runtimeView.containsNorthEast).toBe(true);
 });
 
+test("phase 7 style mode selector shows single-style empty state", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const singleLayerName = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; style: { mode: string; categories: unknown[] } }> } }).__q2ws_project;
+    const layer = project?.layers.find((candidate) => candidate.displayName !== "Sungai" && candidate.style.mode === "single" && candidate.style.categories.length === 0);
+    if (!layer) throw new Error("Expected an actually single-style fixture layer that is not Sungai.");
+    return layer.displayName;
+  });
+
+  await page.getByRole("button", { name: new RegExp(singleLayerName, "i") }).click();
+  await page.getByRole("tab", { name: "Style" }).click();
+  const selector = page.getByLabel("Style mode");
+  await expect(selector).toBeVisible();
+  await expect(selector).toHaveValue("single");
+  await expect(selector.locator("option")).toHaveText(["Single symbol", "Categorized", "Graduated"]);
+  await expect(page.getByTestId("single-style-empty-state")).toContainText(/shown with one symbol/i);
+  await expect(page.locator(".category-row")).toHaveCount(0);
+
+  await selector.selectOption("categorized");
+  await expect(page.getByTestId("categorized-style-panel")).toBeVisible();
+  await expect(page.getByTestId("categorized-style-panel")).toContainText(/Choose a field/i);
+  await expect(page.locator(".category-row")).toHaveCount(0);
+});
+
 test("phase 6 preview can reopen repeatedly without orphan state", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {

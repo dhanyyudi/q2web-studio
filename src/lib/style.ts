@@ -1,6 +1,7 @@
 import type { Feature } from "geojson";
 import type { PathOptions } from "leaflet";
 import type { LayerManifest, LegendItem } from "../types/project";
+import { effectiveLayerStyleMode } from "./styleMode";
 
 export type LegendGroup = {
   id: string;
@@ -9,10 +10,11 @@ export type LegendGroup = {
 };
 
 export function styleForFeature(layer: LayerManifest, feature?: Feature): PathOptions {
-  const categoryValue = layer.style.categoryField
+  const mode = effectiveLayerStyleMode(layer);
+  const categoryValue = mode === "categorized" && layer.style.categoryField
     ? String(feature?.properties?.[layer.style.categoryField] ?? "")
     : "";
-  const category = layer.style.categories.find((item) => item.value === categoryValue && item.visible);
+  const category = mode === "categorized" ? layer.style.categories.find((item) => item.value === categoryValue && item.visible) : undefined;
   const fillColor = category?.fillColor || layer.style.fillColor;
   const strokeColor = category?.strokeColor || layer.style.strokeColor;
 
@@ -30,7 +32,7 @@ export function legendItemsForLayer(layer: LayerManifest): LegendItem[] {
   if (!layer.legendEnabled) {
     return [];
   }
-  if (layer.style.categories.length > 0) {
+  if (effectiveLayerStyleMode(layer) === "categorized" && layer.style.categories.length > 0) {
     return layer.style.categories
       .filter((item) => item.visible)
       .map((item) => ({
