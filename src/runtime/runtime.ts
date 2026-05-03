@@ -78,10 +78,11 @@ export const q2wsRuntime = String.raw`(function () {
     layer.eachLayer(function (featureLayer) {
       var feature = featureLayer.feature;
       if (!feature) return;
-      if (featureLayer.unbindPopup && layerConfig.popupTemplate) {
+      if (featureLayer.unbindPopup) {
         featureLayer.unbindPopup();
         if (layerConfig.popupEnabled !== false) {
-          featureLayer.bindPopup(renderPopup(layerConfig, feature), layerConfig.popupSettings ? { className: "popup-layer-" + layerConfig.id } : {});
+          var popupSettings = layerConfig.popupSettings || window.__q2wsConfigPopupSettings || { style: "card" };
+          featureLayer.bindPopup(renderPopup(layerConfig, feature, popupSettings), layerConfig.popupSettings ? { className: "popup-layer-" + layerConfig.id } : {});
         }
       }
       if (featureLayer.unbindTooltip && layerConfig.label) {
@@ -111,20 +112,69 @@ export const q2wsRuntime = String.raw`(function () {
     return escapeHtml(labelValue);
   }
 
-  function renderPopup(layerConfig, feature) {
-    var template = layerConfig.popupTemplate;
-    if (template && (template.mode === "original" || template.mode === "custom")) {
-      return sanitizePopupHtml(String(template.html || "").replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, function (_match, key) {
-        return escapeHtml(feature.properties && feature.properties[key]);
-      }));
+  function popupStyleClass(style) {
+    if (style === "compact") return "q2ws-popup-compact";
+    if (style === "minimal") return "q2ws-popup-minimal";
+    if (style === "original") return "q2ws-popup-original";
+    return "q2ws-popup-card";
+  }
+
+  function interpolatePopupTemplate(html, properties) {
+    return sanitizePopupHtml(String(html || "").replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, function (_match, key) {
+      return escapeHtml(properties && properties[key]);
+    }));
+  }
+
+  function popupTitleForFeature(layerConfig, properties) {
+    var fields = layerConfig.popupFields || [];
+    for (var i = 0; i < fields.length; i += 1) {
+      var field = fields[i];
+      if (field.header && field.visible && properties[field.key] != null && String(properties[field.key]).trim()) {
+        return String(properties[field.key]).trim();
+      }
+    }
+    if (layerConfig.label && layerConfig.label.field && properties[layerConfig.label.field] != null && String(properties[layerConfig.label.field]).trim()) {
+      return String(properties[layerConfig.label.field]).trim();
+    }
+    return layerConfig.displayName || "Feature";
+  }
+
+  function renderStyledPopup(layerConfig, properties, settings) {
+    var effectiveSettings = settings || { style: "card" };
+    var effectiveStyle = effectiveSettings.style || "card";
+    if (effectiveStyle === "original" && layerConfig.popupTemplate && layerConfig.popupTemplate.html) {
+      return interpolatePopupTemplate(layerConfig.popupTemplate.html, properties);
     }
     var rows = (layerConfig.popupFields || []).filter(function (field) { return field.visible; }).map(function (field) {
-      var value = escapeHtml(feature.properties && feature.properties[field.key]);
-      return field.header
-        ? '<tr><td colspan="2"><strong>' + escapeHtml(field.label) + '</strong><br>' + value + '</td></tr>'
-        : '<tr><th>' + escapeHtml(field.label) + '</th><td>' + value + '</td></tr>';
+      return {
+        label: escapeHtml(field.label || field.key),
+        value: escapeHtml(properties && properties[field.key])
+      };
+    });
+    var title = escapeHtml(popupTitleForFeature(layerConfig, properties));
+    if (effectiveStyle === "minimal") {
+      var inlineRows = rows.map(function (row) {
+        return row.label + ': ' + row.value;
+      }).join(' · ');
+      return '<article class="q2ws-popup ' + popupStyleClass(effectiveStyle) + '" style="--q2ws-popup-accent:' + normalizeHexColor(effectiveSettings.accentColor, "#156f7a") + ';--q2ws-popup-bg:' + normalizeHexColor(effectiveSettings.backgroundColor, "#ffffff") + ';--q2ws-popup-text:' + normalizeHexColor(effectiveSettings.textColor, "#172026") + ';--q2ws-popup-label:' + normalizeHexColor(effectiveSettings.labelColor, "#62717a") + ';--q2ws-popup-radius:' + clampNumber(effectiveSettings.radius, 0, 22, 14) + 'px;--q2ws-popup-shadow:' + clampNumber(effectiveSettings.shadow, 0, 42, 18) + 'px"><header>' + title + '</header><p>' + inlineRows + '</p></article>';
+    }
+    var footer = '<footer>' + escapeHtml(layerConfig.displayName || "Layer") + '</footer>';
+    var bodyRows = rows.map(function (row) {
+      return '<li><span>' + row.label + '</span><strong>' + row.value + '</strong></li>';
     }).join("");
-    return '<table class="studio-popup">' + rows + '</table>';
+    if (effectiveStyle === "compact") {
+      return '<article class="q2ws-popup ' + popupStyleClass(effectiveStyle) + '" style="--q2ws-popup-accent:' + normalizeHexColor(effectiveSettings.accentColor, "#156f7a") + ';--q2ws-popup-bg:' + normalizeHexColor(effectiveSettings.backgroundColor, "#ffffff") + ';--q2ws-popup-text:' + normalizeHexColor(effectiveSettings.textColor, "#172026") + ';--q2ws-popup-label:' + normalizeHexColor(effectiveSettings.labelColor, "#62717a") + ';--q2ws-popup-radius:' + clampNumber(effectiveSettings.radius, 0, 22, 14) + 'px;--q2ws-popup-shadow:' + clampNumber(effectiveSettings.shadow, 0, 42, 18) + 'px"><header>' + title + '</header><ul>' + bodyRows + '</ul></article>';
+    }
+    return '<article class="q2ws-popup ' + popupStyleClass(effectiveStyle) + '" style="--q2ws-popup-accent:' + normalizeHexColor(effectiveSettings.accentColor, "#156f7a") + ';--q2ws-popup-bg:' + normalizeHexColor(effectiveSettings.backgroundColor, "#ffffff") + ';--q2ws-popup-text:' + normalizeHexColor(effectiveSettings.textColor, "#172026") + ';--q2ws-popup-label:' + normalizeHexColor(effectiveSettings.labelColor, "#62717a") + ';--q2ws-popup-radius:' + clampNumber(effectiveSettings.radius, 0, 22, 14) + 'px;--q2ws-popup-shadow:' + clampNumber(effectiveSettings.shadow, 0, 42, 18) + 'px"><header>' + title + '</header><ul>' + bodyRows + '</ul>' + footer + '</article>';
+  }
+
+  function renderPopup(layerConfig, feature, settings) {
+    var properties = feature.properties || {};
+    var template = layerConfig.popupTemplate;
+    if (template && (template.mode === "custom" || template.mode === "original")) {
+      return interpolatePopupTemplate(template.html, properties);
+    }
+    return renderStyledPopup(layerConfig, properties, settings);
   }
 
   function sanitizeLabelHtml(html) {
@@ -642,35 +692,38 @@ export const q2wsRuntime = String.raw`(function () {
 
   function applyPopupStyle(config) {
     var popup = config.popupSettings || {};
-    var accent = popup.accentColor || "#156f7a";
-    var background = popup.backgroundColor || "#ffffff";
-    var text = popup.textColor || "#172026";
-    var label = popup.labelColor || "#4b5b66";
-    var radius = Number(popup.radius == null ? 10 : popup.radius);
-    var shadow = Number(popup.shadow == null ? 22 : popup.shadow);
-    var style = popup.style || "card";
-    var border = style === "minimal" ? "0" : "1px solid " + accent;
-    var padding = style === "compact" ? "5px 7px" : "7px 9px";
+    window.__q2wsConfigPopupSettings = popup;
+    var accent = normalizeHexColor(popup.accentColor, "#156f7a");
+    var background = normalizeHexColor(popup.backgroundColor, "#ffffff");
+    var text = normalizeHexColor(popup.textColor, "#172026");
+    var label = normalizeHexColor(popup.labelColor, "#4b5b66");
+    var radius = clampNumber(popup.radius, 0, 22, 14);
+    var shadow = clampNumber(popup.shadow, 0, 42, 18);
     var css = [
-      ".leaflet-popup-content-wrapper{border:" + border + ";border-radius:" + radius + "px;background:" + background + ";color:" + text + ";box-shadow:0 " + Math.max(6, shadow / 2) + "px " + Math.max(14, shadow) + "px rgba(0,0,0,.22);}",
-      ".leaflet-popup-tip{background:" + background + ";box-shadow:0 8px 18px rgba(0,0,0,.16);}",
+      ".leaflet-popup-content-wrapper{border:0;border-radius:var(--q2ws-popup-radius," + radius + "px);background:var(--q2ws-popup-bg," + background + ");color:var(--q2ws-popup-text," + text + ");box-shadow:0 max(6px, calc(var(--q2ws-popup-shadow," + shadow + "px) / 2)) max(14px, var(--q2ws-popup-shadow," + shadow + "px)) rgba(0,0,0,.22);}",
+      ".leaflet-popup-tip{background:var(--q2ws-popup-bg," + background + ");box-shadow:0 8px 18px rgba(0,0,0,.16);}",
       ".leaflet-popup-content{max-width:min(360px,72vw);margin:12px 14px;overflow-wrap:anywhere;line-height:1.42;}",
+      ".q2ws-popup{color:var(--q2ws-popup-text," + text + ");background:var(--q2ws-popup-bg," + background + ");border-radius:var(--q2ws-popup-radius," + radius + "px);box-shadow:0 var(--q2ws-popup-shadow," + shadow + "px) calc(var(--q2ws-popup-shadow," + shadow + "px) * 1.8) rgba(0,0,0,.18);overflow:hidden;min-width:220px;}",
+      ".q2ws-popup header{border-left:4px solid var(--q2ws-popup-accent," + accent + ");padding:10px 12px;font-weight:800;}",
+      ".q2ws-popup ul{display:grid;gap:0;margin:0;padding:0;list-style:none;}",
+      ".q2ws-popup li{display:grid;grid-template-columns:minmax(90px,0.45fr) 1fr;gap:10px;padding:8px 12px;border-top:1px solid rgba(0,0,0,.08);}",
+      ".q2ws-popup li span{color:var(--q2ws-popup-label," + label + ");font-size:12px;}",
+      ".q2ws-popup li strong{font-size:13px;font-weight:700;}",
+      ".q2ws-popup footer{padding:8px 12px;color:var(--q2ws-popup-label," + label + ");font-size:11px;background:rgba(0,0,0,.04);}",
+      ".q2ws-popup-compact header{padding:7px 10px;}",
+      ".q2ws-popup-compact li{padding:5px 10px;}",
+      ".q2ws-popup-minimal{box-shadow:none;border:1px solid rgba(0,0,0,.12);}",
+      ".q2ws-popup-minimal header{border-left:0;border-bottom:2px solid var(--q2ws-popup-accent," + accent + ");}",
+      ".q2ws-popup-original{box-shadow:none;background:transparent;}",
       ".studio-popup{width:100%;min-width:220px;max-width:340px;table-layout:fixed;border-collapse:separate;border-spacing:0;font:12px Inter,Segoe UI,Arial,sans-serif;}",
-      ".studio-popup th,.studio-popup td{border:1px solid rgba(82,103,113,.14);padding:" + padding + ";vertical-align:top;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.36;}",
-      ".studio-popup th{width:38%;background:" + rgbaFromHex(accent, style === "compact" ? 0 : 0.09) + ";color:" + label + ";font-weight:750;text-align:left;}",
+      ".studio-popup th,.studio-popup td{border:1px solid rgba(82,103,113,.14);padding:7px 9px;vertical-align:top;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.36;}",
+      ".studio-popup th{width:38%;background:" + rgbaFromHex(accent, 0.09) + ";color:" + label + ";font-weight:750;text-align:left;}",
       ".studio-popup strong{color:" + accent + ";}"
     ].join("");
+    var existing = document.getElementById("q2ws-popup-style");
+    if (existing) existing.remove();
     var styleEl = createEl("style", { id: "q2ws-popup-style" }, css);
     document.head.appendChild(styleEl);
-    (config.layers || []).forEach(function (layerConfig) {
-      if (!layerConfig.popupSettings) return;
-      var override = layerConfig.popupSettings;
-      var layerCss = ".popup-layer-" + layerConfig.id + " .leaflet-popup-content-wrapper{border-color:" + (override.accentColor || accent) + ";border-radius:" + (override.radius || radius) + "px;background:" + (override.backgroundColor || background) + ";color:" + (override.textColor || text) + ";box-shadow:0 " + Math.max(6, Number((override.shadow == null ? shadow : override.shadow)) / 2) + "px " + Math.max(14, Number(override.shadow == null ? shadow : override.shadow)) + "px rgba(0,0,0,.22);}" +
-        ".popup-layer-" + layerConfig.id + " .leaflet-popup-tip{background:" + (override.backgroundColor || background) + ";}" +
-        ".popup-layer-" + layerConfig.id + " .studio-popup th{color:" + (override.labelColor || label) + ";}" +
-        ".popup-layer-" + layerConfig.id + " .studio-popup strong{color:" + (override.accentColor || accent) + ";}";
-      document.head.appendChild(createEl("style", {}, layerCss));
-    });
   }
 
   function rgbaFromHex(hex, opacity) {
@@ -703,6 +756,7 @@ export const q2wsRuntime = String.raw`(function () {
     fetch("q2ws-config.json")
       .then(function (response) { return response.json(); })
       .then(function (config) {
+        window.__q2wsConfigPopupSettings = config.popupSettings || { style: "card" };
         document.documentElement.style.setProperty("--q2ws-accent", config.theme.accent);
         document.documentElement.style.setProperty("--q2ws-surface", config.theme.surface);
         document.documentElement.style.setProperty("--q2ws-text", config.theme.text);

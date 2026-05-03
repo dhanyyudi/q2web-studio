@@ -161,6 +161,7 @@ export function useGeoJsonLayers(
   mapInstanceVersion: number,
   renderLayers: LayerManifest[],
   textAnnotations: TextAnnotation[],
+  projectPopupSettings: Qgis2webProject["popupSettings"],
   selectedFeature: SelectedFeatureRef | null,
   selectedLayerId: string,
   selectedFeatureIds: string[],
@@ -233,7 +234,7 @@ export function useGeoJsonLayers(
             }
           }
           if (!layer.popupEnabled) return;
-          leafletLayer.bindPopup(buildPopup(layer, feature as Feature), { className: layer.popupSettings ? `popup-layer-${layer.id}` : "" });
+          leafletLayer.bindPopup(buildPopup(layer, feature as Feature, projectPopupSettings), { className: layer.popupSettings ? `popup-layer-${layer.id}` : "" });
         }
       });
       if (clusterPoints) {
@@ -264,7 +265,7 @@ export function useGeoJsonLayers(
     return () => {
       layerGroup.remove();
     };
-  }, [mapInstanceVersion, mapRef, onSelectedFeatureChange, renderLayers, selectedFeature, selectedFeatureIds, selectedLayerId, textAnnotations]);
+  }, [mapInstanceVersion, mapRef, onSelectedFeatureChange, projectPopupSettings, renderLayers, selectedFeature, selectedFeatureIds, selectedLayerId, textAnnotations]);
 }
 
 export function useLassoSelection({

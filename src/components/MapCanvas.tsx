@@ -108,7 +108,7 @@ export function MapCanvas({
   }, [project.legendSettings.collapsed]);
 
   useBasemap(mapRef, mapInstanceVersion, project.basemaps, project.mapSettings.basemap, onTileError);
-  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, selectedFeature, selectedLayerId, selectedFeatureIds, onSelectedFeatureChange);
+  useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, project.popupSettings, selectedFeature, selectedLayerId, selectedFeatureIds, onSelectedFeatureChange);
   useLassoSelection({
     mapRef,
     mapInstanceVersion,

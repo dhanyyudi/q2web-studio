@@ -1,4 +1,6 @@
 import type { LayerManifest, PopupTemplateMode, Qgis2webProject } from "../../types/project";
+import { suggestedPopupFieldLabel } from "../../lib/popupFieldLabels";
+import { PopupPreview } from "./PopupPreview";
 import { ColorInput, PanelTitle, RangeInput, SelectField } from "./controls";
 
 export type PopupTabProps = {
@@ -12,6 +14,7 @@ export type PopupTabProps = {
 export function PopupTab({ project, selectedLayer, patchSelectedLayer, ensurePopupTemplate, renameSelectedPopupField }: PopupTabProps) {
   const popupTemplate = ensurePopupTemplate(selectedLayer);
   const popupSettings = selectedLayer.popupSettings;
+  const effectivePopupSettings = popupSettings || project.popupSettings;
 
   return (
     <>
@@ -36,8 +39,19 @@ export function PopupTab({ project, selectedLayer, patchSelectedLayer, ensurePop
           Override project style
         </label>
       </div>
-      {popupSettings && (
+      {popupSettings ? (
         <>
+          <SelectField
+            label="Style"
+            value={popupSettings.style}
+            onChange={(style) => patchSelectedLayer({ popupSettings: { ...popupSettings, style: style as typeof popupSettings.style } })}
+            options={[
+              { value: "card", label: "Card" },
+              { value: "compact", label: "Compact" },
+              { value: "minimal", label: "Minimal" },
+              { value: "original", label: "Original" }
+            ]}
+          />
           <ColorInput label="Accent" value={popupSettings.accentColor} onChange={(accentColor) => patchSelectedLayer({ popupSettings: { ...popupSettings, accentColor } })} />
           <ColorInput label="Background" value={popupSettings.backgroundColor} onChange={(backgroundColor) => patchSelectedLayer({ popupSettings: { ...popupSettings, backgroundColor } })} />
           <ColorInput label="Text" value={popupSettings.textColor} onChange={(textColor) => patchSelectedLayer({ popupSettings: { ...popupSettings, textColor } })} />
@@ -45,32 +59,53 @@ export function PopupTab({ project, selectedLayer, patchSelectedLayer, ensurePop
           <RangeInput label="Radius" value={popupSettings.radius} min={0} max={22} step={1} onChange={(radius) => patchSelectedLayer({ popupSettings: { ...popupSettings, radius } })} />
           <RangeInput label="Shadow" value={popupSettings.shadow} min={0} max={42} step={1} onChange={(shadow) => patchSelectedLayer({ popupSettings: { ...popupSettings, shadow } })} />
         </>
+      ) : (
+        <small className="editor-note">Using project popup style: {project.popupSettings.style}</small>
       )}
+      <PopupPreview layer={selectedLayer} settings={effectivePopupSettings} />
       <PanelTitle title="Popup Fields" />
       <div className="popup-fields">
-        {selectedLayer.popupFields.map((field) => (
-          <div className="popup-field-row" key={field.key}>
-            <label className="popup-field-toggle">
-              <input type="checkbox" checked={field.visible} onChange={(event) => {
-                const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item);
-                patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
-              }} />
-              Visible
-            </label>
-            <input className="popup-field-key-input" value={field.key} onChange={(event) => renameSelectedPopupField(field.key, event.target.value)} />
-            <input className="popup-field-label-input" value={field.label} onChange={(event) => {
-              const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, label: event.target.value } : item);
-              patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
-            }} />
-            <label className="popup-field-toggle">
-              <input type="checkbox" checked={field.header} onChange={(event) => {
-                const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, header: event.target.checked } : item);
-                patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
-              }} />
-              Header
-            </label>
-          </div>
-        ))}
+        {selectedLayer.popupFields.map((field) => {
+          const suggestion = suggestedPopupFieldLabel(field.key);
+
+          return (
+            <div className="popup-field-row" key={field.key}>
+              <label className="popup-field-toggle">
+                <input type="checkbox" checked={field.visible} onChange={(event) => {
+                  const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, visible: event.target.checked } : item);
+                  patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                }} />
+                <span>Visible</span>
+              </label>
+              <input className="popup-field-key-input" aria-label={`Popup field key ${field.key}`} value={field.key} onChange={(event) => renameSelectedPopupField(field.key, event.target.value)} />
+              <div className="popup-field-label-group">
+                <input className="popup-field-label-input" aria-label={`Popup field label ${field.key}`} value={field.label} onChange={(event) => {
+                  const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, label: event.target.value } : item);
+                  patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                }} />
+                {suggestion && suggestion !== field.label ? (
+                  <button
+                    type="button"
+                    className="popup-field-suggestion"
+                    onClick={() => {
+                      const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, label: suggestion } : item);
+                      patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                    }}
+                  >
+                    Use {suggestion}
+                  </button>
+                ) : null}
+              </div>
+              <label className="popup-field-toggle">
+                <input type="checkbox" checked={field.header} onChange={(event) => {
+                  const popupFields = selectedLayer.popupFields.map((item) => item.key === field.key ? { ...item, header: event.target.checked } : item);
+                  patchSelectedLayer({ popupFields, popupTemplate: { ...ensurePopupTemplate(selectedLayer), fields: popupFields } });
+                }} />
+                <span>Header</span>
+              </label>
+            </div>
+          );
+        })}
       </div>
     </>
   );

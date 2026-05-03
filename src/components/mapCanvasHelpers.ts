@@ -3,8 +3,9 @@ import bbox from "@turf/bbox";
 import type { Feature, FeatureCollection } from "geojson";
 import type { TerraDraw } from "terra-draw";
 import type { GeoJSONStoreFeatures } from "terra-draw";
+import { renderLayerPopupHtml } from "../lib/popupRendering";
 import { styleForFeature } from "../lib/style";
-import type { BasemapConfig, LayerManifest, Qgis2webProject } from "../types/project";
+import type { BasemapConfig, LayerManifest, PopupSettings, Qgis2webProject } from "../types/project";
 
 export function createBasemap(basemaps: BasemapConfig[], activeBasemapId: string): L.TileLayer | null {
   if (activeBasemapId === "none") return null;
@@ -60,20 +61,9 @@ export function labelCss(layers: LayerManifest[]): string {
     .join("\n");
 }
 
-export function buildPopup(layer: LayerManifest, feature: Feature): string {
-  if (layer.popupTemplate?.mode === "original" || layer.popupTemplate?.mode === "custom") {
-    return renderPopupTemplate(layer.popupTemplate.html, feature);
-  }
-  const rows = layer.popupFields
-    .filter((field) => field.visible)
-    .map((field) => {
-      const value = feature.properties?.[field.key] ?? "";
-      return field.header
-        ? `<tr><td colspan="2"><strong>${escapeHtml(field.label)}</strong><br>${escapeHtml(value)}</td></tr>`
-        : `<tr><th>${escapeHtml(field.label)}</th><td>${escapeHtml(value)}</td></tr>`;
-    })
-    .join("");
-  return `<table class="studio-popup">${rows}</table>`;
+export function buildPopup(layer: LayerManifest, feature: Feature, projectPopupSettings: PopupSettings): string {
+  const settings = layer.popupSettings || projectPopupSettings;
+  return renderLayerPopupHtml({ layer, feature, settings });
 }
 
 export function popupCss(project: Qgis2webProject): string {
@@ -181,12 +171,6 @@ export function escapeHtml(value: unknown): string {
     const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
     return entities[char];
   });
-}
-
-function renderPopupTemplate(template: string, feature: Feature): string {
-  return sanitizePopupHtml(
-    template.replace(/\{\{\s*([A-Za-z0-9_:-]+)\s*\}\}/g, (_match, key: string) => escapeHtml(feature.properties?.[key] ?? ""))
-  );
 }
 
 function sanitizeLabelHtml(html: string): string {
