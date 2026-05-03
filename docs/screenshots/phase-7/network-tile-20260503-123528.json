@@ -1,0 +1,198 @@
+[
+  {
+    "url": "https://a.basemaps.cartocdn.com/rastertiles/voyager/6/52/32.png",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/6/32/52",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6563",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6564",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6564",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6563",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6565",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6564",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6562",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6563",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4250/6565",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6562",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4249/6562",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/13/4251/6565",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13128",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13128",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13129",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13127",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13127",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13125",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13127",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13126",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13128",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13127",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13126",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13130",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13131",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13130",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13129",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13129",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13126",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13131",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13125",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13125",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13127",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13129",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13126",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13131",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13130",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8501/13125",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13128",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13131",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13128",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8503/13129",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8499/13130",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13131",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13125",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8502/13130",
+    "method": "GET"
+  },
+  {
+    "url": "https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/14/8500/13126",
+    "method": "GET"
+  }
+]

@@ -1,0 +1,5 @@
+
+> q2webstudio@0.1.0 smoke:fixture
+> tsx scripts/smoke-fixture.ts
+
+Fixture parsed: 4 layers, 68 files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legacy style normalization, legend labels, line styles, and runtime widget disable hardening verified.

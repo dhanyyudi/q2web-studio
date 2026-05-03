@@ -1,0 +1,7 @@
+[editor:debug] [vite] connecting...
+[editor:debug] [vite] connected.
+[editor:info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[runtime:warning] Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. Error
+    at et.extend (http://127.0.0.1:59195/js/leaflet.js:5:3233)
+    at http://127.0.0.1:59195/js/leaflet.pattern.js:6:34
+    at http://127.0.0.1:59195/js/leaflet.pattern.js:6:7077
