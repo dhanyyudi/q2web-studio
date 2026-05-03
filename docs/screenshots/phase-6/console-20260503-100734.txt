@@ -1,0 +1,3 @@
+Total messages: 1 (Errors: 0, Warnings: 1)
+
+[WARNING] Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. This warning comes from imported qgis2web Leaflet pattern plugin code and is non-blocking.
