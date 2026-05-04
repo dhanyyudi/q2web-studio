@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, Eye, EyeOff, Layers3, Settings2, Wand2 } from "lucide-react";
 import { isVectorLayer } from "../lib/rasterParsing";
 import type { LayerManifest, MapViewMode, ProjectLayer, Qgis2webProject } from "../types/project";
@@ -31,6 +31,12 @@ export function SidePanel({
   onUpdateLayer
 }: SidePanelProps) {
   const [layerQuery, setLayerQuery] = useState("");
+  const projectIdentity = project ? `${project.importedAt}:${project.indexHtmlPath}` : "";
+
+  useEffect(() => {
+    setLayerQuery("");
+  }, [projectIdentity]);
+
   const visibleLayers = useMemo(() => {
     if (!project) return [];
     const query = layerQuery.trim().toLowerCase();
