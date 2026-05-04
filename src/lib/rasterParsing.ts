@@ -100,7 +100,8 @@ export function parsePmtilesLayers(indexHtml: string, files: VirtualFile[]): Ras
       url: resolveAssetPath(indexRoot, unescapeJsString(match[3]), availablePaths),
       attribution: readOptionRaw(options, "attribution") || undefined,
       minZoom: numericOption(options, "minZoom"),
-      maxZoom: numericOption(options, "maxZoom")
+      maxZoom: numericOption(options, "maxZoom"),
+      sourcePath: resolveAssetPath(indexRoot, unescapeJsString(match[3]), availablePaths)
     } satisfies RasterPmtilesLayer;
   });
 }

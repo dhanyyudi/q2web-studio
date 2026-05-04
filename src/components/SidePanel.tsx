@@ -8,7 +8,7 @@ type SidePanelProps = {
   busy: boolean;
   status: string;
   inspectorMode: "project" | "layer";
-  selectedLayer?: LayerManifest;
+  selectedLayer?: ProjectLayer;
   onCollapse: () => void;
   onProjectSettings: () => void;
   onDefaultBasemap: (basemapId: string) => void;
@@ -77,32 +77,26 @@ export function SidePanel({
           <div className="layer-list">
             {project.layers.map((layer) => {
               const vectorLayer = isVectorLayer(layer);
-              const rasterPendingMessage = "Raster layer preview is not editable yet. Inspector support lands in a later task.";
               const rowClassName = [
                 "layer-row",
                 layer.id === selectedLayer?.id ? "selected" : "",
-                vectorLayer ? "" : "disabled"
+                vectorLayer ? "" : "raster"
               ].filter(Boolean).join(" ");
               return (
                 <div key={layer.id} className={rowClassName}>
                   <button
                     type="button"
                     className="layer-main"
-                    onClick={() => vectorLayer && onSelectLayer(layer.id)}
-                    disabled={!vectorLayer}
-                    title={vectorLayer ? undefined : rasterPendingMessage}
-                    aria-disabled={!vectorLayer}
+                    onClick={() => onSelectLayer(layer.id)}
                   >
                     <span>{layer.displayName}</span>
-                    <small>{isVectorLayer(layer) ? layer.geometryType : `${layer.kind} · preview only for now`}</small>
+                    <small>{isVectorLayer(layer) ? layer.geometryType : layer.kind}</small>
                   </button>
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={vectorLayer ? (layer.visible ? "Hide layer" : "Show layer") : "Raster visibility not available yet"}
-                    onClick={() => vectorLayer && onUpdateLayer({ ...layer, visible: !layer.visible })}
-                    disabled={!vectorLayer}
-                    title={vectorLayer ? undefined : rasterPendingMessage}
+                    aria-label={layer.visible ? "Hide layer" : "Show layer"}
+                    onClick={() => onUpdateLayer({ ...layer, visible: !layer.visible })}
                   >
                     {layer.visible ? <Eye size={16} /> : <EyeOff size={16} />}
                   </button>

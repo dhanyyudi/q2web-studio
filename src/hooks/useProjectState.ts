@@ -60,6 +60,11 @@ export function useProjectState({
   const [newFeaturePropertyKey, setNewFeaturePropertyKey] = useState("");
   const [newFeaturePropertyValue, setNewFeaturePropertyValue] = useState("");
 
+  const selectedProjectLayer = useMemo(
+    () => project?.layers.find((layer) => layer.id === selectedLayerId),
+    [project, selectedLayerId]
+  );
+
   const selectedLayer = useMemo(
     () => {
       if (!project) return undefined;
@@ -156,6 +161,17 @@ export function useProjectState({
   function patchSelectedLayer(patch: Partial<LayerManifest>) {
     if (!project || !selectedLayer) return;
     updateProject(updateVectorLayer(project, selectedLayer.id, patch));
+  }
+
+  function updateRasterLayer(layerId: string, patch: Record<string, unknown>) {
+    if (!project) return;
+    updateProject({
+      ...project,
+      layers: project.layers.map((layer) => {
+        if (layer.id !== layerId || isVectorLayer(layer)) return layer;
+        return { ...layer, ...patch };
+      })
+    }, { label: "Edit raster layer", group: `raster-layer:${layerId}`, coalesceMs: 600 });
   }
 
   function selectedFeatureIdValue() {
@@ -998,6 +1014,7 @@ export function useProjectState({
     setBusy,
     history,
     setHistory,
+    selectedProjectLayer,
     selectedLayer,
     selectedFeatureData,
     newFeaturePropertyKey,
@@ -1011,6 +1028,7 @@ export function useProjectState({
     handleTileError,
     handleSelectedFeatureChange,
     patchSelectedLayer,
+    updateRasterLayer,
     selectedFeatureTitle,
     updateSelectedFeatureField,
     addSelectedFeatureProperty,

@@ -299,6 +299,7 @@ export type RasterPmtilesLayer = RasterBase & {
   attribution?: string;
   minZoom?: number;
   maxZoom?: number;
+  sourcePath?: string;
 };
 
 export type ProjectLayer = LayerManifest | RasterImageLayer | RasterWmsLayer | RasterPmtilesLayer;

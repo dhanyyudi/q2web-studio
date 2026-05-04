@@ -2,8 +2,9 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { ProjectInspector } from "../ProjectInspector";
 import { LayerTab, type LayerTabProps } from "./LayerTab";
 import { PopupTab, type PopupTabProps } from "./PopupTab";
+import { RasterLayerTab, isRasterLayer } from "./RasterLayerTab";
 import { StyleTab, type StyleTabProps } from "./StyleTab";
-import type { BasemapConfig, LayerManifest, LegendItem, Qgis2webProject } from "../../types/project";
+import type { BasemapConfig, LayerManifest, LegendItem, ProjectLayer, Qgis2webProject } from "../../types/project";
 import type { GeometryKind } from "./controls";
 
 type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
@@ -34,8 +35,10 @@ type ProjectInspectorProps = {
 
 export type InspectorShellProps = ProjectInspectorProps & Omit<LayerTabProps, "selectedLayer"> & Omit<StyleTabProps, "selectedLayer"> & Omit<PopupTabProps, "selectedLayer"> & {
   selectedLayer: LayerManifest | undefined;
+  selectedProjectLayer?: ProjectLayer;
   inspectorMode: "project" | "layer";
   selectedGeometryKind: GeometryKind;
+  updateRasterLayer: (layerId: string, patch: Record<string, unknown>) => void;
 };
 
 export function InspectorShell(props: InspectorShellProps) {
@@ -71,6 +74,10 @@ export function InspectorShell(props: InspectorShellProps) {
           addManualLegendItem={props.addManualLegendItem}
           setPopupSetting={props.setPopupSetting}
         />
+      ) : isRasterLayer(props.selectedProjectLayer) ? (
+        <div className="tabs-root" data-testid="layer-tab-panel">
+          <RasterLayerTab selectedLayer={props.selectedProjectLayer} updateRasterLayer={(layerId, patch) => props.updateRasterLayer(layerId, patch)} />
+        </div>
       ) : selectedLayer ? (
         <div className="tabs-root" data-testid="layer-tab-panel">
           <Tabs.Root defaultValue="layer">

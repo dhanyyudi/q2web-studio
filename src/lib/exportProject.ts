@@ -84,7 +84,8 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
           url: runtimeAssetPath(project, layer.url),
           attribution: layer.attribution,
           minZoom: layer.minZoom,
-          maxZoom: layer.maxZoom
+          maxZoom: layer.maxZoom,
+          sourcePath: layer.url
         };
       }
       if (!isVectorLayer(layer)) return layer;
@@ -173,6 +174,9 @@ function patchIndexHtml(indexHtml: string, project: Qgis2webProject): string {
   }
   if (!html.includes("q2ws-custom.css")) {
     html = html.replace("</head>", '        <link rel="stylesheet" href="q2ws-custom.css">\n    </head>');
+  }
+  if (project.layers.some(isRasterPmtilesLayer) && !html.includes("js/pmtiles.js")) {
+    html = html.replace("</body>", '        <script src="js/pmtiles.js"></script>\n    </body>');
   }
   if (!html.includes("q2ws-runtime.js")) {
     html = html.replace("</body>", '        <script src="q2ws-runtime.js"></script>\n    </body>');
