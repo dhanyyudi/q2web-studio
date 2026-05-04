@@ -2186,7 +2186,7 @@ test("phase 9 diagnostics panel stays visible when project has warnings", async 
   }
 });
 
-test("phase 9 exported WMS runtime performs tile requests when served", async ({ page, browser }) => {
+test("phase 9 exported WMS runtime requests GetFeatureInfo on map click", async ({ page, browser }) => {
   const downloads: import("@playwright/test").Download[] = [];
   page.on("download", (download) => downloads.push(download));
 
@@ -2197,7 +2197,7 @@ test("phase 9 exported WMS runtime performs tile requests when served", async ({
   await page.getByRole("button", { name: /Export ZIP/i }).click();
   await expect.poll(() => downloads.length, { timeout: 30_000 }).toBe(1);
 
-  const { tempDir, zipPath } = await saveDownloadToTempDir(downloads[0], "q2ws-phase9-wms-runtime-");
+  const { tempDir, zipPath } = await saveDownloadToTempDir(downloads[0], "q2ws-phase9-wms-gfi-runtime-");
   try {
     await unzipToDirectory(zipPath, tempDir);
     const rootEntries = await readdir(tempDir, { withFileTypes: true });
@@ -2205,13 +2205,18 @@ test("phase 9 exported WMS runtime performs tile requests when served", async ({
     if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
     const server = await startStaticServer(join(tempDir, exportRoot.name));
     const runtimePage = await browser.newPage();
-    const requests: string[] = [];
-    runtimePage.on("requestfinished", (request) => {
-      if (request.url().includes("geoserver/wms")) requests.push(request.url());
+    const getFeatureInfoRequests: string[] = [];
+    runtimePage.on("request", (request) => {
+      const url = request.url();
+      if (/geoserver\/wms/i.test(url) && /request=GetFeatureInfo/i.test(url)) getFeatureInfoRequests.push(url);
     });
     try {
       await runtimePage.goto(`${server.origin}/index.html`);
-      await expect.poll(() => requests.length, { timeout: 15_000 }).toBeGreaterThan(0);
+      await expect(runtimePage.locator(".leaflet-tile-loaded").first()).toBeVisible({ timeout: 15_000 });
+      const mapBox = await runtimePage.locator(".leaflet-container").boundingBox();
+      if (!mapBox) throw new Error("Expected runtime Leaflet container.");
+      await runtimePage.mouse.click(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
+      await expect.poll(() => getFeatureInfoRequests.length, { timeout: 5_000 }).toBeGreaterThan(0);
     } finally {
       await runtimePage.close();
       await server.close();
