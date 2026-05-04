@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { isRasterImageLayer, isVectorLayer } from "./rasterParsing";
+import { isRasterImageLayer, isRasterPmtilesLayer, isRasterWmsLayer, isVectorLayer } from "./rasterParsing";
 import { allLegendItems, legendGroupsForLayers } from "./style";
 import { q2wsCss, q2wsRuntime } from "../runtime/runtime";
 import type { LayerManifest, Qgis2webProject, VirtualFile } from "../types/project";
@@ -51,6 +51,40 @@ export function buildRuntimeConfig(project: Qgis2webProject) {
           opacity: layer.opacity,
           imagePath: runtimeAssetPath(project, layer.imagePath),
           bounds: layer.bounds
+        };
+      }
+      if (isRasterWmsLayer(layer)) {
+        return {
+          id: layer.id,
+          kind: layer.kind,
+          displayName: layer.displayName,
+          layerVariable: layer.layerVariable,
+          visible: layer.visible,
+          showInLayerControl: layer.showInLayerControl,
+          legendEnabled: layer.legendEnabled,
+          opacity: layer.opacity,
+          url: layer.url,
+          layersParam: layer.layersParam,
+          format: layer.format,
+          transparent: layer.transparent,
+          version: layer.version,
+          attribution: layer.attribution
+        };
+      }
+      if (isRasterPmtilesLayer(layer)) {
+        return {
+          id: layer.id,
+          kind: layer.kind,
+          displayName: layer.displayName,
+          layerVariable: layer.layerVariable,
+          visible: layer.visible,
+          showInLayerControl: layer.showInLayerControl,
+          legendEnabled: layer.legendEnabled,
+          opacity: layer.opacity,
+          url: runtimeAssetPath(project, layer.url),
+          attribution: layer.attribution,
+          minZoom: layer.minZoom,
+          maxZoom: layer.maxZoom
         };
       }
       if (!isVectorLayer(layer)) return layer;

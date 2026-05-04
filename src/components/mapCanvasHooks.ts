@@ -17,7 +17,7 @@ import {
 import { TerraDrawLeafletAdapter } from "terra-draw-leaflet-adapter";
 import { styleForFeature } from "../lib/style";
 import { shouldSimplifyLayer, simplifyLayersForPreview } from "../lib/simplifyClient";
-import type { BasemapConfig, DrawMode, LayerManifest, Qgis2webProject, RasterImageLayer, SelectedFeatureRef, TextAnnotation } from "../types/project";
+import type { BasemapConfig, DrawMode, LayerManifest, Qgis2webProject, RasterImageLayer, RasterPmtilesLayer, RasterWmsLayer, SelectedFeatureRef, TextAnnotation } from "../types/project";
 import { updateLayerGeojson } from "../lib/projectUpdates";
 import { buildLabel, buildPopup, createBasemap, escapeHtml, fromTerraDrawFeature, pointClusterIcon, projectBounds, shouldClusterLayer, toTerraDrawFeatures } from "./mapCanvasHelpers";
 
@@ -154,6 +154,35 @@ export function useSimplifiedLayers(visibleLayers: LayerManifest[], mapZoom: num
   }, [mapZoom, visibleLayers]);
 
   return simplifiedLayers;
+}
+
+export function useRasterLayers(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, layers: Array<RasterImageLayer | RasterWmsLayer | RasterPmtilesLayer>) {
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const layerGroup = L.layerGroup().addTo(map);
+    layers.forEach((layer) => {
+      if (layer.visible === false) return;
+      if (layer.kind === "raster-image") {
+        L.imageOverlay(layer.imagePath, layer.bounds, { opacity: layer.opacity }).addTo(layerGroup);
+        return;
+      }
+      if (layer.kind === "raster-wms") {
+        L.tileLayer.wms(layer.url, {
+          layers: layer.layersParam,
+          format: layer.format,
+          transparent: layer.transparent,
+          version: layer.version,
+          attribution: layer.attribution,
+          opacity: layer.opacity
+        }).addTo(layerGroup);
+        return;
+      }
+    });
+    return () => {
+      layerGroup.remove();
+    };
+  }, [layers, mapInstanceVersion, mapRef]);
 }
 
 export function useRasterImageLayers(mapRef: MutableRefObject<L.Map | null>, mapInstanceVersion: number, layers: RasterImageLayer[]) {

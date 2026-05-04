@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Polygon } from "geojson";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
-import { isRasterImageLayer, isVectorLayer } from "../lib/rasterParsing";
+import { isRasterImageLayer, isRasterPmtilesLayer, isRasterWmsLayer, isVectorLayer } from "../lib/rasterParsing";
 import type { DrawMode, LayerManifest, LegendPlacement, LegendPosition, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
-import { useAutoFit, useBasemap, useGeoJsonLayers, useLassoSelection, useLeafletMap, useRasterImageLayers, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
+import { useAutoFit, useBasemap, useGeoJsonLayers, useLassoSelection, useLeafletMap, useRasterLayers, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
 
 function legendPlacementToPosition(placement: LegendPlacement): LegendPosition {
   switch (placement) {
@@ -65,8 +65,8 @@ export function MapCanvas({
   const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
 
   const vectorLayers = useMemo(() => project.layers.filter(isVectorLayer), [project.layers]);
-  const rasterImageLayers = useMemo(
-    () => project.layers.filter(isRasterImageLayer).filter((layer) => layerVisibility?.[layer.id] ?? layer.visible),
+  const rasterLayers = useMemo(
+    () => project.layers.filter((layer) => isRasterImageLayer(layer) || isRasterWmsLayer(layer) || isRasterPmtilesLayer(layer)).filter((layer) => layerVisibility?.[layer.id] ?? layer.visible),
     [layerVisibility, project.layers]
   );
   const selectedLayer = useMemo(
@@ -114,7 +114,7 @@ export function MapCanvas({
   }, [project.legendSettings.collapsed]);
 
   useBasemap(mapRef, mapInstanceVersion, project.basemaps, project.mapSettings.basemap, onTileError);
-  useRasterImageLayers(mapRef, mapInstanceVersion, rasterImageLayers);
+  useRasterLayers(mapRef, mapInstanceVersion, rasterLayers);
   useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, project.popupSettings, selectedFeature, selectedLayerId, selectedFeatureIds, onSelectedFeatureChange);
   useLassoSelection({
     mapRef,

@@ -14,7 +14,7 @@ import {
 import { opacityFromRgba, rgbaToHex } from "./colors";
 import type { BasemapConfig, LayerLabelConfig, LayerManifest, LayerStyleMode, LegendSymbolType, PopupField, PopupTemplate, Qgis2webProject, RuntimeWidget, RuntimeWidgetId, VirtualFile } from "../types/project";
 import { isFeatureCollection } from "../types/project";
-import { parseImageOverlayLayers } from "./rasterParsing";
+import { parseImageOverlayLayers, parsePmtilesLayers, parseWmsLayers } from "./rasterParsing";
 
 type ParsedDataFile = {
   path: string;
@@ -100,7 +100,9 @@ export function parseQgis2webProject(files: VirtualFile[]): Qgis2webProject {
   });
 
   const rasterImageLayers = parseImageOverlayLayers(indexHtml, files);
-  const layers = [...vectorLayers, ...rasterImageLayers];
+  const wmsLayers = parseWmsLayers(indexHtml, files);
+  const pmtilesLayers = parsePmtilesLayers(indexHtml, files);
+  const layers = [...vectorLayers, ...rasterImageLayers, ...wmsLayers, ...pmtilesLayers];
 
   const title = parseTitle(indexHtml) || "Peta WebGIS Interaktif";
 
