@@ -107,7 +107,8 @@ async function createNonLeafletFixtureZip(): Promise<string> {
   const zipPath = join(tempDir, "non-leaflet.zip");
   const zip = new JSZip();
   const root = "non-leaflet-export/";
-  zip.file(`${root}index.html`, `<!doctype html><html><head><meta charset="utf-8"><title>OpenLayers export</title></head><body><div id="map"></div><script>console.log("not leaflet");</script></body></html>`);
+  zip.file(`${root}index.html`, `<!doctype html><html><head><meta charset="utf-8"><title>OpenLayers export</title></head><body><div id="map"></div><script src="data/Warnings_1.js"></script><script>console.log("not supported engine");</script></body></html>`);
+  zip.file(`${root}data/Warnings_1.js`, `var json_Warnings_1 = {"type":"FeatureCollection","name":"Warnings_1","features":[{"type":"Feature","properties":{"NAME":"warning fixture"},"geometry":{"type":"Point","coordinates":[108.45,-6.78]}}]};`);
   await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
   return zipPath;
 }
@@ -2174,16 +2175,24 @@ test("phase 9 side panel can filter layer names", async ({ page }) => {
 });
 
 test("phase 9 diagnostics panel stays visible when project has warnings", async ({ page }) => {
-  const zipPath = await createNonLeafletFixtureZip();
-  try {
-    await page.goto("/");
-    await importFixtureZip(page, zipPath);
-    await expect(page.locator(".diagnostics-panel")).toBeVisible({ timeout: 15000 });
-    await expect(page.locator(".diagnostics-panel")).toContainText(/non-Leaflet/i);
-  } finally {
-    await rm(zipPath, { force: true });
-    await rm(join(zipPath, ".."), { recursive: true, force: true });
-  }
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.evaluate(() => {
+    const runtimeWindow = window as Window & {
+      __q2ws_project?: {
+        diagnostics: string[];
+      };
+    };
+    if (!runtimeWindow.__q2ws_project) throw new Error("Expected loaded project.");
+    runtimeWindow.__q2ws_project.diagnostics = ["Parser menemukan export non-Leaflet. MVP hanya mendukung Leaflet."];
+  });
+
+  await page.getByRole("button", { name: /Selected layer/i }).click();
+  await expect(page.locator(".diagnostics-panel")).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".diagnostics-panel")).toContainText(/non-Leaflet/i);
+  await expect(page.locator(".diagnostics-panel")).toContainText(/Perlu dicek/i);
 });
 
 test("phase 9 exported WMS runtime performs tile requests when served", async ({ page, browser }) => {

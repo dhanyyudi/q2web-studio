@@ -373,9 +373,17 @@ button:disabled {
   line-height: 1.45;
 }
 
+.side-panel input[type="search"] {
+  width: 100%;
+}
+
 .diagnostics-panel {
   display: grid;
-  gap: 7px;
+  gap: 8px;
+}
+
+.diagnostics-panel strong {
+  color: #8a5a00;
 }
 
 .diagnostic-row,
