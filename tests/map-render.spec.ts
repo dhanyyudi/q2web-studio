@@ -394,6 +394,37 @@ test("phase 10 default shell keeps measure control clickable", async ({ page }) 
   expect(consoleErrors).toEqual([]);
 });
 
+test("phase 11 documents WMS GetFeatureInfo as deferred", async () => {
+  const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
+  const architecture = await readFile(join(process.cwd(), "docs", "ARCHITECTURE.md"), "utf8");
+  const runtimeSource = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+
+  expect(readme).toContain("WMS GetFeatureInfo remains deferred");
+  expect(architecture).toContain("WMS GetFeatureInfo is deferred");
+  expect(runtimeSource).not.toMatch(/GetFeatureInfo/i);
+});
+
+test("phase 11 roadmap classifies post audit future work", async () => {
+  const roadmap = await readFile(join(process.cwd(), "docs", "ROADMAP.md"), "utf8");
+
+  expect(roadmap).toContain("# q2webstudio Roadmap");
+  expect(roadmap).toContain("Audit V4 MVP is complete through Phase 10");
+  expect(roadmap).toContain("WMS GetFeatureInfo");
+  expect(roadmap).toContain("Rule based styling");
+  expect(roadmap).toContain("Custom CRS reprojection");
+  expect(roadmap).toContain("Cross device preview links");
+  expect(roadmap).toContain("GitHub OAuth");
+});
+
+test("phase 11 keeps vector style modes bounded to shipped modes", async () => {
+  const typesSource = await readFile(join(process.cwd(), "src", "types", "project.ts"), "utf8");
+  const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
+
+  expect(typesSource).toContain('export type LayerStyleMode = "single" | "categorized" | "graduated"');
+  expect(typesSource).not.toContain('"rule-based"');
+  expect(readme).toContain("Rule based styling is not implemented yet");
+});
+
 test("selected feature header uses a readable label and cannot overflow inspector", async ({ page }) => {
   await page.goto("/?debug=1");
   await importFixture(page);
