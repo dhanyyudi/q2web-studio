@@ -1,0 +1,44 @@
+debug: [vite] connecting...
+debug: [vite] connected.
+info: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+debug: [q2ws-debug] {at: 1777854532818, source: autofit, event: apply, autoFitKey: 0::all::all::point_0:true::export-original::13, mode: export-original}
+debug: [q2ws-debug] {at: 1777854532820, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532820, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532820, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854532823, source: autofit, event: apply, autoFitKey: 0::all::all::point_0:true::export-original::13, mode: export-original}
+debug: [q2ws-debug] {at: 1777854532824, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532824, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532824, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854532829, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532829, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532829, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854532833, source: autofit, event: fit-bounds, bounds: 108.44,-6.82,108.5,-6.76}
+debug: [q2ws-debug] {at: 1777854532833, source: map, event: zoomstart, center: LatLng, zoom: 4}
+debug: [q2ws-debug] {at: 1777854532833, source: map, event: movestart, center: LatLng, zoom: 4}
+debug: [q2ws-debug] {at: 1777854532834, source: map, event: zoomend, center: LatLng, zoom: 13}
+debug: [q2ws-debug] {at: 1777854532834, source: map, event: moveend, center: LatLng, zoom: 13}
+debug: [q2ws-debug] {at: 1777854532848, source: autofit, event: apply, autoFitKey: 2::all::all::point_0:true::export-original::13, mode: export-original}
+debug: [q2ws-debug] {at: 1777854532848, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532848, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532848, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854532848, source: autofit, event: fit-bounds, bounds: 108.44,-6.82,108.5,-6.76}
+debug: [q2ws-debug] {at: 1777854532849, source: map, event: moveend, center: LatLng, zoom: 13}
+debug: [q2ws-debug] {at: 1777854532864, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532864, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532864, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854532947, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532947, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532947, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854532977, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532977, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854532977, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854537140, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854537140, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854537140, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854537159, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854537159, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854537159, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+debug: [q2ws-debug] {at: 1777854537193, source: terradraw, event: start, layerId: point_0, drawMode: select}
+debug: [q2ws-debug] {at: 1777854537193, source: terradraw, event: set-mode, drawMode: select}
+debug: [q2ws-debug] {at: 1777854537193, source: terradraw, event: snap-mode, enabled: false, layerId: point_0}
+warning: An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
