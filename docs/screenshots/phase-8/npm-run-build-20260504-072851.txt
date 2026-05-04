@@ -18,4 +18,4 @@ dist/assets/react-vendor-CzCvNk-L.js    229.60 kB │ gzip: 74.87 kB
 dist/assets/index-A31_DsUh.js           336.68 kB │ gzip: 94.73 kB
 dist/assets/map-vendor-CMCaw9Z3.js      348.87 kB │ gzip: 86.47 kB
 dist/assets/geo-vendor-DN-Q2cag.js      362.00 kB │ gzip: 91.58 kB
-✓ built in 2.26s
+✓ built in 2.04s

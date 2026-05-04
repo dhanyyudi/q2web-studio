@@ -2101,9 +2101,15 @@ test("phase 8 raster fixtures parse and render editor layers", async ({ page }) 
   });
   expect(wmsProject).toMatchObject({ kind: "raster-wms", url: "https://ahocevar.com/geoserver/wms", layersParam: "topp:states", opacity: 0.65 });
 
+  const pmtilesRequests: string[] = [];
+  page.on("requestfinished", (request) => {
+    if (request.url().includes("sample.pmtiles")) pmtilesRequests.push(request.url());
+  });
+
   await page.goto(debugUrl("/"));
   await importFixtureZip(page, rasterPmtilesFixtureZip);
   await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+  await expect.poll(() => pmtilesRequests.length, { timeout: 15000 }).toBeGreaterThan(0);
   const pmtilesProject = await page.evaluate(() => {
     const project = (window as Window & { __q2ws_project?: { layers: Array<{ kind?: string; url?: string; opacity?: number; maxZoom?: number }> } }).__q2ws_project;
     return project?.layers.find((layer) => layer.kind === "raster-pmtiles");
