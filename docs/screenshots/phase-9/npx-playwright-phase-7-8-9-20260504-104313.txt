@@ -1,0 +1,17 @@
+
+Running 13 tests using 1 worker
+
+[1A[2K[1/13] tests/map-render.spec.ts:769:1 › phase 7 style mode selector shows single-style empty state
+[1A[2K[2/13] tests/map-render.spec.ts:796:1 › phase 7 style modes keep editor and export runtime parity across single categorized and graduated
+[1A[2K[3/13] tests/map-render.spec.ts:882:1 › phase 7 categorized style regenerates categories from chosen field
+[1A[2K[4/13] tests/map-render.spec.ts:922:1 › phase 7 graduated style generates numeric ranges from selected field
+[1A[2K[5/13] tests/map-render.spec.ts:986:1 › phase 7 graduated style only offers fully numeric fields and clears stale ranges until regenerate
+[1A[2K[6/13] tests/map-render.spec.ts:1033:1 › phase 7 graduated style keeps editor and runtime preview fill color parity
+[1A[2K[7/13] tests/map-render.spec.ts:1160:1 › phase 7 categorized style keeps empty values aligned with rendered lookup
+[1A[2K[8/13] tests/map-render.spec.ts:2094:1 › phase 8 raster fixtures parse and render editor layers
+[1A[2K[9/13] tests/map-render.spec.ts:2131:1 › phase 8 raster export preserves runtime config parity
+[1A[2K[10/13] tests/map-render.spec.ts:2165:1 › phase 9 side panel can filter layer names
+[1A[2K[11/13] tests/map-render.spec.ts:2177:1 › phase 9 diagnostics panel stays visible when project has warnings
+[1A[2K[12/13] tests/map-render.spec.ts:2198:1 › phase 9 exported WMS runtime performs tile requests when served
+[1A[2K[13/13] tests/map-render.spec.ts:2233:1 › phase 9 exported PMTiles runtime fetches sample archive when served
+[1A[2K  13 passed (38.4s)

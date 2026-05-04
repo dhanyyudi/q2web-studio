@@ -291,6 +291,15 @@ Selalu uji **dua jalur** untuk fase apapun yang menyentuh runtime: editor previe
 - [ ] Phase 7 style mode tests still pass.
 - [ ] Phase 8 raster tests still pass.
 
+### 9.1 Acceptance and evidence bundle
+
+- [ ] Editor screenshot is attached under `docs/screenshots/phase-9/`.
+- [ ] ZIP runtime screenshot is attached under `docs/screenshots/phase-9/`.
+- [ ] Build log is attached under `docs/screenshots/phase-9/`.
+- [ ] Smoke fixture log is attached under `docs/screenshots/phase-9/`.
+- [ ] Smoke export log is attached under `docs/screenshots/phase-9/`.
+- [ ] Playwright phase 7, 8, and 9 log is attached under `docs/screenshots/phase-9/`.
+
 WMS GetFeatureInfo remains deferred after Phase 9 review because the current imported fixture and runtime config preserve tile rendering parity, but do not yet carry a bounded, testable click-info contract without widening scope into a larger runtime interaction redesign.
 
 ## Phase B — Inspector UX (welcome, header/footer variants, sidebar, per-layer popup style)
