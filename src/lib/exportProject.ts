@@ -176,7 +176,7 @@ function patchIndexHtml(indexHtml: string, project: Qgis2webProject): string {
     html = html.replace("</head>", '        <link rel="stylesheet" href="q2ws-custom.css">\n    </head>');
   }
   if (project.layers.some(isRasterPmtilesLayer) && !html.includes("js/pmtiles.js")) {
-    html = html.replace("</body>", '        <script src="js/pmtiles.js"></script>\n    </body>');
+    html = html.replace("</head>", '        <script src="js/pmtiles.js"></script>\n    </head>');
   }
   if (!html.includes("q2ws-runtime.js")) {
     html = html.replace("</body>", '        <script src="q2ws-runtime.js"></script>\n    </body>');
