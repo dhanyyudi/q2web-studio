@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import L from "leaflet";
+import { PMTiles, leafletRasterLayer } from "pmtiles";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -177,6 +178,14 @@ export function useRasterLayers(mapRef: MutableRefObject<L.Map | null>, mapInsta
           opacity: layer.opacity
         }).addTo(layerGroup);
         return;
+      }
+      if (layer.kind === "raster-pmtiles") {
+        leafletRasterLayer(new PMTiles(layer.url), {
+          attribution: layer.attribution,
+          opacity: layer.opacity,
+          minZoom: layer.minZoom,
+          maxZoom: layer.maxZoom
+        }).addTo(layerGroup);
       }
     });
     return () => {
