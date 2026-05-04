@@ -102,6 +102,16 @@ async function createGraduatedNumericFixtureZip(): Promise<string> {
   return zipPath;
 }
 
+async function createNonLeafletFixtureZip(): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-non-leaflet-fixture-"));
+  const zipPath = join(tempDir, "non-leaflet.zip");
+  const zip = new JSZip();
+  const root = "non-leaflet-export/";
+  zip.file(`${root}index.html`, `<!doctype html><html><head><meta charset="utf-8"><title>OpenLayers export</title></head><body><div id="map"></div><script>console.log("not leaflet");</script></body></html>`);
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
+}
+
 async function displayNameBySource(page: import("@playwright/test").Page, sourceFileName: string): Promise<string> {
   return page.evaluate((fileName) => {
     const project = (window as Window & { __q2ws_project?: { layers: Array<{ displayName: string; sourcePath: string }> } }).__q2ws_project;
@@ -2146,6 +2156,101 @@ test("phase 8 raster export preserves runtime config parity", async ({ page }) =
       opacity: 0.75
     });
     expect(existsSync(join(root, "images", "raster-overlay.png"))).toBe(true);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("phase 9 side panel can filter layer names", async ({ page }) => {
+  await page.goto("/");
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  const search = page.getByLabel(/Search layers/i);
+  await search.fill("Batas");
+
+  await expect(page.locator(".layer-row")).toHaveCount(1);
+  await expect(page.locator(".layer-row .layer-main")).toContainText("Batas Desa");
+});
+
+test("phase 9 diagnostics panel stays visible when project has warnings", async ({ page }) => {
+  const zipPath = await createNonLeafletFixtureZip();
+  try {
+    await page.goto("/");
+    await importFixtureZip(page, zipPath);
+    await expect(page.locator(".diagnostics-panel")).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(".diagnostics-panel")).toContainText(/non-Leaflet/i);
+  } finally {
+    await rm(zipPath, { force: true });
+    await rm(join(zipPath, ".."), { recursive: true, force: true });
+  }
+});
+
+test("phase 9 exported WMS runtime performs tile requests when served", async ({ page, browser }) => {
+  const downloads: import("@playwright/test").Download[] = [];
+  page.on("download", (download) => downloads.push(download));
+
+  await page.goto("/");
+  await importFixtureZip(page, rasterWmsFixtureZip);
+  await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Export ZIP/i }).click();
+  await expect.poll(() => downloads.length, { timeout: 30_000 }).toBe(1);
+
+  const { tempDir, zipPath } = await saveDownloadToTempDir(downloads[0], "q2ws-phase9-wms-runtime-");
+  try {
+    await unzipToDirectory(zipPath, tempDir);
+    const rootEntries = await readdir(tempDir, { withFileTypes: true });
+    const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+    if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+    const server = await startStaticServer(join(tempDir, exportRoot.name));
+    const runtimePage = await browser.newPage();
+    const requests: string[] = [];
+    runtimePage.on("requestfinished", (request) => {
+      if (request.url().includes("geoserver/wms")) requests.push(request.url());
+    });
+    try {
+      await runtimePage.goto(`${server.origin}/index.html`);
+      await expect.poll(() => requests.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    } finally {
+      await runtimePage.close();
+      await server.close();
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("phase 9 exported PMTiles runtime fetches sample archive when served", async ({ page, browser }) => {
+  const downloads: import("@playwright/test").Download[] = [];
+  page.on("download", (download) => downloads.push(download));
+
+  await page.goto("/");
+  await importFixtureZip(page, rasterPmtilesFixtureZip);
+  await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Export ZIP/i }).click();
+  await expect.poll(() => downloads.length, { timeout: 30_000 }).toBe(1);
+
+  const { tempDir, zipPath } = await saveDownloadToTempDir(downloads[0], "q2ws-phase9-pmtiles-runtime-");
+  try {
+    await unzipToDirectory(zipPath, tempDir);
+    const rootEntries = await readdir(tempDir, { withFileTypes: true });
+    const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+    if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+    const server = await startStaticServer(join(tempDir, exportRoot.name));
+    const runtimePage = await browser.newPage();
+    const requests: string[] = [];
+    runtimePage.on("requestfinished", (request) => {
+      if (request.url().includes("sample.pmtiles")) requests.push(request.url());
+    });
+    try {
+      await runtimePage.goto(`${server.origin}/index.html`);
+      await expect.poll(() => requests.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    } finally {
+      await runtimePage.close();
+      await server.close();
+    }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
