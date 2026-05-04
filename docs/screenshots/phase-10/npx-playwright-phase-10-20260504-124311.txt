@@ -1,0 +1,10 @@
+
+Running 5 tests using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:308:1 › phase 10 project and layer tabs support keyboard navigation (1.2s)
+  ✓  2 tests/map-render.spec.ts:331:1 › phase 10 rejects zip entries with path traversal (291ms)
+  ✓  3 tests/map-render.spec.ts:342:1 › phase 10 rejects zip imports above the file count cap (463ms)
+  ✓  4 tests/map-render.spec.ts:353:1 › phase 10 preview can open and close repeatedly without console errors (5.7s)
+  ✓  5 tests/map-render.spec.ts:373:1 › phase 10 default shell keeps measure control clickable (4.9s)
+
+  5 passed (13.6s)
