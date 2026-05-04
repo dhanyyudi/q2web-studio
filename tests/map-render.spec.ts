@@ -2206,7 +2206,7 @@ test("phase 9 exported WMS runtime performs tile requests when served", async ({
     const server = await startStaticServer(join(tempDir, exportRoot.name));
     const runtimePage = await browser.newPage();
     const requests: string[] = [];
-    runtimePage.on("requestfinished", (request) => {
+    runtimePage.on("request", (request) => {
       if (request.url().includes("geoserver/wms")) requests.push(request.url());
     });
     try {
