@@ -71,6 +71,10 @@ npx playwright test tests/map-render.spec.ts -g "phase 7|phase 8|phase 9|phase 1
 - Multi geometry layers can be previewed and managed, but direct geometry editing remains limited.
 - Runtime previews are local browser previews, not shareable hosted links.
 
+## Roadmap
+
+The Audit V4 baseline is complete through Phase 10. Larger future tracks should be planned separately and are tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Project workflow
 
 - Contributor workflow and PR evidence rules are documented in [CONTRIBUTING.md](CONTRIBUTING.md).

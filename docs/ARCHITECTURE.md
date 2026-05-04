@@ -96,6 +96,14 @@ WMS rendering parity is tile based. WMS GetFeatureInfo click interaction is stil
 - Runtime preview links are local browser routes, not hosted share links.
 - The runtime piggybacks the original qgis2web Leaflet export instead of regenerating a full `index.html` from scratch.
 
+## Roadmap boundary
+
+The current architecture is the Audit V4 MVP baseline.
+
+Future work is tracked in [ROADMAP.md](ROADMAP.md).
+
+Large deferred systems each need their own implementation plan before work begins.
+
 ## Disclaimer
 
 q2webstudio is an independent editor for qgis2web exports and is not affiliated with qgis2web or OSGeo.
