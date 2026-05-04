@@ -1,5 +1,6 @@
 import bbox from "@turf/bbox";
 import type { Qgis2webProject } from "../types/project";
+import { isVectorLayer, normalizeProjectLayerKind } from "./rasterParsing";
 import {
   defaultBasemaps,
   defaultLayerControlSettings,
@@ -88,7 +89,9 @@ export function hydrateProject(project: Qgis2webProject): Qgis2webProject {
       logoPath: branding.logoPath || "",
       logoPlacement: branding.logoPlacement || "left"
     },
-    layers: (migrated.layers || []).map((layer) => {
+    layers: (migrated.layers || []).map((inputLayer) => {
+      const layer = normalizeProjectLayerKind(inputLayer);
+      if (!isVectorLayer(layer)) return layer;
       const featureIds = new Set<string>();
       return {
         ...layer,
@@ -156,7 +159,7 @@ function uniqueFeatureId(existingIds: Set<string>, candidate: string, fallback: 
 }
 
 export function projectCenter(project: Qgis2webProject): [number, number] {
-  const box = bbox({ type: "FeatureCollection", features: project.layers.flatMap((layer) => layer.geojson.features) });
+  const box = bbox({ type: "FeatureCollection", features: project.layers.filter(isVectorLayer).flatMap((layer) => layer.geojson.features) });
   if (box.some((value) => !Number.isFinite(value))) return [0, 0];
   return [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
 }

@@ -21,7 +21,8 @@ import {
   translateGeometry
 } from "../lib/geometryTransforms";
 import { projectCenter } from "../lib/projectHydration";
-import { addFeatureProperty, deleteFeatureProperty, renameField, updateFeatureProperty, updateLayer, updateLayerGeojson } from "../lib/projectUpdates";
+import { isVectorLayer } from "../lib/rasterParsing";
+import { addFeatureProperty, deleteFeatureProperty, renameField, updateFeatureProperty, updateVectorLayer, updateLayerGeojson } from "../lib/projectUpdates";
 import { fieldNames } from "../lib/style";
 import type {
   BasemapConfig,
@@ -59,15 +60,25 @@ export function useProjectState({
   const [newFeaturePropertyKey, setNewFeaturePropertyKey] = useState("");
   const [newFeaturePropertyValue, setNewFeaturePropertyValue] = useState("");
 
+  const selectedProjectLayer = useMemo(
+    () => project?.layers.find((layer) => layer.id === selectedLayerId),
+    [project, selectedLayerId]
+  );
+
   const selectedLayer = useMemo(
-    () => project?.layers.find((layer) => layer.id === selectedLayerId) || project?.layers[0],
+    () => {
+      if (!project) return undefined;
+      const matched = project.layers.find((layer) => layer.id === selectedLayerId);
+      if (matched && isVectorLayer(matched)) return matched;
+      return project.layers.find(isVectorLayer);
+    },
     [project, selectedLayerId]
   );
 
   const selectedFeatureData = useMemo(() => {
     if (!project || !selectedFeature) return null;
     const layer = project.layers.find((item) => item.id === selectedFeature.layerId);
-    if (!layer) return null;
+    if (!layer || !isVectorLayer(layer)) return null;
     const feature = layer.geojson.features.find(
       (item) => String(item.properties?.__q2ws_id ?? item.id ?? "") === selectedFeature.featureId
     );
@@ -130,7 +141,7 @@ export function useProjectState({
   }
 
   function warnAboutLargeDatasets(next: Qgis2webProject) {
-    const heavyLayers = next.layers.filter((layer) => layer.geojson.features.length > 10000);
+    const heavyLayers = next.layers.filter(isVectorLayer).filter((layer) => layer.geojson.features.length > 10000);
     if (heavyLayers.length === 0) return;
     const biggest = heavyLayers
       .map((layer) => `${layer.displayName}: ${layer.geojson.features.length.toLocaleString()} features`)
@@ -149,7 +160,18 @@ export function useProjectState({
 
   function patchSelectedLayer(patch: Partial<LayerManifest>) {
     if (!project || !selectedLayer) return;
-    updateProject(updateLayer(project, selectedLayer.id, patch));
+    updateProject(updateVectorLayer(project, selectedLayer.id, patch));
+  }
+
+  function updateRasterLayer(layerId: string, patch: Record<string, unknown>) {
+    if (!project) return;
+    updateProject({
+      ...project,
+      layers: project.layers.map((layer) => {
+        if (layer.id !== layerId || isVectorLayer(layer)) return layer;
+        return { ...layer, ...patch };
+      })
+    }, { label: "Edit raster layer", group: `raster-layer:${layerId}`, coalesceMs: 600 });
   }
 
   function selectedFeatureIdValue() {
@@ -992,6 +1014,7 @@ export function useProjectState({
     setBusy,
     history,
     setHistory,
+    selectedProjectLayer,
     selectedLayer,
     selectedFeatureData,
     newFeaturePropertyKey,
@@ -1005,6 +1028,7 @@ export function useProjectState({
     handleTileError,
     handleSelectedFeatureChange,
     patchSelectedLayer,
+    updateRasterLayer,
     selectedFeatureTitle,
     updateSelectedFeatureField,
     addSelectedFeatureProperty,

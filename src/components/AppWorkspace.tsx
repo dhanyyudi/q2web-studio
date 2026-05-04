@@ -11,17 +11,19 @@ import { SidePanel } from "./SidePanel";
 import { ToolbarButton } from "./ToolbarButton";
 import { Button } from "./ui/button";
 import { filesFromDataTransferItems } from "../lib/fileImport";
-import { updateLayer } from "../lib/projectUpdates";
-import type { BasemapConfig, DrawMode, LayerManifest, MapSettings, Qgis2webProject, SelectedFeatureRef, VirtualFile } from "../types/project";
+import { isVectorLayer } from "../lib/rasterParsing";
+import { updateVectorLayer } from "../lib/projectUpdates";
+import type { BasemapConfig, DrawMode, LayerManifest, MapSettings, ProjectLayer, Qgis2webProject, SelectedFeatureRef, VirtualFile } from "../types/project";
 import type { GeometryKind } from "../lib/appHelpers";
 
 type UpdateProjectOptions = { label?: string; group?: string; coalesceMs?: number };
 type PanelRef = ReturnType<typeof usePanelRef>;
 type PanelLayout = Record<string, number>;
-type InspectorBaseProps = "project" | "selectedLayer" | "inspectorMode" | "logoInputRef" | "presetBasemapProvider" | "setPresetBasemapProvider" | "baseMapPresetGroups" | "updateProject" | "importLogo" | "updateBasemapField" | "moveBasemap" | "removeBasemap" | "setDefaultBasemap" | "addPresetBasemap" | "addCustomBasemap" | "setMapSetting" | "resetToExportView" | "updateManualLegendItems" | "clearSelectedFeature" | "selectedGeometryKind" | "selectedFeatureIds" | "selectedLayerHasMultiGeometry" | "selectedFeatureData" | "addManualLegendItem";
-type InspectorActions = Omit<InspectorShellProps, InspectorBaseProps> & {
+type InspectorBaseProps = "project" | "selectedLayer" | "selectedProjectLayer" | "inspectorMode" | "logoInputRef" | "presetBasemapProvider" | "setPresetBasemapProvider" | "baseMapPresetGroups" | "updateProject" | "importLogo" | "updateBasemapField" | "moveBasemap" | "removeBasemap" | "setDefaultBasemap" | "addPresetBasemap" | "addCustomBasemap" | "setMapSetting" | "resetToExportView" | "updateManualLegendItems" | "clearSelectedFeature" | "selectedGeometryKind" | "selectedFeatureIds" | "selectedLayerHasMultiGeometry" | "selectedFeatureData" | "addManualLegendItem" | "updateRasterLayer";
+type InspectorActions = Omit<InspectorShellProps, InspectorBaseProps | "selectedProjectLayer" | "updateRasterLayer"> & {
   selectedFeatureData: InspectorShellProps["selectedFeatureData"];
   addManualLegend: () => void;
+  updateRasterLayer: InspectorShellProps["updateRasterLayer"];
 };
 
 export type AppWorkspaceProps = {
@@ -48,6 +50,7 @@ export type AppWorkspaceProps = {
   inspectorMode: "project" | "layer";
   setInspectorMode: (mode: "project" | "layer") => void;
   selectedLayer: LayerManifest | undefined;
+  selectedProjectLayer?: ProjectLayer;
   setSelectedLayerId: (layerId: string) => void;
   setSelectedFeature: (feature: SelectedFeatureRef | null) => void;
   updateProject: (project: Qgis2webProject, options?: UpdateProjectOptions) => void;
@@ -103,7 +106,7 @@ export function AppWorkspace(props: AppWorkspaceProps) {
     project, busy, status, workspaceGroupRef, sidePanelRef, inspectorPanelRef, mapPanelRef, tablePanelRef,
     defaultWorkspaceLayout, onWorkspaceLayoutChanged, defaultLayout, onLayoutChanged, leftPanelCollapsed,
     setWorkspaceLeftPanelCollapsed, importVirtualFiles, importZipFile, importFiles, startImport, startZipImport,
-    setStatus, inspectorMode, setInspectorMode, selectedLayer, setSelectedLayerId, setSelectedFeature,
+    setStatus, inspectorMode, setInspectorMode, selectedLayer, selectedProjectLayer, setSelectedLayerId, setSelectedFeature,
     updateProject, setDefaultBasemap, setMapSetting, resetToExportView, selectedGeometryKind, selectedLayerHasMultiGeometry,
     canEditGeometry, canDrawPoint, canDrawLine, canDrawPolygon, drawMode, setDrawModeWithGuard, snapEnabled,
     setSnapEnabled, addTextAnnotation, setShowShortcutDialog, tableMode, setTableMode, attributeFilter,
@@ -142,12 +145,12 @@ export function AppWorkspace(props: AppWorkspaceProps) {
       >
         <Group id="workspace-panels" data-testid="workspace-panels" groupRef={workspaceGroupRef} defaultLayout={defaultWorkspaceLayout || { "left-panel": leftPanelCollapsed ? 0 : 18, "main-stage": leftPanelCollapsed ? 74 : 56, "right-panel": 26 }} onLayoutChanged={onWorkspaceLayoutChanged} className="workspace-panels" orientation="horizontal">
           <Panel id="left-panel" data-testid="left-panel" defaultSize={leftPanelCollapsed ? "0%" : "18%"} minSize="12%" maxSize="30%" collapsible collapsedSize="0%" panelRef={sidePanelRef}>
-            <SidePanel project={project} busy={busy} status={status} inspectorMode={inspectorMode} selectedLayer={selectedLayer} onCollapse={() => setWorkspaceLeftPanelCollapsed(true)} onProjectSettings={() => setInspectorMode("project")} onDefaultBasemap={setDefaultBasemap} onMapViewModeChange={(value) => setMapSetting("viewMode", value)} onSelectLayer={(layerId) => { setSelectedLayerId(layerId); setSelectedFeature(null); setInspectorMode("layer"); }} onUpdateLayer={(layer) => project && updateProject(updateLayer(project, layer.id, { visible: layer.visible }))} />
+            <SidePanel project={project} busy={busy} status={status} inspectorMode={inspectorMode} selectedLayer={selectedProjectLayer} onCollapse={() => setWorkspaceLeftPanelCollapsed(true)} onProjectSettings={() => setInspectorMode("project")} onDefaultBasemap={setDefaultBasemap} onMapViewModeChange={(value) => setMapSetting("viewMode", value)} onSelectLayer={(layerId) => { setSelectedLayerId(layerId); setSelectedFeature(null); setInspectorMode("layer"); }} onUpdateLayer={(layer) => project && updateProject(isVectorLayer(layer) ? updateVectorLayer(project, layer.id, { visible: layer.visible }) : { ...project, layers: project.layers.map((candidate) => candidate.id === layer.id ? layer : candidate) })} />
           </Panel>
           <Separator className="workspace-resize-handle" />
           <Panel id="main-stage" defaultSize={leftPanelCollapsed ? "74%" : "56%"} minSize="35%">
             <section className="main-stage">
-              {project && selectedLayer ? (
+              {project && selectedProjectLayer ? (
                 <>
                   <div className="toolbar">
                     <ToolbarButton title={canEditGeometry ? "Select and edit" : "Multi-geometry layers are preview-only"} shortcut="1" active={drawMode === "select"} disabled={!canEditGeometry} onClick={() => setDrawModeWithGuard("select")}><MousePointer2 size={17} /></ToolbarButton>
@@ -164,12 +167,14 @@ export function AppWorkspace(props: AppWorkspaceProps) {
                   </div>
                   <Group defaultLayout={defaultLayout || undefined} onLayoutChanged={onLayoutChanged} className={tableMode === "maximized" ? "stage-panels table-maximized" : "stage-panels"} orientation="vertical">
                     <Panel id="map" defaultSize="74%" minSize="25%" panelRef={mapPanelRef}>
-                      <MapCanvas project={project} selectedLayerId={selectedLayer.id} drawMode={drawMode} snapEnabled={snapEnabled} geometryEditingDisabled={!canEditGeometry} lassoSelectionEnabled={Boolean(selectedLayer)} onProjectChange={updateProject} onTileError={handleTileError} selectedFeature={selectedFeature} selectedFeatureIds={selectedFeatureIds} onSelectedFeatureChange={handleSelectedFeatureChange} onLassoComplete={handleLassoComplete} />
+                      <MapCanvas project={project} selectedLayerId={selectedProjectLayer.id} drawMode={drawMode} snapEnabled={snapEnabled} geometryEditingDisabled={!canEditGeometry} lassoSelectionEnabled={Boolean(selectedLayer)} onProjectChange={updateProject} onTileError={handleTileError} selectedFeature={selectedFeature} selectedFeatureIds={selectedFeatureIds} onSelectedFeatureChange={handleSelectedFeatureChange} onLassoComplete={handleLassoComplete} />
                     </Panel>
                     <Separator className="panel-resize-handle" />
-                    <Panel id="attributes" defaultSize="26%" minSize={tableMode === "minimized" ? "6%" : "14%"} panelRef={tablePanelRef}>
-                      <AttributeTable project={project} layer={selectedLayer} mode={tableMode} setMode={setTableMode} filter={attributeFilter} setFilter={setAttributeFilter} showFieldsDialog={showFieldsDialog} setShowFieldsDialog={setShowFieldsDialog} newField={newField} setNewField={setNewField} renameFrom={renameFrom} setRenameFrom={setRenameFrom} renameTo={renameTo} setRenameTo={setRenameTo} updateProject={updateProject} selectedFeatureId={selectedFeature?.layerId === selectedLayer.id ? selectedFeature.featureId : ""} onSelectedFeatureChange={handleSelectedFeatureChange} />
-                    </Panel>
+                    {selectedLayer && (
+                      <Panel id="attributes" defaultSize="26%" minSize={tableMode === "minimized" ? "6%" : "14%"} panelRef={tablePanelRef}>
+                        <AttributeTable project={project} layer={selectedLayer} mode={tableMode} setMode={setTableMode} filter={attributeFilter} setFilter={setAttributeFilter} showFieldsDialog={showFieldsDialog} setShowFieldsDialog={setShowFieldsDialog} newField={newField} setNewField={setNewField} renameFrom={renameFrom} setRenameFrom={setRenameFrom} renameTo={renameTo} setRenameTo={setRenameTo} updateProject={updateProject} selectedFeatureId={selectedFeature?.layerId === selectedLayer.id ? selectedFeature.featureId : ""} onSelectedFeatureChange={handleSelectedFeatureChange} />
+                      </Panel>
+                    )}
                   </Group>
                 </>
               ) : <EmptyState busy={busy} onImportZip={startZipImport} onImportFolder={startImport} />}
@@ -177,7 +182,7 @@ export function AppWorkspace(props: AppWorkspaceProps) {
           </Panel>
           <Separator className="workspace-resize-handle" />
           <Panel id="right-panel" defaultSize="26%" minSize="20%" maxSize="45%" collapsible collapsedSize="0%" panelRef={inspectorPanelRef}>
-            {project ? <InspectorShell project={project} selectedLayer={selectedLayer} inspectorMode={inspectorMode} logoInputRef={logoInputRef} presetBasemapProvider={presetBasemapProvider} setPresetBasemapProvider={setPresetBasemapProvider} baseMapPresetGroups={baseMapPresetGroups} updateProject={updateProject} importLogo={importLogo} updateBasemapField={updateBasemapField} moveBasemap={moveBasemap} removeBasemap={removeBasemap} setDefaultBasemap={setDefaultBasemap} addPresetBasemap={addPresetBasemap} addCustomBasemap={addCustomBasemap} setMapSetting={setMapSetting} resetToExportView={resetToExportView} updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })} clearSelectedFeature={() => setSelectedFeature(null)} selectedGeometryKind={selectedGeometryKind} selectedFeatureIds={selectedFeatureIds} selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry} {...inspectorActions} selectedFeatureData={inspectorActions.selectedFeatureData || null} addManualLegendItem={inspectorActions.addManualLegend} /> : <div className="inspector inspector-empty" aria-hidden="true" />}
+            {project ? <InspectorShell project={project} selectedLayer={selectedLayer} selectedProjectLayer={selectedProjectLayer} inspectorMode={inspectorMode} logoInputRef={logoInputRef} presetBasemapProvider={presetBasemapProvider} setPresetBasemapProvider={setPresetBasemapProvider} baseMapPresetGroups={baseMapPresetGroups} updateProject={updateProject} importLogo={importLogo} updateBasemapField={updateBasemapField} moveBasemap={moveBasemap} removeBasemap={removeBasemap} setDefaultBasemap={setDefaultBasemap} addPresetBasemap={addPresetBasemap} addCustomBasemap={addCustomBasemap} setMapSetting={setMapSetting} resetToExportView={resetToExportView} updateManualLegendItems={(manualLegendItems) => updateProject({ ...project, manualLegendItems })} clearSelectedFeature={() => setSelectedFeature(null)} selectedGeometryKind={selectedGeometryKind} selectedFeatureIds={selectedFeatureIds} selectedLayerHasMultiGeometry={selectedLayerHasMultiGeometry} {...inspectorActions} selectedFeatureData={inspectorActions.selectedFeatureData || null} addManualLegendItem={inspectorActions.addManualLegend} /> : <div className="inspector inspector-empty" aria-hidden="true" />}
           </Panel>
         </Group>
         {leftPanelCollapsed && <button data-testid="left-panel-expand" type="button" className="left-panel-expand" aria-label="Expand side panel" onClick={() => setWorkspaceLeftPanelCollapsed(false)}><span>☰</span></button>}

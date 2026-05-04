@@ -714,6 +714,19 @@ button:disabled {
   background: color-mix(in srgb, var(--brand) 13%, var(--panel-bg));
 }
 
+.layer-row.disabled {
+  opacity: 0.72;
+}
+
+.layer-row.disabled .layer-main,
+.layer-row.disabled .icon-button {
+  cursor: not-allowed;
+}
+
+.layer-row.disabled .icon-button {
+  color: var(--muted-text);
+}
+
 .layer-main {
   min-width: 0;
   display: grid;
@@ -746,6 +759,11 @@ button:disabled {
   padding: 0;
   border: 0;
   background: transparent;
+}
+
+.icon-button:disabled,
+.layer-main:disabled {
+  pointer-events: auto;
 }
 
 .toolbar {

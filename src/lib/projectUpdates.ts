@@ -1,5 +1,6 @@
 import type { FeatureCollection } from "geojson";
 import { defaultLayerControlSettings } from "./defaults";
+import { isVectorLayer, normalizeProjectLayerKind } from "./rasterParsing";
 import { normalizeGraduatedStyle, normalizeLayerStyleMode } from "./styleMode";
 import type { LayerControlMode, LayerManifest, Qgis2webProject } from "../types/project";
 
@@ -27,10 +28,14 @@ export function migrateProject(project: Qgis2webProject): Qgis2webProject {
       enabled: legendWasEnabled,
       placement: legendPlacement || (legendWasEnabled ? "inside-control" : "hidden")
     },
-    layers: (project.layers || []).map((layer) => ({
-      ...layer,
-      style: normalizeLayerStyle(layer)
-    }))
+    layers: (project.layers || []).map((inputLayer) => {
+      const layer = normalizeProjectLayerKind(inputLayer);
+      if (!isVectorLayer(layer)) return layer;
+      return {
+        ...layer,
+        style: normalizeLayerStyle(layer)
+      };
+    })
   };
 }
 
@@ -48,10 +53,18 @@ function normalizeLayerControlMode(mode: LayerControlMode | "compact" | undefine
   return defaultLayerControlSettings.mode;
 }
 
-export function updateLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {
+export function updateVectorLayer(project: Qgis2webProject, layerId: string, patch: Partial<LayerManifest>): Qgis2webProject {
   return {
     ...project,
-    layers: project.layers.map((layer) => (layer.id === layerId ? { ...layer, ...patch } : layer))
+    layers: project.layers.map((inputLayer) => {
+      const layer = normalizeProjectLayerKind(inputLayer);
+      if (layer.id !== layerId || !isVectorLayer(layer)) return layer;
+      return {
+        ...layer,
+        ...patch,
+        kind: "vector"
+      };
+    })
   };
 }
 
@@ -60,7 +73,7 @@ export function updateLayerGeojson(
   layerId: string,
   geojson: FeatureCollection
 ): Qgis2webProject {
-  return updateLayer(project, layerId, { geojson });
+  return updateVectorLayer(project, layerId, { geojson });
 }
 
 export function updateFeatureProperty(
@@ -87,7 +100,7 @@ export function addFeatureProperty(
 
 export function deleteFeatureProperty(project: Qgis2webProject, layerId: string, featureId: string, key: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
-  if (!layer || !key || key === "__q2ws_id") return project;
+  if (!layer || !isVectorLayer(layer) || !key || key === "__q2ws_id") return project;
   const features = layer.geojson.features.map((feature) => {
     if (!featureMatchesId(feature, featureId)) return feature;
     const properties = { ...(feature.properties || {}) };
@@ -99,7 +112,7 @@ export function deleteFeatureProperty(project: Qgis2webProject, layerId: string,
 
 function setFeatureProperty(project: Qgis2webProject, layerId: string, featureId: string, key: string, value: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
-  if (!layer || !key) return project;
+  if (!layer || !isVectorLayer(layer) || !key) return project;
   const features = layer.geojson.features.map((feature) =>
     featureMatchesId(feature, featureId)
       ? {
@@ -116,7 +129,7 @@ function setFeatureProperty(project: Qgis2webProject, layerId: string, featureId
 
 export function addField(project: Qgis2webProject, layerId: string, key: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
-  if (!layer || !key.trim()) return project;
+  if (!layer || !isVectorLayer(layer) || !key.trim()) return project;
   const cleanKey = key.trim().replace(/\s+/g, "_");
   const features = layer.geojson.features.map((feature) => ({
     ...feature,
@@ -125,7 +138,7 @@ export function addField(project: Qgis2webProject, layerId: string, key: string)
       [cleanKey]: ""
     }
   }));
-  return updateLayer(project, layerId, {
+  return updateVectorLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
     popupFields: [
       ...layer.popupFields,
@@ -142,7 +155,7 @@ export function addField(project: Qgis2webProject, layerId: string, key: string)
 export function renameField(project: Qgis2webProject, layerId: string, oldKey: string, newKey: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
   const cleanKey = newKey.trim().replace(/\s+/g, "_");
-  if (!layer || !oldKey || !cleanKey || oldKey === cleanKey) return project;
+  if (!layer || !isVectorLayer(layer) || !oldKey || !cleanKey || oldKey === cleanKey) return project;
   const features = layer.geojson.features.map((feature) => {
     const properties = { ...(feature.properties || {}) };
     properties[cleanKey] = properties[oldKey];
@@ -164,7 +177,7 @@ export function renameField(project: Qgis2webProject, layerId: string, oldKey: s
         htmlTemplate: layer.label.htmlTemplate?.replaceAll(`{{${oldKey}}}`, `{{${cleanKey}}}`)
       }
     : undefined;
-  return updateLayer(project, layerId, {
+  return updateVectorLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
     popupFields,
     popupTemplate,
@@ -185,7 +198,7 @@ export function renameField(project: Qgis2webProject, layerId: string, oldKey: s
 
 export function deleteField(project: Qgis2webProject, layerId: string, key: string): Qgis2webProject {
   const layer = project.layers.find((candidate) => candidate.id === layerId);
-  if (!layer || !key || key === "__q2ws_id") return project;
+  if (!layer || !isVectorLayer(layer) || !key || key === "__q2ws_id") return project;
   const features = layer.geojson.features.map((feature) => {
     const properties = { ...(feature.properties || {}) };
     delete properties[key];
@@ -207,7 +220,7 @@ export function deleteField(project: Qgis2webProject, layerId: string, key: stri
         htmlTemplate: layer.label.field === key ? (nextLabelField ? `{{${nextLabelField}}}` : "") : layer.label.htmlTemplate
       }
     : undefined;
-  return updateLayer(project, layerId, {
+  return updateVectorLayer(project, layerId, {
     geojson: { ...layer.geojson, features },
     popupFields: remainingFields,
     popupTemplate,

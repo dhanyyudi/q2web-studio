@@ -1,19 +1,20 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Eye, EyeOff, Layers3, Settings2, Wand2 } from "lucide-react";
-import type { LayerManifest, MapViewMode, Qgis2webProject } from "../types/project";
+import { isVectorLayer } from "../lib/rasterParsing";
+import type { LayerManifest, MapViewMode, ProjectLayer, Qgis2webProject } from "../types/project";
 
 type SidePanelProps = {
   project: Qgis2webProject | null;
   busy: boolean;
   status: string;
   inspectorMode: "project" | "layer";
-  selectedLayer?: LayerManifest;
+  selectedLayer?: ProjectLayer;
   onCollapse: () => void;
   onProjectSettings: () => void;
   onDefaultBasemap: (basemapId: string) => void;
   onMapViewModeChange: (mode: MapViewMode) => void;
   onSelectLayer: (layerId: string) => void;
-  onUpdateLayer: (layer: LayerManifest) => void;
+  onUpdateLayer: (layer: ProjectLayer) => void;
 };
 
 export function SidePanel({
@@ -74,22 +75,34 @@ export function SidePanel({
 
           <PanelTitle icon={<Layers3 size={16} />} title="Layers" />
           <div className="layer-list">
-            {project.layers.map((layer) => (
-              <div key={layer.id} className={layer.id === selectedLayer?.id ? "layer-row selected" : "layer-row"}>
-                <button type="button" className="layer-main" onClick={() => onSelectLayer(layer.id)}>
-                  <span>{layer.displayName}</span>
-                  <small>{layer.geometryType}</small>
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={layer.visible ? "Hide layer" : "Show layer"}
-                  onClick={() => onUpdateLayer({ ...layer, visible: !layer.visible })}
-                >
-                  {layer.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
-              </div>
-            ))}
+            {project.layers.map((layer) => {
+              const vectorLayer = isVectorLayer(layer);
+              const rowClassName = [
+                "layer-row",
+                layer.id === selectedLayer?.id ? "selected" : "",
+                vectorLayer ? "" : "raster"
+              ].filter(Boolean).join(" ");
+              return (
+                <div key={layer.id} className={rowClassName}>
+                  <button
+                    type="button"
+                    className="layer-main"
+                    onClick={() => onSelectLayer(layer.id)}
+                  >
+                    <span>{layer.displayName}</span>
+                    <small>{isVectorLayer(layer) ? layer.geometryType : layer.kind}</small>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={layer.visible ? "Hide layer" : "Show layer"}
+                    onClick={() => onUpdateLayer({ ...layer, visible: !layer.visible })}
+                  >
+                    {layer.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                </div>
+              );
+            })}
           </div>
           {project.diagnostics.length > 0 && (
             <>

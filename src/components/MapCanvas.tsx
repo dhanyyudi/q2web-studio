@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Polygon } from "geojson";
 import { allLegendItems, legendGroupsForLayers } from "../lib/style";
+import { isRasterImageLayer, isRasterPmtilesLayer, isRasterWmsLayer, isVectorLayer } from "../lib/rasterParsing";
 import type { DrawMode, LayerManifest, LegendPlacement, LegendPosition, Qgis2webProject, SelectedFeatureRef } from "../types/project";
 import { LayerControl, LegendPanel, MapFooter, MapHeader, SidebarPanel, WelcomeOverlay } from "./mapCanvasPanels";
 import { labelCss, popupCss, visiblePreviewLayers } from "./mapCanvasHelpers";
-import { useAutoFit, useBasemap, useGeoJsonLayers, useLassoSelection, useLeafletMap, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
+import { useAutoFit, useBasemap, useGeoJsonLayers, useLassoSelection, useLeafletMap, useRasterLayers, useSimplifiedLayers, useTerraDrawEditor } from "./mapCanvasHooks";
 
 function legendPlacementToPosition(placement: LegendPlacement): LegendPosition {
   switch (placement) {
@@ -63,13 +64,18 @@ export function MapCanvas({
   const [drawStatus, setDrawStatus] = useState("Select, draw, or edit simple geometries.");
   const [legendOpen, setLegendOpen] = useState(!project.legendSettings.collapsed);
 
+  const vectorLayers = useMemo(() => project.layers.filter(isVectorLayer), [project.layers]);
+  const rasterLayers = useMemo(
+    () => project.layers.filter((layer) => isRasterImageLayer(layer) || isRasterWmsLayer(layer) || isRasterPmtilesLayer(layer)).filter((layer) => layerVisibility?.[layer.id] ?? layer.visible),
+    [layerVisibility, project.layers]
+  );
   const selectedLayer = useMemo(
-    () => project.layers.find((layer) => layer.id === selectedLayerId) || project.layers[0],
-    [project.layers, selectedLayerId]
+    () => vectorLayers.find((layer) => layer.id === selectedLayerId) || vectorLayers[0],
+    [selectedLayerId, vectorLayers]
   );
   const previewLayers = useMemo(
-    () => visiblePreviewLayers(project.layers, selectedLayerId, project.mapSettings.viewMode),
-    [project.layers, project.mapSettings.viewMode, selectedLayerId]
+    () => visiblePreviewLayers(vectorLayers, selectedLayerId, project.mapSettings.viewMode),
+    [vectorLayers, project.mapSettings.viewMode, selectedLayerId]
   );
   const visibleLayers = useMemo(
     () => previewLayers.filter((layer) => layerVisibility?.[layer.id] ?? layer.visible),
@@ -108,6 +114,7 @@ export function MapCanvas({
   }, [project.legendSettings.collapsed]);
 
   useBasemap(mapRef, mapInstanceVersion, project.basemaps, project.mapSettings.basemap, onTileError);
+  useRasterLayers(mapRef, mapInstanceVersion, rasterLayers);
   useGeoJsonLayers(mapRef, mapInstanceVersion, renderLayers, project.textAnnotations, project.popupSettings, selectedFeature, selectedLayerId, selectedFeatureIds, onSelectedFeatureChange);
   useLassoSelection({
     mapRef,
@@ -153,7 +160,7 @@ export function MapCanvas({
       <SidebarPanel project={project} />
       <WelcomeOverlay project={project} />
       <style>{popupCss(project)}</style>
-      <style>{labelCss(project.layers)}</style>
+      <style>{labelCss(vectorLayers)}</style>
       {showLayerControl && (
         <LayerControl
           layers={previewLayers}

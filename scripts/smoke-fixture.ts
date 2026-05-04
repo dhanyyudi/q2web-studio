@@ -8,6 +8,9 @@ import type { VirtualFile } from "../src/types/project";
 const fixtureName = "qgis2web_2026_04_22-06_30_44_400659";
 const fixtureRoot = join(process.cwd(), "docs", "example_export", fixtureName);
 const fixtureZipPath = join(process.cwd(), "docs", "example_export", `${fixtureName}.zip`);
+const rasterImageFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_image_overlay.zip");
+const rasterWmsFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_wms.zip");
+const rasterPmtilesFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_pmtiles.zip");
 
 async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -18,6 +21,30 @@ async function walk(dir: string): Promise<string[]> {
     })
   );
   return nested.flat();
+}
+
+async function fixtureFilesFromZip(zipPath: string): Promise<VirtualFile[]> {
+  const zip = await JSZip.loadAsync(await readFile(zipPath));
+  const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
+  return Promise.all(entries.map(async (entry) => {
+    const rel = entry.name;
+    const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
+    if (isText) {
+      return {
+        path: rel,
+        name: rel.split("/").pop() || rel,
+        kind: "text" as const,
+        text: await entry.async("string")
+      };
+    }
+    const buffer = await entry.async("nodebuffer");
+    return {
+      path: rel,
+      name: rel.split("/").pop() || rel,
+      kind: "binary" as const,
+      buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    };
+  }));
 }
 
 async function fixtureFiles(): Promise<VirtualFile[]> {
@@ -46,33 +73,21 @@ async function fixtureFiles(): Promise<VirtualFile[]> {
       })
     );
   } catch {
-    const zip = await JSZip.loadAsync(await readFile(fixtureZipPath));
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
-    return Promise.all(entries.map(async (entry) => {
-      const rel = entry.name;
-      const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
-      if (isText) {
-        return {
-          path: rel,
-          name: rel.split("/").pop() || rel,
-          kind: "text" as const,
-          text: await entry.async("string")
-        };
-      }
-      const buffer = await entry.async("nodebuffer");
-      return {
-        path: rel,
-        name: rel.split("/").pop() || rel,
-        kind: "binary" as const,
-        buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-      };
-    }));
+    return fixtureFilesFromZip(fixtureZipPath);
   }
 }
 
 const files = await fixtureFiles();
 
+const syntheticRasterKinds = ["raster-image", "raster-wms", "raster-pmtiles"];
+if (!syntheticRasterKinds.every((kind) => ["raster-image", "raster-wms", "raster-pmtiles"].includes(kind))) {
+  throw new Error("Expected raster layer kinds to be declared for Phase 8.");
+}
+
 const project = parseQgis2webProject(files);
+const rasterImageProject = parseQgis2webProject(await fixtureFilesFromZip(rasterImageFixtureZipPath));
+const rasterWmsProject = parseQgis2webProject(await fixtureFilesFromZip(rasterWmsFixtureZipPath));
+const rasterPmtilesProject = parseQgis2webProject(await fixtureFilesFromZip(rasterPmtilesFixtureZipPath));
 const layerNames = project.layers.map((layer) => layer.displayName).sort();
 
 if (project.engine !== "leaflet") {
@@ -98,6 +113,10 @@ if (boundary?.style.mode !== "single") {
   throw new Error(`Expected Batas Desa style mode to be single. Got: ${boundary?.style.mode || "none"}`);
 }
 
+if (!project.layers.every((layer) => layer.kind === "vector")) {
+  throw new Error(`Expected fixture baseline layers to stay vector-only before raster parser lands. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.kind}`).join(", ")}`);
+}
+
 if (!project.layers.every((layer) => ["single", "categorized", "graduated"].includes(layer.style.mode))) {
   throw new Error(`Expected every layer to have a valid style mode. Got: ${project.layers.map((layer) => `${layer.displayName}:${layer.style.mode}`).join(", ")}`);
 }
@@ -120,6 +139,42 @@ if (!rivers?.style.categories.every((category) => category.symbolType === "line"
 
 if (boundary?.style.symbolType !== "line" || boundary.style.strokeColor.toLowerCase() !== "#ffffff") {
   throw new Error("Expected Batas Desa to preserve white line boundary style.");
+}
+
+const rasterImageLayer = rasterImageProject.layers.find((layer) => layer.kind === "raster-image");
+if (!rasterImageLayer || rasterImageLayer.kind !== "raster-image") {
+  throw new Error("Expected raster image overlay fixture to parse a raster-image layer.");
+}
+if (rasterImageLayer.imagePath !== "qgis2web_raster_image_overlay/images/raster-overlay.png") {
+  throw new Error(`Expected raster image path to stay project-relative. Got: ${rasterImageLayer.imagePath}`);
+}
+if (rasterImageLayer.opacity !== 0.75) {
+  throw new Error(`Expected raster image overlay opacity 0.75. Got: ${rasterImageLayer.opacity}`);
+}
+if (!rasterImageProject.layers.some((layer) => layer.kind === "vector")) {
+  throw new Error("Expected raster image overlay fixture to keep vector layers alongside raster.");
+}
+
+const rasterWmsLayer = rasterWmsProject.layers.find((layer) => layer.kind === "raster-wms");
+if (!rasterWmsLayer || rasterWmsLayer.kind !== "raster-wms") {
+  throw new Error("Expected raster WMS fixture to parse a raster-wms layer.");
+}
+if (rasterWmsLayer.url !== "https://ahocevar.com/geoserver/wms" || rasterWmsLayer.layersParam !== "topp:states") {
+  throw new Error(`Expected raster WMS url and layersParam. Got: ${JSON.stringify(rasterWmsLayer)}`);
+}
+if (rasterWmsLayer.opacity !== 0.65 || rasterWmsLayer.transparent !== true || rasterWmsLayer.version !== "1.1.1") {
+  throw new Error(`Expected raster WMS options to be preserved. Got: ${JSON.stringify(rasterWmsLayer)}`);
+}
+
+const rasterPmtilesLayer = rasterPmtilesProject.layers.find((layer) => layer.kind === "raster-pmtiles");
+if (!rasterPmtilesLayer || rasterPmtilesLayer.kind !== "raster-pmtiles") {
+  throw new Error("Expected raster PMTiles fixture to parse a raster-pmtiles layer.");
+}
+if (rasterPmtilesLayer.url !== "qgis2web_raster_pmtiles/tiles/sample.pmtiles") {
+  throw new Error(`Expected raster PMTiles path to stay project-relative. Got: ${rasterPmtilesLayer.url}`);
+}
+if (rasterPmtilesLayer.opacity !== 0.85 || rasterPmtilesLayer.maxZoom !== 14) {
+  throw new Error(`Expected raster PMTiles options to be preserved. Got: ${JSON.stringify(rasterPmtilesLayer)}`);
 }
 
 const measureWidget = project.runtime.widgets.find((widget) => widget.id === "measure");
@@ -246,4 +301,4 @@ if (legacyStyleProject.layers.some((layer) => !layer.style.graduated || !Array.i
   throw new Error("Expected legacy OPFS style hydration to restore graduated defaults.");
 }
 
-console.log(`Fixture parsed: ${project.layers.length} layers, ${files.length} files. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legacy style normalization, legend labels, line styles, and runtime widget disable hardening verified.`);
+console.log(`Fixture parsed: ${project.layers.length} vector-baseline layers, ${files.length} files, plus raster image, WMS, and PMTiles fixtures. Widgets, basemaps, labels, popup templates, legacy OPFS hydration, legacy style normalization, legend labels, line styles, raster parsing, and runtime widget disable hardening verified.`);

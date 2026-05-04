@@ -9,9 +9,16 @@ import { basename, extname, join } from "node:path";
 const debugUrl = (path = "/") => `${path}${path.includes("?") ? "&" : "?"}debug=1`;
 
 const fixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_2026_04_22-06_30_44_400659.zip");
+const rasterImageFixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_raster_image_overlay.zip");
+const rasterWmsFixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_raster_wms.zip");
+const rasterPmtilesFixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_raster_pmtiles.zip");
 
 async function importFixture(page: import("@playwright/test").Page) {
   await page.locator('input[accept*=".zip"]').setInputFiles(fixtureZip);
+}
+
+async function importFixtureZip(page: import("@playwright/test").Page, zipPath: string) {
+  await page.locator('input[accept*=".zip"]').setInputFiles(zipPath);
 }
 
 async function assertRenderedMap(page: import("@playwright/test").Page, requests: string[], consoleErrors: string[]) {
@@ -2070,6 +2077,78 @@ test("phase 4 qgis2web parity mode names use collapsed expanded tree with no Com
     { value: "tree", label: "Tree" }
   ]);
   expect(optionLabels.some((option) => /compact/i.test(option.label) || option.value === "compact")).toBe(false);
+});
+
+
+test("phase 8 raster fixtures parse and render editor layers", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixtureZip(page, rasterImageFixtureZip);
+  await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+  await expect(page.locator(".leaflet-image-layer")).toHaveCount(1);
+
+  const imageProject = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ kind?: string; imagePath?: string; opacity?: number }> } }).__q2ws_project;
+    return project?.layers.find((layer) => layer.kind === "raster-image");
+  });
+  expect(imageProject).toMatchObject({ kind: "raster-image", imagePath: "qgis2web_raster_image_overlay/images/raster-overlay.png", opacity: 0.75 });
+
+  await page.goto(debugUrl("/"));
+  await importFixtureZip(page, rasterWmsFixtureZip);
+  await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+  const wmsProject = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ kind?: string; url?: string; layersParam?: string; opacity?: number }> } }).__q2ws_project;
+    return project?.layers.find((layer) => layer.kind === "raster-wms");
+  });
+  expect(wmsProject).toMatchObject({ kind: "raster-wms", url: "https://ahocevar.com/geoserver/wms", layersParam: "topp:states", opacity: 0.65 });
+
+  const pmtilesRequests: string[] = [];
+  page.on("requestfinished", (request) => {
+    if (request.url().includes("sample.pmtiles")) pmtilesRequests.push(request.url());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixtureZip(page, rasterPmtilesFixtureZip);
+  await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+  await expect.poll(() => pmtilesRequests.length, { timeout: 15000 }).toBeGreaterThan(0);
+  const pmtilesProject = await page.evaluate(() => {
+    const project = (window as Window & { __q2ws_project?: { layers: Array<{ kind?: string; url?: string; opacity?: number; maxZoom?: number }> } }).__q2ws_project;
+    return project?.layers.find((layer) => layer.kind === "raster-pmtiles");
+  });
+  expect(pmtilesProject).toMatchObject({ kind: "raster-pmtiles", url: "qgis2web_raster_pmtiles/tiles/sample.pmtiles", opacity: 0.85, maxZoom: 14 });
+});
+
+test("phase 8 raster export preserves runtime config parity", async ({ page }) => {
+  const downloads: import("@playwright/test").Download[] = [];
+  page.on("download", (download) => downloads.push(download));
+
+  await page.goto("/");
+  await importFixtureZip(page, rasterImageFixtureZip);
+  await expect(page.locator(".status-box")).toContainText(/Imported 2 layers/i, { timeout: 15000 });
+  await expect(page.locator(".leaflet-image-layer")).toHaveCount(1);
+
+  const exportZipButton = page.getByRole("button", { name: /Export ZIP/i });
+  await expect(exportZipButton).toBeEnabled();
+  await exportZipButton.click();
+  await expect.poll(() => downloads.length, { timeout: 30_000 }).toBe(1);
+  const { tempDir, zipPath } = await saveDownloadToTempDir(downloads[0], "q2ws-phase8-raster-export-");
+  try {
+    await unzipToDirectory(zipPath, tempDir);
+    const rootEntries = await readdir(tempDir, { withFileTypes: true });
+    const exportRoot = rootEntries.find((entry) => entry.isDirectory());
+    if (!exportRoot) throw new Error("Expected exported ZIP root directory.");
+    const root = join(tempDir, exportRoot.name);
+    const config = JSON.parse(await readFile(join(root, "q2ws-config.json"), "utf8")) as {
+      layers?: Array<{ kind?: string; imagePath?: string; opacity?: number }>;
+    };
+    expect(config.layers?.find((layer) => layer.kind === "raster-image")).toMatchObject({
+      kind: "raster-image",
+      imagePath: "images/raster-overlay.png",
+      opacity: 0.75
+    });
+    expect(existsSync(join(root, "images", "raster-overlay.png"))).toBe(true);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("phase 4 layer control and legend stay in parity between editor and runtime preview", async ({ page }) => {

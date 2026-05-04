@@ -50,10 +50,10 @@ export function App() {
     project, setProject, selectedLayerId, setSelectedLayerId, selectedFeature, setSelectedFeature,
     selectedFeatureIds, setSelectedFeatureIds, inspectorMode, setInspectorMode, drawMode, setDrawMode,
     snapEnabled, setSnapEnabled, previewOpen, setPreviewOpen, attributeFilter, setAttributeFilter,
-    status, setStatus, busy, setBusy, history, setHistory, selectedLayer, selectedFeatureData,
+    status, setStatus, busy, setBusy, history, setHistory, selectedProjectLayer, selectedLayer, selectedFeatureData,
     newFeaturePropertyKey, setNewFeaturePropertyKey, newFeaturePropertyValue, setNewFeaturePropertyValue,
     updateProject, undoProject, redoProject, warnAboutLargeDatasets, handleTileError, handleSelectedFeatureChange,
-    patchSelectedLayer, selectedFeatureTitle, updateSelectedFeatureField, addSelectedFeatureProperty,
+    patchSelectedLayer, updateRasterLayer, selectedFeatureTitle, updateSelectedFeatureField, addSelectedFeatureProperty,
     removeSelectedFeatureProperty, renameSelectedPopupField, ensureLayerLabel, ensurePopupTemplate, setMapSetting, resetToExportView,
     setLayerControlSetting, setPopupSetting, setLegendSetting, toggleRuntimeWidget, setDefaultBasemap, addPresetBasemap, addCustomBasemap,
     removeBasemap, updateBasemapField, moveBasemap, addManualLegend, addTextAnnotation, setDrawModeWithGuard,
@@ -330,6 +330,7 @@ export function App() {
         inspectorMode={inspectorMode}
         setInspectorMode={setInspectorMode}
         selectedLayer={selectedLayer}
+        selectedProjectLayer={selectedProjectLayer}
         setSelectedLayerId={setSelectedLayerId}
         setSelectedFeature={setSelectedFeature}
         updateProject={updateProject}
@@ -382,13 +383,13 @@ export function App() {
           newFeaturePropertyValue, setNewFeaturePropertyValue, addSelectedFeatureProperty, polygonToLineSelectedFeature,
           convexHullSelectedFeature, splitLineSelectedFeature, divideLineSelectedFeature, simplifySelectedFeature,
           selectAllFeatures, translateSelectedFeatures, rotateSelectedFeatures, scaleSelectedFeatures, clearSelection,
-          ensureLayerLabel, ensurePopupTemplate, renameSelectedPopupField
+          ensureLayerLabel, ensurePopupTemplate, renameSelectedPopupField, updateRasterLayer
         }}
         showShortcutDialog={showShortcutDialog}
         shortcutRows={shortcutRows}
       />
-      {previewOpen && project && selectedLayer && (
-        <PreviewOverlay project={project} selectedLayerId={selectedLayer.id} onClose={() => setPreviewOpen(false)} onExport={exportZip} onProjectChange={updateProject} onTileError={handleTileError} />
+      {previewOpen && project && selectedProjectLayer && (
+        <PreviewOverlay project={project} selectedLayerId={selectedProjectLayer.id} onClose={() => setPreviewOpen(false)} onExport={exportZip} onProjectChange={updateProject} onTileError={handleTileError} />
       )}
     </main>
   );

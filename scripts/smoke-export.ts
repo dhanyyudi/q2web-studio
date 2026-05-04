@@ -10,6 +10,9 @@ import type { Qgis2webProject, VirtualFile } from "../src/types/project";
 const fixtureName = "qgis2web_2026_04_22-06_30_44_400659";
 const fixtureRoot = join(process.cwd(), "docs", "example_export", fixtureName);
 const fixtureZipPath = join(process.cwd(), "docs", "example_export", `${fixtureName}.zip`);
+const rasterImageFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_image_overlay.zip");
+const rasterWmsFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_wms.zip");
+const rasterPmtilesFixtureZipPath = join(process.cwd(), "docs", "example_export", "qgis2web_raster_pmtiles.zip");
 
 async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -20,6 +23,30 @@ async function walk(dir: string): Promise<string[]> {
     })
   );
   return nested.flat();
+}
+
+async function fixtureFilesFromZip(zipPath: string): Promise<VirtualFile[]> {
+  const zip = await JSZip.loadAsync(await readFile(zipPath));
+  const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
+  return Promise.all(entries.map(async (entry) => {
+    const rel = entry.name;
+    const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
+    if (isText) {
+      return {
+        path: rel,
+        name: rel.split("/").pop() || rel,
+        kind: "text" as const,
+        text: await entry.async("string")
+      };
+    }
+    const buffer = await entry.async("nodebuffer");
+    return {
+      path: rel,
+      name: rel.split("/").pop() || rel,
+      kind: "binary" as const,
+      buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    };
+  }));
 }
 
 async function fixtureFiles(): Promise<VirtualFile[]> {
@@ -48,27 +75,7 @@ async function fixtureFiles(): Promise<VirtualFile[]> {
       })
     );
   } catch {
-    const zip = await JSZip.loadAsync(await readFile(fixtureZipPath));
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !entry.name.startsWith("__MACOSX/") && !entry.name.endsWith("/.DS_Store") && !entry.name.endsWith(".DS_Store"));
-    return Promise.all(entries.map(async (entry) => {
-      const rel = entry.name;
-      const isText = /\.(html|js|css|json|txt|svg)$/i.test(rel);
-      if (isText) {
-        return {
-          path: rel,
-          name: rel.split("/").pop() || rel,
-          kind: "text" as const,
-          text: await entry.async("string")
-        };
-      }
-      const buffer = await entry.async("nodebuffer");
-      return {
-        path: rel,
-        name: rel.split("/").pop() || rel,
-        kind: "binary" as const,
-        buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-      };
-    }));
+    return fixtureFilesFromZip(fixtureZipPath);
   }
 }
 
@@ -407,6 +414,58 @@ for (const expectedRuntimeCode of ['openList("ol")', '^\\d+\\.\\s+(.+)$', '^(#{1
   }
 }
 
+const rasterImageProject = parseQgis2webProject(await fixtureFilesFromZip(rasterImageFixtureZipPath));
+const rasterImageZip = await exportZip(rasterImageProject);
+const rasterImageRoot = `${rasterImageProject.name}/`;
+const rasterImageConfig = JSON.parse(await zipText(rasterImageZip, `${rasterImageRoot}q2ws-config.json`));
+const exportedRasterImage = rasterImageConfig.layers?.find((layer: { kind?: string; imagePath?: string; opacity?: number }) => layer.kind === "raster-image");
+if (!exportedRasterImage) {
+  throw new Error("Expected exported config to preserve raster image overlay layer.");
+}
+if (exportedRasterImage.imagePath !== "images/raster-overlay.png") {
+  throw new Error(`Expected exported raster image path to be runtime-relative. Got: ${exportedRasterImage.imagePath}`);
+}
+if (exportedRasterImage.opacity !== 0.75) {
+  throw new Error(`Expected exported raster opacity 0.75. Got: ${exportedRasterImage.opacity}`);
+}
+expectFile(rasterImageZip, `${rasterImageRoot}images/raster-overlay.png`);
+const runtimeSourceForRasterImage = await readFile(join(process.cwd(), "src", "runtime", "runtime.ts"), "utf8");
+for (const expectedRasterCode of ["function createRasterLayer(layerConfig)", "layerConfig.kind === \"raster-image\"", "window.L.imageOverlay(layerConfig.imagePath, layerConfig.bounds"]) {
+  if (!runtimeSourceForRasterImage.includes(expectedRasterCode)) {
+    throw new Error(`Expected runtime raster image support to include: ${expectedRasterCode}`);
+  }
+}
+
+const rasterWmsProject = parseQgis2webProject(await fixtureFilesFromZip(rasterWmsFixtureZipPath));
+const rasterWmsZip = await exportZip(rasterWmsProject);
+const rasterWmsRoot = `${rasterWmsProject.name}/`;
+const rasterWmsConfig = JSON.parse(await zipText(rasterWmsZip, `${rasterWmsRoot}q2ws-config.json`));
+const exportedRasterWms = rasterWmsConfig.layers?.find((layer: { kind?: string; url?: string; layersParam?: string; opacity?: number }) => layer.kind === "raster-wms");
+if (!exportedRasterWms || exportedRasterWms.url !== "https://ahocevar.com/geoserver/wms" || exportedRasterWms.layersParam !== "topp:states") {
+  throw new Error(`Expected exported config to preserve WMS raster layer. Got: ${JSON.stringify(exportedRasterWms)}`);
+}
+if (exportedRasterWms.opacity !== 0.65) {
+  throw new Error(`Expected exported WMS opacity 0.65. Got: ${exportedRasterWms.opacity}`);
+}
+
+const rasterPmtilesProject = parseQgis2webProject(await fixtureFilesFromZip(rasterPmtilesFixtureZipPath));
+const rasterPmtilesZip = await exportZip(rasterPmtilesProject);
+const rasterPmtilesRoot = `${rasterPmtilesProject.name}/`;
+const rasterPmtilesConfig = JSON.parse(await zipText(rasterPmtilesZip, `${rasterPmtilesRoot}q2ws-config.json`));
+const exportedRasterPmtiles = rasterPmtilesConfig.layers?.find((layer: { kind?: string; url?: string; opacity?: number; maxZoom?: number }) => layer.kind === "raster-pmtiles");
+if (!exportedRasterPmtiles || exportedRasterPmtiles.url !== "tiles/sample.pmtiles") {
+  throw new Error(`Expected exported config to preserve runtime-relative PMTiles path. Got: ${JSON.stringify(exportedRasterPmtiles)}`);
+}
+if (exportedRasterPmtiles.opacity !== 0.85 || exportedRasterPmtiles.maxZoom !== 14) {
+  throw new Error(`Expected exported PMTiles options to be preserved. Got: ${JSON.stringify(exportedRasterPmtiles)}`);
+}
+expectFile(rasterPmtilesZip, `${rasterPmtilesRoot}tiles/sample.pmtiles`);
+for (const expectedRasterRuntimeCode of ["layerConfig.kind === \"raster-wms\"", "window.L.tileLayer.wms", "layerConfig.kind === \"raster-pmtiles\"", "window.pmtiles.leafletRasterLayer"]) {
+  if (!runtimeSourceForRasterImage.includes(expectedRasterRuntimeCode)) {
+    throw new Error(`Expected runtime WMS and PMTiles support to include: ${expectedRasterRuntimeCode}`);
+  }
+}
+
 const disabledProject = cloneProject(project);
 disabledProject.runtime.widgets = disabledProject.runtime.widgets.map((widget) => widget.id === "measure" ? { ...widget, enabled: false } : widget);
 const disabledZip = await exportZip(disabledProject);
@@ -424,4 +483,4 @@ if (!disabledIndex.includes("leaflet.photon.js")) {
   throw new Error("Expected unrelated Photon widget asset reference to remain after disabling measure.");
 }
 
-console.log("Export smoke verified q2ws runtime files, config fidelity, enabled widget assets, and disabled widget asset removal.");
+console.log("Export smoke verified q2ws runtime files, config fidelity, raster export parity, enabled widget assets, and disabled widget asset removal.");
