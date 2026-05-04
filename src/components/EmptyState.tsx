@@ -15,6 +15,7 @@ export function EmptyState({ busy, onImportZip, onImportFolder }: EmptyStateProp
         <h2>Import qgis2web export</h2>
         <p>Visual editor untuk hasil export qgis2web</p>
         <small>Recommended: ZIP export for the cleanest browser import. Use Import Folder if drag and drop is blocked by the browser.</small>
+        <p className="empty-state-note">q2webstudio is an independent editor for qgis2web exports and is not affiliated with qgis2web or OSGeo.</p>
       </div>
       <div className="empty-actions">
         <Button type="button" disabled={busy} onClick={onImportZip}>

@@ -302,6 +302,27 @@ Selalu uji **dua jalur** untuk fase apapun yang menyentuh runtime: editor previe
 
 WMS GetFeatureInfo remains deferred after Phase 9 review because the current imported fixture and runtime config preserve tile rendering parity, but do not yet carry a bounded, testable click-info contract without widening scope into a larger runtime interaction redesign.
 
+## Phase 10 — Documentation and release hardening
+
+- [ ] Inspector tabs support keyboard navigation.
+- [ ] Unsafe ZIP paths are rejected during import.
+- [ ] ZIP imports above the file count cap are rejected.
+- [ ] Runtime preview can open and close repeatedly without console errors.
+- [ ] Current shipped layout does not block the measure control.
+- [ ] README includes current branding, workflow links, and disclaimer.
+- [ ] CONTRIBUTING.md exists and documents PR evidence gates.
+- [ ] docs/ARCHITECTURE.md documents the Service Worker preview flow.
+
+### 10.1 Acceptance and evidence bundle
+
+- [ ] Editor screenshot is attached under `docs/screenshots/phase-10/`.
+- [ ] ZIP runtime screenshot is attached under `docs/screenshots/phase-10/`.
+- [ ] Build log is attached under `docs/screenshots/phase-10/`.
+- [ ] Smoke fixture log is attached under `docs/screenshots/phase-10/`.
+- [ ] Smoke export log is attached under `docs/screenshots/phase-10/`.
+- [ ] Playwright phase 10 log is attached under `docs/screenshots/phase-10/`.
+- [ ] Smoke map log is attached under `docs/screenshots/phase-10/`.
+
 ## Phase B — Inspector UX (welcome, header/footer variants, sidebar, per-layer popup style)
 
 ### B.1 Pre-flight

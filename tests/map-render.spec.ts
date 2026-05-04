@@ -12,6 +12,7 @@ const fixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_2026_
 const rasterImageFixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_raster_image_overlay.zip");
 const rasterWmsFixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_raster_wms.zip");
 const rasterPmtilesFixtureZip = join(process.cwd(), "docs", "example_export", "qgis2web_raster_pmtiles.zip");
+const TOO_MANY_IMPORT_FILES = 5001;
 
 async function importFixture(page: import("@playwright/test").Page) {
   await page.locator('input[accept*=".zip"]').setInputFiles(fixtureZip);
@@ -109,6 +110,28 @@ async function createNonLeafletFixtureZip(): Promise<string> {
   const root = "non-leaflet-export/";
   zip.file(`${root}index.html`, `<!doctype html><html><head><meta charset="utf-8"><title>OpenLayers export</title></head><body><div id="map"></div><script src="data/Warnings_1.js"></script><script>console.log("not supported engine");</script></body></html>`);
   zip.file(`${root}data/Warnings_1.js`, `var json_Warnings_1 = {"type":"FeatureCollection","name":"Warnings_1","features":[{"type":"Feature","properties":{"NAME":"warning fixture"},"geometry":{"type":"Point","coordinates":[108.45,-6.78]}}]};`);
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
+}
+
+async function createUnsafePathZip(): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-unsafe-zip-"));
+  const zipPath = join(tempDir, "unsafe.zip");
+  const zip = new JSZip();
+  zip.file("..\\..\\evil.js", "alert('x')");
+  zip.file("safe/index.html", "<!doctype html><html><body>unsafe</body></html>");
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
+}
+
+async function createTooManyFilesZip(): Promise<string> {
+  const tempDir = await mkdtemp(join(tmpdir(), "q2ws-many-files-zip-"));
+  const zipPath = join(tempDir, "too-many-files.zip");
+  const zip = new JSZip();
+  for (let index = 0; index < TOO_MANY_IMPORT_FILES; index += 1) {
+    zip.file(`many/data-${index}.txt`, String(index));
+  }
+  zip.file("many/index.html", "<!doctype html><html><body>too many files</body></html>");
   await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
   return zipPath;
 }
@@ -280,6 +303,95 @@ test("production headers restore strict main app CSP after service worker previe
   expect(headers).not.toContain("style-src 'self' 'unsafe-inline' blob:");
   expect(headers).not.toContain("frame-src 'self' blob:");
   expect(headers).not.toContain("TEMPORARY: 'unsafe-inline' + blob: required for blob-iframe Preview");
+});
+
+test("phase 10 project and layer tabs support keyboard navigation", async ({ page }) => {
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByRole("button", { name: /Project Settings/i }).click();
+  const brandingTab = page.getByRole("tab", { name: /^Branding$/i });
+  const mapTab = page.getByRole("tab", { name: /^Map$/i });
+
+  await brandingTab.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(mapTab).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(mapTab).toHaveAttribute("aria-selected", "true");
+
+  await page.getByRole("button", { name: /Batas Desa/i }).click();
+  const layerTab = page.getByRole("tab", { name: /^Layer$/i });
+  const styleTab = page.getByRole("tab", { name: /^Style$/i });
+  await layerTab.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(styleTab).toBeFocused();
+});
+
+test("phase 10 rejects zip entries with path traversal", async ({ page }) => {
+  await page.goto("/");
+  const unsafeZip = await createUnsafePathZip();
+  try {
+    await importFixtureZip(page, unsafeZip);
+    await expect(page.locator(".status-box")).toContainText(/Unsafe import path rejected/i, { timeout: 15000 });
+  } finally {
+    await rm(join(unsafeZip, ".."), { recursive: true, force: true });
+  }
+});
+
+test("phase 10 rejects zip imports above the file count cap", async ({ page }) => {
+  await page.goto("/");
+  const zipPath = await createTooManyFilesZip();
+  try {
+    await importFixtureZip(page, zipPath);
+    await expect(page.locator(".status-box")).toContainText(/Please use a smaller qgis2web export/i, { timeout: 15000 });
+  } finally {
+    await rm(join(zipPath, ".."), { recursive: true, force: true });
+  }
+});
+
+test("phase 10 preview can open and close repeatedly without console errors", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  for (let index = 0; index < 5; index += 1) {
+    await page.getByTestId("open-preview").click();
+    await expect(page.locator("iframe[title='Runtime preview']")).toBeVisible();
+    await page.getByRole("button", { name: /Exit Preview/i }).click();
+    await expect(page.locator("iframe[title='Runtime preview']")).toHaveCount(0);
+  }
+
+  expect(consoleErrors).toEqual([]);
+});
+
+test("phase 10 default shell keeps measure control clickable", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(debugUrl("/"));
+  await importFixture(page);
+  await expect(page.locator(".status-box")).toContainText(/Imported 4 layers/i, { timeout: 15000 });
+
+  await page.getByTestId("open-preview").click();
+  const iframe = page.locator('[data-testid="runtime-preview-frame"]');
+  await expect(iframe).toBeVisible();
+
+  const frame = page.frameLocator('[data-testid="runtime-preview-frame"]');
+  await expect(frame.locator(".leaflet-container")).toBeVisible({ timeout: 15000 });
+  const measureControl = frame.locator(".leaflet-control-measure").first();
+  await expect(measureControl).toBeVisible({ timeout: 15000 });
+
+  await measureControl.click();
+  await expect(measureControl).toBeVisible();
+  expect(consoleErrors).toEqual([]);
 });
 
 test("selected feature header uses a readable label and cannot overflow inspector", async ({ page }) => {
