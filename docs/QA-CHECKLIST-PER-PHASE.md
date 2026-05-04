@@ -323,6 +323,22 @@ WMS GetFeatureInfo remains deferred after Phase 9 review because the current imp
 - [ ] Playwright phase 10 log is attached under `docs/screenshots/phase-10/`.
 - [ ] Smoke map log is attached under `docs/screenshots/phase-10/`.
 
+## Phase 11 — Final gap triage and roadmap lock
+
+- [ ] `docs/AUDIT-2026-04-29.md` has a Phase 10 implementation status addendum near the top.
+- [ ] `docs/ARCHITECTURE.md` states the current architecture is the Audit V4 MVP baseline.
+- [ ] `README.md` links `docs/ROADMAP.md` and states the baseline is complete through Phase 10.
+- [ ] Deferred scope is aligned across audit, architecture, README, and roadmap docs.
+- [ ] Phase 11 does not add hidden feature scope.
+- [ ] Deferred items remain documented as roadmap work only.
+
+### 11.1 Acceptance and evidence bundle
+
+- [ ] Grep log covering `ROADMAP.md`, `Phase 11`, `WMS GetFeatureInfo`, `Rule based styling`, `Custom CRS reprojection`, and `Cross device preview` is attached under `docs/screenshots/phase-11/` or PR notes.
+- [ ] Doc diff or screenshot evidence is attached for audit, architecture, README, and QA checklist updates.
+- [ ] Validation notes confirm `docs/ROADMAP.md` was not modified in this phase.
+- [ ] Commit message matches `docs(audit): lock phase 11 roadmap boundaries`.
+
 ## Phase B — Inspector UX (welcome, header/footer variants, sidebar, per-layer popup style)
 
 ### B.1 Pre-flight
