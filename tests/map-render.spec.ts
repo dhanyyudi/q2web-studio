@@ -2250,7 +2250,7 @@ test("phase 9 exported PMTiles runtime fetches sample archive when served", asyn
     const server = await startStaticServer(join(tempDir, exportRoot.name));
     const runtimePage = await browser.newPage();
     const requests: string[] = [];
-    runtimePage.on("requestfinished", (request) => {
+    runtimePage.on("request", (request) => {
       if (request.url().includes("sample.pmtiles")) requests.push(request.url());
     });
     try {
