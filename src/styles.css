@@ -1885,6 +1885,12 @@ tbody tr:hover {
   line-height: 1.5;
 }
 
+.empty-state-note {
+  max-width: 48rem;
+  color: var(--muted-text);
+  font-size: 0.9rem;
+}
+
 .empty-actions {
   display: flex;
   flex-wrap: wrap;
