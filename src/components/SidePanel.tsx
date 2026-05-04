@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, Eye, EyeOff, Layers3, Settings2, Wand2 } from "lucide-react";
 import { isVectorLayer } from "../lib/rasterParsing";
 import type { LayerManifest, MapViewMode, ProjectLayer, Qgis2webProject } from "../types/project";
@@ -30,6 +30,23 @@ export function SidePanel({
   onSelectLayer,
   onUpdateLayer
 }: SidePanelProps) {
+  const [layerQuery, setLayerQuery] = useState("");
+  const projectIdentity = project ? `${project.importedAt}:${project.indexHtmlPath}` : "";
+
+  useEffect(() => {
+    setLayerQuery("");
+  }, [projectIdentity]);
+
+  const visibleLayers = useMemo(() => {
+    if (!project) return [];
+    const query = layerQuery.trim().toLowerCase();
+    if (!query) return project.layers;
+    return project.layers.filter((layer) => {
+      const layerKind = isVectorLayer(layer) ? layer.geometryType : layer.kind;
+      return `${layer.displayName} ${layerKind}`.toLowerCase().includes(query);
+    });
+  }, [layerQuery, project]);
+
   return (
     <aside className="side-panel">
       <button type="button" className="panel-collapse-button" aria-label="Collapse side panel" onClick={onCollapse}>
@@ -74,8 +91,18 @@ export function SidePanel({
           />
 
           <PanelTitle icon={<Layers3 size={16} />} title="Layers" />
+          <div className="field side-panel-search-field">
+            <label htmlFor="layer-search">Search layers</label>
+            <input
+              id="layer-search"
+              type="search"
+              value={layerQuery}
+              onChange={(event) => setLayerQuery(event.target.value)}
+              placeholder="Cari nama layer"
+            />
+          </div>
           <div className="layer-list">
-            {project.layers.map((layer) => {
+            {visibleLayers.map((layer) => {
               const vectorLayer = isVectorLayer(layer);
               const rowClassName = [
                 "layer-row",
@@ -90,7 +117,7 @@ export function SidePanel({
                     onClick={() => onSelectLayer(layer.id)}
                   >
                     <span>{layer.displayName}</span>
-                    <small>{isVectorLayer(layer) ? layer.geometryType : layer.kind}</small>
+                    <small>{vectorLayer ? layer.geometryType : layer.kind}</small>
                   </button>
                   <button
                     type="button"
@@ -104,10 +131,12 @@ export function SidePanel({
               );
             })}
           </div>
+          {visibleLayers.length === 0 && <div className="editor-note">Tidak ada layer yang cocok dengan pencarian kamu.</div>}
           {project.diagnostics.length > 0 && (
             <>
               <PanelTitle icon={<AlertTriangle size={16} />} title="Diagnostics" />
-              <div className="diagnostics-panel">
+              <div className="diagnostics-panel" role="status" aria-live="polite">
+                <strong>Perlu dicek</strong>
                 {project.diagnostics.map((item, index) => (
                   <div className="diagnostic-row" key={`${index}-${item}`}>
                     {item}
