@@ -1,7 +1,0 @@
-
-Running 2 tests using 1 worker
-
-  ✓  1 tests/map-render.spec.ts:2083:1 › phase 8 raster fixtures parse and render editor layers (1.3s)
-  ✓  2 tests/map-render.spec.ts:2114:1 › phase 8 raster export preserves runtime config parity (5.1s)
-
-  2 passed (7.5s)
