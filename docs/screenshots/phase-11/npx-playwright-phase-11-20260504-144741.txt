@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/map-render.spec.ts:397:1 › phase 11 documents WMS GetFeatureInfo as deferred (9ms)
+  ✓  2 tests/map-render.spec.ts:407:1 › phase 11 roadmap classifies post audit future work (3ms)
+  ✓  3 tests/map-render.spec.ts:419:1 › phase 11 keeps vector style modes bounded to shipped modes (1ms)
+
+  3 passed (762ms)
