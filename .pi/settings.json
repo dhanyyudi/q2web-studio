@@ -1,0 +1,10 @@
+{
+  "packages": [
+    "npm:pi-subagents",
+    "npm:pi-mcp-adapter",
+    "npm:pi-web-access",
+    "git:github.com/obra/superpowers@e7a2d16476bf042e9add4699c9d018a90f86e4a6"
+  ],
+  "enableSkillCommands": true,
+  "lastChangelogVersion": "0.72.0"
+}

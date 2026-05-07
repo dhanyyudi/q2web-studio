@@ -1,0 +1,7 @@
+## Review
+- Correct: The WMS characterization test no longer waits for third party completion. In `tests/map-render.spec.ts:2206-2212`, the listener was changed from `runtimePage.on("requestfinished", ...)` to `runtimePage.on("request", ...)`, and the assertion only checks that at least one `geoserver/wms` request is initiated after loading the exported runtime. That removes dependence on an external WMS server actually answering.
+- Correct: The revised WMS test still preserves the intended characterization scope. It exports the ZIP, serves the extracted runtime locally, opens `index.html`, and verifies outbound WMS traffic from the exported app in `tests/map-render.spec.ts:2189-2221`. This confirms runtime wiring without coupling the test to network completion behavior.
+- Correct: The new phase 9 tests remain maintainable. They are narrowly scoped, reuse existing helpers such as `importFixture`, `importFixtureZip`, `saveDownloadToTempDir`, `unzipToDirectory`, and `startStaticServer`, and follow the same structure as nearby phase 8 raster runtime checks in `tests/map-render.spec.ts:2130-2256`. Coverage is limited to four focused cases, which keeps intent readable.
+- Note: The PMTiles served runtime characterization in `tests/map-render.spec.ts:2244-2250` still uses `requestfinished`, but that is reasonable here because the archive is served from the local static server rather than a third party endpoint.
+
+APPROVED

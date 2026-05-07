@@ -1,0 +1,10 @@
+APPROVED
+
+## Review
+- Correct: Commit `a49f85d` adds the missing Phase 9 ZIP runtime evidence and wires it into version control. `git show --name-only a49f85d` lists `docs/screenshots/phase-9/runtime-20260504-034249.png`, `docs/screenshots/phase-9/npx-playwright-phase-7-8-9-20260504-104313.txt`, and the checklist update in `docs/QA-CHECKLIST-PER-PHASE.md`.
+- Correct: The Phase 9 checklist now has an explicit acceptance and evidence subsection at `docs/QA-CHECKLIST-PER-PHASE.md:295-302` requiring the full artifact bundle, including editor screenshot, ZIP runtime screenshot, build log, smoke logs, and the combined Playwright phase 7, 8, and 9 log. This closes the prior adequacy gap.
+- Correct: The required evidence bundle is present under `docs/screenshots/phase-9/`, including `editor-20260504-103652.png`, `runtime-20260504-034249.png`, `npm-run-build-20260504-103652.txt`, `npm-run-smoke-fixture-20260504-103652.txt`, `npm-run-smoke-export-20260504-103652.txt`, and `npx-playwright-phase-7-8-9-20260504-104313.txt`.
+- Correct: The combined regression log is adequate and shows all targeted checks passing, including Phase 7, Phase 8, and Phase 9 coverage. See `docs/screenshots/phase-9/npx-playwright-phase-7-8-9-20260504-104313.txt:1-15`, ending with `13 passed (38.4s)`.
+- Correct: The runtime screenshot file is valid. Local verification reports `docs/screenshots/phase-9/runtime-20260504-034249.png` as a PNG image, `1450 x 960`, and Pillow `verify()` passed.
+- Note: The runtime screenshot filename timestamp, `034249`, looks older than the surrounding Phase 9 evidence names around `103652` to `104313`, so it is mildly suspicious on naming alone. However, the tracked file itself is not invalid, its filesystem modification time is `2026-05-04 10:42:59 +0700`, and there is no concrete evidence of a bad or broken artifact. No blocker remains on that basis.
+- Blocker: None.

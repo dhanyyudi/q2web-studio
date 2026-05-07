@@ -1,0 +1,6 @@
+[     116ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-TEJ6VG2X.js?v=a7218809:21608
+[   38627ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/index.html:0
+[   38643ms] [WARNING] Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. Error
+    at et.extend (http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.js:5:3233)
+    at http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.pattern.js:6:34
+    at http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.pattern.js:6:7077 @ http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.js:4

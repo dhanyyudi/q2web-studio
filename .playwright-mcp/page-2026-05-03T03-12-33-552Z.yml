@@ -1,0 +1,122 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - strong [ref=e4]: Peta WebGIS Interaktif
+    - generic [ref=e5]: Diedit dengan q2webstudio
+  - generic [ref=e6]:
+    - generic:
+      - generic:
+        - tooltip "Cempaka":
+          - generic: Cempaka
+        - tooltip "Pejambon":
+          - generic: Pejambon
+        - tooltip "Cempaka":
+          - generic: Cempaka
+        - tooltip "Kaliwadas":
+          - generic: Kaliwadas
+        - tooltip "Karangwangi":
+          - generic: Karangwangi
+        - tooltip "Gegunung":
+          - generic: Gegunung
+        - tooltip "Kenanga":
+          - generic: Kenanga
+        - tooltip "Perbutulan":
+          - generic: Perbutulan
+        - tooltip "Sindangmekar":
+          - generic: Sindangmekar
+        - tooltip "Kecomberan":
+          - generic: Kecomberan
+        - tooltip "Tukmudal":
+          - generic: Tukmudal
+        - tooltip "Sendang":
+          - generic: Sendang
+        - tooltip "Cangkoak":
+          - generic: Cangkoak
+        - tooltip "Kemantren":
+          - generic: Kemantren
+        - tooltip "Sampiran":
+          - generic: Sampiran
+        - tooltip "Wanasaba Kidul":
+          - generic: Wanasaba Kidul
+        - tooltip "Sumber":
+          - generic: Sumber
+        - tooltip "Cirebongirang":
+          - generic: Cirebongirang
+        - tooltip "Wanasaba Lor":
+          - generic: Wanasaba Lor
+        - tooltip "Sindangjawa":
+          - generic: Sindangjawa
+        - tooltip "Krandon":
+          - generic: Krandon
+        - tooltip "Sindangwangi":
+          - generic: Sindangwangi
+        - tooltip "Babakan":
+          - generic: Babakan
+        - tooltip "Cisaat":
+          - generic: Cisaat
+        - tooltip "Kubang":
+          - generic: Kubang
+        - tooltip "Sarwadadi":
+          - generic: Sarwadadi
+        - tooltip "Ciwiru":
+          - generic: Ciwiru
+        - tooltip "Cimara":
+          - generic: Cimara
+        - tooltip "Matangaji":
+          - generic: Matangaji
+        - tooltip "Padamatang":
+          - generic: Padamatang
+        - tooltip "Tarikolot":
+          - generic: Tarikolot
+        - tooltip "Tenjolayar":
+          - generic: Tenjolayar
+        - tooltip "Nangela":
+          - generic: Nangela
+        - tooltip "Mekarjaya":
+          - generic: Mekarjaya
+        - tooltip "Cirea":
+          - generic: Cirea
+        - tooltip "Paniis":
+          - generic: Paniis
+      - generic:
+        - img
+      - generic:
+        - img
+      - generic:
+        - img
+      - generic:
+        - img
+    - generic:
+      - generic:
+        - generic [ref=e57]:
+          - button "Zoom in" [ref=e58] [cursor=pointer]: +
+          - button "Zoom out" [ref=e59] [cursor=pointer]: −
+        - link "" [ref=e61] [cursor=pointer]:
+          - /url: "#"
+        - generic [ref=e63] [cursor=pointer]: 
+      - generic: »
+      - generic [ref=e64]:
+        - link "qgis2web" [ref=e65] [cursor=pointer]:
+          - /url: https://github.com/tomchadwin/qgis2web
+        - text: ·
+        - link "Leaflet" [ref=e66] [cursor=pointer]:
+          - /url: https://leafletjs.com
+        - text: ·
+        - link "QGIS" [ref=e67] [cursor=pointer]:
+          - /url: https://qgis.org
+  - generic [ref=e68]: Dibuat dengan q2webstudio
+  - complementary [ref=e69]:
+    - button "Layers" [ref=e70] [cursor=pointer]:
+      - strong [ref=e71]: Layers
+    - generic [ref=e72]:
+      - generic [ref=e73] [cursor=pointer]:
+        - checkbox "Batas Desa" [checked] [ref=e74]
+        - generic [ref=e75]: Batas Desa
+      - generic [ref=e76] [cursor=pointer]:
+        - checkbox "Jaringan Jalan" [checked] [ref=e77]
+        - generic [ref=e78]: Jaringan Jalan
+      - generic [ref=e79] [cursor=pointer]:
+        - checkbox "Sungai" [checked] [ref=e80]
+        - generic [ref=e81]: Sungai
+      - generic [ref=e82] [cursor=pointer]:
+        - checkbox "Zona Nilai Tanah" [checked] [ref=e83]
+        - generic [ref=e84]: Zona Nilai Tanah

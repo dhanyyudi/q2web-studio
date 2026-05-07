@@ -1,0 +1,66 @@
+- main [ref=e3]:
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: q2
+      - heading "q2webstudio" [level=1] [ref=e8]
+    - generic [ref=e9]:
+      - button
+      - button
+      - button "Import ZIP" [ref=e10] [cursor=pointer]:
+        - img
+        - text: Import ZIP
+      - button "Import Folder" [ref=e11] [cursor=pointer]:
+        - img
+        - text: Import Folder
+      - button "Undo" [disabled]:
+        - img
+        - text: Undo
+      - button "Redo" [disabled]:
+        - img
+        - text: Redo
+      - generic "App theme" [ref=e12]:
+        - button "Light theme" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - button "Dark theme" [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+        - button "Use system theme" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+      - button "Save Local" [disabled]:
+        - img
+        - text: Save Local
+      - button "Close Project" [disabled]:
+        - img
+        - text: Close Project
+      - link "Support this project" [ref=e26] [cursor=pointer]:
+        - /url: https://tiptap.gg/dhanypedia
+        - img [ref=e27]
+      - button "Preview" [disabled]:
+        - img
+        - text: Preview
+      - button "Export ZIP" [disabled]:
+        - img
+        - text: Export ZIP
+  - generic [ref=e30]:
+    - complementary [ref=e33]:
+      - button "Collapse side panel" [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]: ☰
+      - heading "Project" [level=2] [ref=e36]:
+        - img [ref=e37]
+        - text: Project
+      - generic [ref=e40]: Import a qgis2web export to start editing.
+    - separator [ref=e41]
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - img [ref=e47]
+        - heading "Import qgis2web export" [level=2] [ref=e49]
+        - paragraph [ref=e50]: Visual editor untuk hasil export qgis2web
+        - generic [ref=e51]: "Recommended: ZIP export for the cleanest browser import. Use Import Folder if drag and drop is blocked by the browser."
+      - generic [ref=e52]:
+        - button "Import ZIP" [ref=e53] [cursor=pointer]:
+          - img
+          - text: Import ZIP
+        - button "Import Folder" [ref=e54] [cursor=pointer]:
+          - img
+          - text: Import Folder
+    - separator [ref=e55]

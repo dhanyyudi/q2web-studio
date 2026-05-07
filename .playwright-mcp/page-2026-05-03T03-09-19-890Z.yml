@@ -1,0 +1,560 @@
+- main [ref=e3]:
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e59]:
+        - img [ref=e61]
+        - generic [ref=e64]: Imported 4 layers from qgis2web_2026_04_22-06_30_44_400659.zip.
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: q2
+      - heading "q2webstudio" [level=1] [ref=e8]
+    - generic [ref=e9]:
+      - button
+      - button
+      - button "Import ZIP" [ref=e10] [cursor=pointer]:
+        - img
+        - text: Import ZIP
+      - button "Import Folder" [ref=e11] [cursor=pointer]:
+        - img
+        - text: Import Folder
+      - button "Undo" [disabled]:
+        - img
+        - text: Undo
+      - button "Redo" [disabled]:
+        - img
+        - text: Redo
+      - generic "App theme" [ref=e12]:
+        - button "Light theme" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - button "Dark theme" [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+        - button "Use system theme" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+      - button "Save Local" [ref=e65] [cursor=pointer]:
+        - img
+        - text: Save Local
+      - button "Close Project" [ref=e66] [cursor=pointer]:
+        - img
+        - text: Close Project
+      - link "Support this project" [ref=e26] [cursor=pointer]:
+        - /url: https://tiptap.gg/dhanypedia
+        - img [ref=e27]
+      - button "Preview" [ref=e67] [cursor=pointer]:
+        - img
+        - text: Preview
+      - button "Export ZIP" [ref=e68] [cursor=pointer]:
+        - img
+        - text: Export ZIP
+  - generic [ref=e30]:
+    - complementary [ref=e33]:
+      - button "Collapse side panel" [ref=e34] [cursor=pointer]:
+        - generic [ref=e35]: ☰
+      - heading "Project" [level=2] [ref=e36]:
+        - img [ref=e37]
+        - text: Project
+      - generic [ref=e40]: Imported 4 layers from qgis2web_2026_04_22-06_30_44_400659.zip.
+      - button "Project Settings" [ref=e69] [cursor=pointer]:
+        - img [ref=e70]
+        - text: Project Settings
+      - heading "Map View" [level=2] [ref=e73]:
+        - img [ref=e74]
+        - text: Map View
+      - generic [ref=e77]:
+        - button "Esri Imagery imported" [ref=e78] [cursor=pointer]:
+          - strong [ref=e80]: Esri Imagery
+          - generic [ref=e81]: imported
+        - button "Carto Voyager imported" [ref=e82] [cursor=pointer]:
+          - strong [ref=e84]: Carto Voyager
+          - generic [ref=e85]: imported
+      - generic [ref=e86]:
+        - generic [ref=e87]: Layer display
+        - generic [ref=e88]:
+          - button "All layers" [ref=e89] [cursor=pointer]
+          - button "Selected layer" [ref=e90] [cursor=pointer]
+      - heading "Layers" [level=2] [ref=e91]:
+        - img [ref=e92]
+        - text: Layers
+      - generic [ref=e96]:
+        - generic [ref=e97]:
+          - button "Batas Desa MultiPolygon" [ref=e98] [cursor=pointer]:
+            - generic [ref=e99]: Batas Desa
+            - generic [ref=e100]: MultiPolygon
+          - button "Hide layer" [ref=e101] [cursor=pointer]:
+            - img [ref=e102]
+        - generic [ref=e105]:
+          - button "Jaringan Jalan MultiLineString" [ref=e106] [cursor=pointer]:
+            - generic [ref=e107]: Jaringan Jalan
+            - generic [ref=e108]: MultiLineString
+          - button "Hide layer" [ref=e109] [cursor=pointer]:
+            - img [ref=e110]
+        - generic [ref=e113]:
+          - button "Sungai MultiLineString" [ref=e114] [cursor=pointer]:
+            - generic [ref=e115]: Sungai
+            - generic [ref=e116]: MultiLineString
+          - button "Hide layer" [ref=e117] [cursor=pointer]:
+            - img [ref=e118]
+        - generic [ref=e121]:
+          - button "Zona Nilai Tanah MultiPolygon" [ref=e122] [cursor=pointer]:
+            - generic [ref=e123]: Zona Nilai Tanah
+            - generic [ref=e124]: MultiPolygon
+          - button "Hide layer" [ref=e125] [cursor=pointer]:
+            - img [ref=e126]
+    - separator [ref=e41]
+    - generic [ref=e44]:
+      - generic [ref=e129]:
+        - button "Multi-geometry layers are preview-only" [disabled] [ref=e130]:
+          - img [ref=e131]
+          - generic [ref=e133]: "1"
+        - button "Lasso select multiple features" [ref=e134] [cursor=pointer]:
+          - img [ref=e135]
+          - generic [ref=e139]: "7"
+        - button "Draw point" [disabled] [ref=e140]:
+          - img [ref=e141]
+          - generic [ref=e143]: "2"
+        - button "Draw line" [disabled] [ref=e144]:
+          - img [ref=e145]
+          - generic [ref=e147]: "3"
+        - button "Draw polygon" [disabled] [ref=e148]:
+          - img [ref=e149]
+          - generic [ref=e151]: "4"
+        - button "Draw rectangle" [disabled] [ref=e152]:
+          - img [ref=e153]
+          - generic [ref=e155]: "5"
+        - button "Draw circle" [disabled] [ref=e156]:
+          - img [ref=e157]
+          - generic [ref=e159]: "6"
+        - button "Multi-geometry layers are preview-only" [disabled] [ref=e160]:
+          - img [ref=e161]
+        - button "Snap" [disabled] [ref=e164]
+        - button "Add text annotation" [ref=e165] [cursor=pointer]:
+          - img [ref=e166]
+        - button "Keyboard shortcuts" [ref=e168] [cursor=pointer]:
+          - text: "?"
+          - generic [ref=e169]: "?"
+      - generic [ref=e170]:
+        - generic [ref=e173]:
+          - generic:
+            - generic:
+              - strong: Peta WebGIS Interaktif
+              - generic: Diedit dengan q2webstudio
+          - generic [ref=e174]:
+            - generic:
+              - generic:
+                - tooltip "Cempaka":
+                  - generic: Cempaka
+                - tooltip "Pejambon":
+                  - generic: Pejambon
+                - tooltip "Cempaka":
+                  - generic: Cempaka
+                - tooltip "Kaliwadas":
+                  - generic: Kaliwadas
+                - tooltip "Karangwangi":
+                  - generic: Karangwangi
+                - tooltip "Gegunung":
+                  - generic: Gegunung
+                - tooltip "Kenanga":
+                  - generic: Kenanga
+                - tooltip "Perbutulan":
+                  - generic: Perbutulan
+                - tooltip "Sindangmekar":
+                  - generic: Sindangmekar
+                - tooltip "Kecomberan":
+                  - generic: Kecomberan
+                - tooltip "Tukmudal":
+                  - generic: Tukmudal
+                - tooltip "Sendang":
+                  - generic: Sendang
+                - tooltip "Cangkoak":
+                  - generic: Cangkoak
+                - tooltip "Kemantren":
+                  - generic: Kemantren
+                - tooltip "Sampiran":
+                  - generic: Sampiran
+                - tooltip "Wanasaba Kidul":
+                  - generic: Wanasaba Kidul
+                - tooltip "Sumber":
+                  - generic: Sumber
+                - tooltip "Cirebongirang":
+                  - generic: Cirebongirang
+                - tooltip "Wanasaba Lor":
+                  - generic: Wanasaba Lor
+                - tooltip "Sindangjawa":
+                  - generic: Sindangjawa
+                - tooltip "Krandon":
+                  - generic: Krandon
+                - tooltip "Sindangwangi":
+                  - generic: Sindangwangi
+                - tooltip "Babakan":
+                  - generic: Babakan
+                - tooltip "Cisaat":
+                  - generic: Cisaat
+                - tooltip "Kubang":
+                  - generic: Kubang
+                - tooltip "Sarwadadi":
+                  - generic: Sarwadadi
+                - tooltip "Ciwiru":
+                  - generic: Ciwiru
+                - tooltip "Cimara":
+                  - generic: Cimara
+                - tooltip "Matangaji":
+                  - generic: Matangaji
+                - tooltip "Padamatang":
+                  - generic: Padamatang
+                - tooltip "Tarikolot":
+                  - generic: Tarikolot
+                - tooltip "Tenjolayar":
+                  - generic: Tenjolayar
+                - tooltip "Nangela":
+                  - generic: Nangela
+                - tooltip "Mekarjaya":
+                  - generic: Mekarjaya
+                - tooltip "Cirea":
+                  - generic: Cirea
+                - tooltip "Paniis":
+                  - generic: Paniis
+            - generic:
+              - generic:
+                - generic [ref=e176]:
+                  - button "Zoom in" [ref=e177] [cursor=pointer]: +
+                  - button "Zoom out" [ref=e178] [cursor=pointer]: −
+                - link "Leaflet" [ref=e180] [cursor=pointer]:
+                  - /url: https://leafletjs.com
+                  - img [ref=e181]
+                  - text: Leaflet
+          - complementary [ref=e185]:
+            - heading "Layers" [level=3] [ref=e186]:
+              - img [ref=e187]
+              - text: Layers
+            - generic [ref=e191]:
+              - checkbox "Batas Desa" [checked] [ref=e192]
+              - generic [ref=e193]: Batas Desa
+            - generic [ref=e194]:
+              - checkbox "Jaringan Jalan" [checked] [ref=e195]
+              - generic [ref=e196]: Jaringan Jalan
+            - generic [ref=e197]:
+              - checkbox "Sungai" [checked] [ref=e198]
+              - generic [ref=e199]: Sungai
+            - generic [ref=e200]:
+              - checkbox "Zona Nilai Tanah" [checked] [ref=e201]
+              - generic [ref=e202]: Zona Nilai Tanah
+          - generic [ref=e203]: Multi-geometry layer is preview-only. Style, popup, legend, and attributes remain editable.
+          - generic [ref=e204]: Dibuat dengan q2webstudio
+        - separator [ref=e205]
+        - generic [ref=e208]:
+          - generic [ref=e209]:
+            - generic [ref=e210]:
+              - 'heading "Attribute Table: Batas Desa" [level=2] [ref=e211]':
+                - img [ref=e212]
+                - text: "Attribute Table: Batas Desa"
+              - generic [ref=e214]: Showing 36 of 36 features
+            - generic [ref=e215]:
+              - textbox "Filter attributes" [ref=e216]
+              - button "Fields" [ref=e217] [cursor=pointer]:
+                - img [ref=e218]
+                - text: Fields
+              - button "Minimize" [ref=e221] [cursor=pointer]:
+                - img [ref=e222]
+                - text: Minimize
+              - button "Maximize" [ref=e227] [cursor=pointer]:
+                - img [ref=e228]
+                - text: Maximize
+          - table [ref=e234]:
+            - rowgroup [ref=e235]:
+              - row "# NAMOBJ WADMKC WADMKK" [ref=e236]:
+                - columnheader "#" [ref=e237]
+                - columnheader "NAMOBJ" [ref=e238]
+                - columnheader "WADMKC" [ref=e239]
+                - columnheader "WADMKK" [ref=e240]
+            - rowgroup [ref=e241]:
+              - row "1 Cempaka Talun Kabupaten Cirebon" [ref=e242]:
+                - cell "1" [ref=e243]
+                - cell "Cempaka" [ref=e244]:
+                  - textbox [ref=e245]: Cempaka
+                - cell "Talun" [ref=e246]:
+                  - textbox [ref=e247]: Talun
+                - cell "Kabupaten Cirebon" [ref=e248]:
+                  - textbox [ref=e249]: Kabupaten Cirebon
+              - row "2 Pejambon Sumber Kabupaten Cirebon" [ref=e250]:
+                - cell "2" [ref=e251]
+                - cell "Pejambon" [ref=e252]:
+                  - textbox [ref=e253]: Pejambon
+                - cell "Sumber" [ref=e254]:
+                  - textbox [ref=e255]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e256]:
+                  - textbox [ref=e257]: Kabupaten Cirebon
+              - row "3 Cempaka Plumbon Kabupaten Cirebon" [ref=e258]:
+                - cell "3" [ref=e259]
+                - cell "Cempaka" [ref=e260]:
+                  - textbox [ref=e261]: Cempaka
+                - cell "Plumbon" [ref=e262]:
+                  - textbox [ref=e263]: Plumbon
+                - cell "Kabupaten Cirebon" [ref=e264]:
+                  - textbox [ref=e265]: Kabupaten Cirebon
+              - row "4 Kaliwadas Sumber Kabupaten Cirebon" [ref=e266]:
+                - cell "4" [ref=e267]
+                - cell "Kaliwadas" [ref=e268]:
+                  - textbox [ref=e269]: Kaliwadas
+                - cell "Sumber" [ref=e270]:
+                  - textbox [ref=e271]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e272]:
+                  - textbox [ref=e273]: Kabupaten Cirebon
+              - row "5 Karangwangi Depok Kabupaten Cirebon" [ref=e274]:
+                - cell "5" [ref=e275]
+                - cell "Karangwangi" [ref=e276]:
+                  - textbox [ref=e277]: Karangwangi
+                - cell "Depok" [ref=e278]:
+                  - textbox [ref=e279]: Depok
+                - cell "Kabupaten Cirebon" [ref=e280]:
+                  - textbox [ref=e281]: Kabupaten Cirebon
+              - row "6 Gegunung Sumber Kabupaten Cirebon" [ref=e282]:
+                - cell "6" [ref=e283]
+                - cell "Gegunung" [ref=e284]:
+                  - textbox [ref=e285]: Gegunung
+                - cell "Sumber" [ref=e286]:
+                  - textbox [ref=e287]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e288]:
+                  - textbox [ref=e289]: Kabupaten Cirebon
+              - row "7 Kenanga Sumber Kabupaten Cirebon" [ref=e290]:
+                - cell "7" [ref=e291]
+                - cell "Kenanga" [ref=e292]:
+                  - textbox [ref=e293]: Kenanga
+                - cell "Sumber" [ref=e294]:
+                  - textbox [ref=e295]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e296]:
+                  - textbox [ref=e297]: Kabupaten Cirebon
+              - row "8 Perbutulan Sumber Kabupaten Cirebon" [ref=e298]:
+                - cell "8" [ref=e299]
+                - cell "Perbutulan" [ref=e300]:
+                  - textbox [ref=e301]: Perbutulan
+                - cell "Sumber" [ref=e302]:
+                  - textbox [ref=e303]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e304]:
+                  - textbox [ref=e305]: Kabupaten Cirebon
+              - row "9 Sindangmekar Dukupuntang Kabupaten Cirebon" [ref=e306]:
+                - cell "9" [ref=e307]
+                - cell "Sindangmekar" [ref=e308]:
+                  - textbox [ref=e309]: Sindangmekar
+                - cell "Dukupuntang" [ref=e310]:
+                  - textbox [ref=e311]: Dukupuntang
+                - cell "Kabupaten Cirebon" [ref=e312]:
+                  - textbox [ref=e313]: Kabupaten Cirebon
+              - row "10 Kecomberan Talun Kabupaten Cirebon" [ref=e314]:
+                - cell "10" [ref=e315]
+                - cell "Kecomberan" [ref=e316]:
+                  - textbox [ref=e317]: Kecomberan
+                - cell "Talun" [ref=e318]:
+                  - textbox [ref=e319]: Talun
+                - cell "Kabupaten Cirebon" [ref=e320]:
+                  - textbox [ref=e321]: Kabupaten Cirebon
+              - row "11 Tukmudal Sumber Kabupaten Cirebon" [ref=e322]:
+                - cell "11" [ref=e323]
+                - cell "Tukmudal" [ref=e324]:
+                  - textbox [ref=e325]: Tukmudal
+                - cell "Sumber" [ref=e326]:
+                  - textbox [ref=e327]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e328]:
+                  - textbox [ref=e329]: Kabupaten Cirebon
+              - row "12 Sendang Sumber Kabupaten Cirebon" [ref=e330]:
+                - cell "12" [ref=e331]
+                - cell "Sendang" [ref=e332]:
+                  - textbox [ref=e333]: Sendang
+                - cell "Sumber" [ref=e334]:
+                  - textbox [ref=e335]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e336]:
+                  - textbox [ref=e337]: Kabupaten Cirebon
+              - row "13 Cangkoak Dukupuntang Kabupaten Cirebon" [ref=e338]:
+                - cell "13" [ref=e339]
+                - cell "Cangkoak" [ref=e340]:
+                  - textbox [ref=e341]: Cangkoak
+                - cell "Dukupuntang" [ref=e342]:
+                  - textbox [ref=e343]: Dukupuntang
+                - cell "Kabupaten Cirebon" [ref=e344]:
+                  - textbox [ref=e345]: Kabupaten Cirebon
+              - row "14 Kemantren Sumber Kabupaten Cirebon" [ref=e346]:
+                - cell "14" [ref=e347]
+                - cell "Kemantren" [ref=e348]:
+                  - textbox [ref=e349]: Kemantren
+                - cell "Sumber" [ref=e350]:
+                  - textbox [ref=e351]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e352]:
+                  - textbox [ref=e353]: Kabupaten Cirebon
+              - row "15 Sampiran Talun Kabupaten Cirebon" [ref=e354]:
+                - cell "15" [ref=e355]
+                - cell "Sampiran" [ref=e356]:
+                  - textbox [ref=e357]: Sampiran
+                - cell "Talun" [ref=e358]:
+                  - textbox [ref=e359]: Talun
+                - cell "Kabupaten Cirebon" [ref=e360]:
+                  - textbox [ref=e361]: Kabupaten Cirebon
+              - row "16 Wanasaba Kidul Talun Kabupaten Cirebon" [ref=e362]:
+                - cell "16" [ref=e363]
+                - cell "Wanasaba Kidul" [ref=e364]:
+                  - textbox [ref=e365]: Wanasaba Kidul
+                - cell "Talun" [ref=e366]:
+                  - textbox [ref=e367]: Talun
+                - cell "Kabupaten Cirebon" [ref=e368]:
+                  - textbox [ref=e369]: Kabupaten Cirebon
+              - row "17 Sumber Sumber Kabupaten Cirebon" [ref=e370]:
+                - cell "17" [ref=e371]
+                - cell "Sumber" [ref=e372]:
+                  - textbox [ref=e373]: Sumber
+                - cell "Sumber" [ref=e374]:
+                  - textbox [ref=e375]: Sumber
+                - cell "Kabupaten Cirebon" [ref=e376]:
+                  - textbox [ref=e377]: Kabupaten Cirebon
+              - row "18 Cirebongirang Talun Kabupaten Cirebon" [ref=e378]:
+                - cell "18" [ref=e379]
+                - cell "Cirebongirang" [ref=e380]:
+                  - textbox [ref=e381]: Cirebongirang
+                - cell "Talun" [ref=e382]:
+                  - textbox [ref=e383]: Talun
+                - cell "Kabupaten Cirebon" [ref=e384]:
+                  - textbox [ref=e385]: Kabupaten Cirebon
+              - row "19 Wanasaba Lor Talun Kabupaten Cirebon" [ref=e386]:
+                - cell "19" [ref=e387]
+                - cell "Wanasaba Lor" [ref=e388]:
+                  - textbox [ref=e389]: Wanasaba Lor
+                - cell "Talun" [ref=e390]:
+                  - textbox [ref=e391]: Talun
+                - cell "Kabupaten Cirebon" [ref=e392]:
+                  - textbox [ref=e393]: Kabupaten Cirebon
+              - row [ref=e394]:
+                - cell [ref=e395]
+    - separator [ref=e55]
+    - complementary [ref=e396]:
+      - generic [ref=e398]: Project
+      - generic [ref=e399]:
+        - tablist "Project settings" [ref=e400]:
+          - tab "Branding" [selected] [ref=e401] [cursor=pointer]
+          - tab "Map" [ref=e402] [cursor=pointer]
+        - tabpanel "Branding" [ref=e403]:
+          - heading "Branding and Theme" [level=2] [ref=e404]:
+            - img [ref=e405]
+            - text: Branding and Theme
+          - generic [ref=e409]:
+            - generic [ref=e410]: Title
+            - textbox "Title" [ref=e411]: Peta WebGIS Interaktif
+          - generic [ref=e412]:
+            - generic [ref=e413]: Subtitle
+            - textbox "Subtitle" [ref=e414]: Diedit dengan q2webstudio
+          - generic [ref=e415]:
+            - generic [ref=e416]: Footer
+            - textbox "Footer" [ref=e417]: Dibuat dengan q2webstudio
+          - button
+          - button "Add or Replace Logo" [ref=e418] [cursor=pointer]:
+            - img [ref=e419]
+            - text: Add or Replace Logo
+          - generic [ref=e420]:
+            - generic [ref=e421]: Logo placement
+            - combobox "Logo placement" [ref=e422]:
+              - option "Left" [selected]
+              - option "Center"
+              - option "Right"
+              - option "Hidden"
+          - generic [ref=e423]:
+            - generic [ref=e424]:
+              - checkbox "Header" [checked] [ref=e425]
+              - text: Header
+            - generic [ref=e426]:
+              - checkbox "Footer" [checked] [ref=e427]
+              - text: Footer
+          - generic [ref=e428]:
+            - generic [ref=e429]: Header placement
+            - combobox "Header placement" [ref=e430]:
+              - option "Top full" [selected]
+              - option "Top left pill"
+              - option "Top right pill"
+              - option "Top center card"
+              - option "Hidden"
+          - generic [ref=e431]:
+            - generic [ref=e432]: Footer placement
+            - combobox "Footer placement" [ref=e433]:
+              - option "Bottom full" [selected]
+              - option "Bottom left pill"
+              - option "Bottom right pill"
+              - option "Hidden"
+          - heading "Welcome" [level=2] [ref=e434]
+          - generic [ref=e435]:
+            - generic [ref=e436]:
+              - checkbox "Enabled" [ref=e437]
+              - text: Enabled
+            - generic [ref=e438]:
+              - checkbox "Show once" [ref=e439]
+              - text: Show once
+          - generic [ref=e440]:
+            - generic [ref=e441]: Welcome title
+            - textbox "Welcome title" [ref=e442]: Selamat datang
+          - generic [ref=e443]:
+            - generic [ref=e444]: Welcome subtitle markdown
+            - textbox "Welcome subtitle markdown" [ref=e445]: Jelajahi peta interaktif ini.
+          - generic [ref=e446]:
+            - generic [ref=e447]: CTA label
+            - textbox "CTA label" [ref=e448]: Mulai jelajah
+          - generic [ref=e449]:
+            - generic [ref=e450]: Auto dismiss
+            - combobox "Auto dismiss" [ref=e451]:
+              - option "Never" [selected]
+              - option "3 seconds"
+              - option "5 seconds"
+              - option "10 seconds"
+          - generic [ref=e452]:
+            - generic [ref=e453]: Welcome placement
+            - generic [ref=e454]:
+              - button "Center modal" [ref=e455] [cursor=pointer]
+              - button "Bottom sheet" [ref=e456] [cursor=pointer]
+          - heading "Sidebar" [level=2] [ref=e457]
+          - generic [ref=e459]:
+            - checkbox "Enabled" [ref=e460]
+            - text: Enabled
+          - generic [ref=e461]:
+            - generic [ref=e462]: Sidebar side
+            - generic [ref=e463]:
+              - button "Left" [ref=e464] [cursor=pointer]
+              - button "Right" [ref=e465] [cursor=pointer]
+          - generic [ref=e466]:
+            - generic [ref=e467]: Sidebar width
+            - generic [ref=e468]:
+              - slider "Sidebar width" [ref=e469]: "360"
+              - spinbutton "Sidebar width value" [ref=e470]: "360"
+              - generic [ref=e471]: px
+          - generic [ref=e472]:
+            - generic [ref=e473]: Sidebar markdown
+            - textbox "Sidebar markdown" [ref=e474]: "# Tentang peta Tambahkan ringkasan, sumber data, atau instruksi singkat di sini."
+          - generic [ref=e475]:
+            - generic [ref=e476]: Accent
+            - button "#156f7a" [ref=e477] [cursor=pointer]:
+              - generic [ref=e479]: "#156f7a"
+              - img
+          - generic [ref=e480]:
+            - generic [ref=e481]: Surface
+            - button "#ffffff" [ref=e482] [cursor=pointer]:
+              - generic [ref=e484]: "#ffffff"
+              - img
+          - generic [ref=e485]:
+            - generic [ref=e486]: Text
+            - button "#172026" [ref=e487] [cursor=pointer]:
+              - generic [ref=e489]: "#172026"
+              - img
+          - generic [ref=e490]:
+            - generic [ref=e491]: Muted
+            - button "#66737f" [ref=e492] [cursor=pointer]:
+              - generic [ref=e494]: "#66737f"
+              - img
+          - generic [ref=e495]:
+            - generic [ref=e496]: Radius
+            - generic [ref=e497]:
+              - slider "Radius" [ref=e498]: "8"
+              - spinbutton "Radius value" [ref=e499]: "8"
+              - generic [ref=e500]: px
+          - generic [ref=e501]:
+            - generic [ref=e502]: Shadow
+            - generic [ref=e503]:
+              - slider "Shadow" [ref=e504]: "18"
+              - spinbutton "Shadow value" [ref=e505]: "18"
+              - generic [ref=e506]: px
+          - generic [ref=e507]:
+            - generic [ref=e508]: Header height
+            - generic [ref=e509]:
+              - slider "Header height" [ref=e510]: "48"
+              - spinbutton "Header height value" [ref=e511]: "48"
+              - generic [ref=e512]: px

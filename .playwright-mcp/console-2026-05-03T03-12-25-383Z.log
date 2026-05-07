@@ -1,0 +1,4 @@
+[      15ms] [WARNING] Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. Error
+    at et.extend (http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.js:5:3233)
+    at http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.pattern.js:6:34
+    at http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.pattern.js:6:7077 @ http://127.0.0.1:5173/preview/a5b9893e-f6a4-45fa-8767-7c26994df230/js/leaflet.js:4

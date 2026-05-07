@@ -1,0 +1,17 @@
+[     675ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-TEJ6VG2X.js?v=a7218809:21608
+[   44948ms] [WARNING] An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing. @ http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/index.html:0
+[   44960ms] [WARNING] Deprecated include of L.Mixin.Events: this property will be removed in future releases, please inherit from L.Evented instead. Error
+    at et.extend (http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet.js:5:3233)
+    at http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet.pattern.js:6:34
+    at http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet.pattern.js:6:7077 @ http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet.js:4
+[   44968ms] EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'unsafe-inline'".
+
+    at new Function (<anonymous>)
+    at _.template (http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet-measure.js:6174:20)
+    at Object.<anonymous> (http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet-measure.js:7042:25)
+    at 44../calc (http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet-measure.js:7500:4)
+    at s (http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet-measure.js:1:254)
+    at e (http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet-measure.js:1:425)
+    at http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/js/leaflet-measure.js:1:443
+[   44977ms] TypeError: L.Control.Measure is not a constructor
+    at http://127.0.0.1:5173/preview/7ec7e63a-321e-4922-846c-471c40c9db12/index.html:130:30
